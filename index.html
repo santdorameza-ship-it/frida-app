@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FRIDA — First Response Integrated Damage Assessment</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#E63946">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="FRIDA">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+  :root {
+    --red: #E63946; --red-dark: #C1121F; --orange: #F4A261;
+    --green: #2D6A4F; --green-light: #52B788;
+    --bg: #0A0A0A; --bg2: #141414; --bg3: #1E1E1E;
+    --border: #2A2A2A; --text: #F0EDE8; --text2: #A09C96; --white: #FFFFFF;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
+
+  nav { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg2); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1000; flex-wrap:wrap; gap:8px; }
+  .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px; letter-spacing:-0.5px; }
+  .logo-dot { width:9px; height:9px; background:var(--red); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.7} }
+
+  .nav-right { display:flex; align-items:center; gap:8px; }
+  .lang-select { background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-family:'DM Sans',sans-serif; font-size:12px; padding:6px 10px; border-radius:8px; cursor:pointer; }
+  .nav-tabs { display:flex; gap:4px; background:var(--bg3); padding:3px; border-radius:10px; }
+  .nav-tab { padding:7px 12px; border:none; background:transparent; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500; border-radius:7px; cursor:pointer; transition:all 0.2s; }
+  .nav-tab.active { background:var(--bg2); color:var(--text); border:1px solid var(--border); }
+  .nav-tab:hover:not(.active) { color:var(--text); }
+
+  .screen { display:none; }
+  .screen.active { display:block; }
+  #map-screen.active { display:flex; flex-direction:column; height:calc(100vh - 57px); }
+
+  .citizen-wrapper { max-width:420px; margin:0 auto; padding:28px 16px; }
+  .emergency-screen { text-align:center; padding:50px 20px; }
+  .emergency-label { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:3px; color:var(--text2); text-transform:uppercase; margin-bottom:40px; }
+  .emergency-btn { width:190px; height:190px; border-radius:50%; border:3px solid var(--red); background:radial-gradient(circle at 40% 40%,#3a0a0a,#1a0505); color:var(--white); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:700; cursor:pointer; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; margin:0 auto 40px; transition:all 0.15s; box-shadow:0 0 40px rgba(230,57,70,0.3),0 0 80px rgba(230,57,70,0.1); position:relative; overflow:hidden; }
+  .emergency-btn::before { content:''; position:absolute; inset:-3px; border-radius:50%; border:3px solid var(--red); animation:ring 2s infinite; opacity:0; }
+  @keyframes ring { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.15);opacity:0} }
+  .emergency-btn:active { transform:scale(0.95); }
+  .emergency-icon { font-size:34px; }
+  .signal-status { display:flex; align-items:center; justify-content:center; gap:8px; padding:9px 18px; background:var(--bg3); border:1px solid var(--border); border-radius:100px; font-size:12px; color:var(--text2); margin:0 auto; width:fit-content; }
+  .signal-dot { width:6px; height:6px; border-radius:50%; background:var(--green-light); animation:pulse 1.5s infinite; }
+
+  .form-step { display:none; }
+  .form-step.active { display:block; }
+  .step-header { margin-bottom:28px; }
+  .step-number { font-family:'DM Mono',monospace; font-size:11px; letter-spacing:2px; color:var(--text2); text-transform:uppercase; margin-bottom:10px; }
+  .step-question { font-size:22px; font-weight:700; line-height:1.3; letter-spacing:-0.5px; }
+
+  .survival-tip { background:var(--bg3); border:1px solid var(--border); border-left:3px solid var(--orange); border-radius:8px; padding:11px 14px; font-size:13px; color:var(--text2); margin-bottom:20px; display:flex; align-items:flex-start; gap:10px; }
+  .tip-icon { font-size:15px; flex-shrink:0; }
+
+  .options-grid { display:grid; gap:8px; margin-bottom:20px; }
+  .option-btn { padding:14px 18px; background:var(--bg3); border:1px solid var(--border); border-radius:12px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; text-align:left; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:12px; }
+  .option-btn:hover { border-color:var(--red); background:rgba(230,57,70,0.05); }
+  .option-btn.selected { border-color:var(--red); background:rgba(230,57,70,0.1); }
+  .option-icon { font-size:18px; }
+
+  .damage-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:20px; }
+  .damage-card { padding:18px 10px; border-radius:12px; border:2px solid var(--border); background:var(--bg3); text-align:center; cursor:pointer; transition:all 0.15s; }
+  .damage-card:hover { transform:translateY(-2px); }
+  .damage-card.minimal { --card-color:#52B788; }
+  .damage-card.partial { --card-color:#F4A261; }
+  .damage-card.complete { --card-color:#E63946; }
+  .damage-card.selected { border-color:var(--card-color); background:rgba(255,255,255,0.04); }
+  .damage-emoji { font-size:26px; margin-bottom:7px; }
+  .damage-label { font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:1px; color:var(--text2); }
+
+  .photo-upload { border:2px dashed var(--border); border-radius:12px; padding:36px 20px; text-align:center; cursor:pointer; transition:all 0.2s; margin-bottom:20px; background:var(--bg3); }
+  .photo-upload:hover { border-color:var(--red); }
+  .photo-upload input { display:none; }
+  .photo-icon { font-size:30px; margin-bottom:8px; }
+  .photo-label { font-size:13px; color:var(--text2); }
+  .photo-preview { width:100%; border-radius:12px; margin-bottom:20px; display:none; }
+
+  .confirm-btn { width:100%; padding:16px; background:var(--red); border:none; border-radius:12px; color:var(--white); font-family:'DM Sans',sans-serif; font-size:15px; font-weight:700; cursor:pointer; transition:all 0.15s; }
+  .confirm-btn:hover { background:var(--red-dark); }
+  .confirm-btn:active { transform:scale(0.98); }
+  .skip-link { display:block; text-align:center; margin-top:10px; font-size:13px; color:var(--text2); cursor:pointer; text-decoration:underline; }
+  .danger-warning { background:rgba(230,57,70,0.08); border:1px solid rgba(230,57,70,0.3); border-radius:10px; padding:12px 14px; font-size:13px; color:#ff8a8a; margin-bottom:18px; text-align:center; font-weight:500; }
+
+  .success-screen { text-align:center; padding:50px 20px; }
+  .success-icon { font-size:60px; margin-bottom:14px; }
+  .success-title { font-size:26px; font-weight:700; margin-bottom:10px; letter-spacing:-0.5px; }
+  .success-sub { font-size:14px; color:var(--text2); line-height:1.6; margin-bottom:28px; }
+  .event-id-badge { display:inline-flex; align-items:center; gap:8px; padding:9px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:100px; font-family:'DM Mono',monospace; font-size:12px; color:var(--green-light); margin-bottom:28px; }
+  .restart-btn { padding:12px 24px; background:transparent; border:1px solid var(--border); border-radius:10px; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; transition:all 0.15s; }
+  .restart-btn:hover { border-color:var(--text2); color:var(--text); }
+
+  .map-toolbar { padding:10px 14px; background:var(--bg2); border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .map-stats { display:flex; gap:14px; }
+  .map-stat { display:flex; flex-direction:column; align-items:center; }
+  .map-stat-value { font-size:17px; font-weight:700; letter-spacing:-0.5px; }
+  .map-stat-label { font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; }
+  .map-stat-value.red { color:var(--red); }
+  .map-stat-value.orange { color:var(--orange); }
+  .map-stat-value.green { color:var(--green-light); }
+  .legend { display:flex; gap:10px; align-items:center; }
+  .legend-item { display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text2); }
+  .legend-dot { width:9px; height:9px; border-radius:50%; }
+  #map { flex:1; }
+
+  .dashboard-wrapper { padding:20px; max-width:1100px; margin:0 auto; }
+  .dashboard-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; flex-wrap:wrap; gap:14px; }
+  .dashboard-title { font-size:20px; font-weight:700; letter-spacing:-0.5px; }
+  .dashboard-subtitle { font-size:12px; color:var(--text2); margin-top:4px; }
+  .export-btn { padding:9px 18px; background:var(--green); border:none; border-radius:8px; color:var(--white); font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:7px; }
+  .export-btn:hover { background:var(--green-light); }
+
+  .kpi-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:20px; }
+  .kpi-card { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:16px; }
+  .kpi-value { font-size:28px; font-weight:700; letter-spacing:-1px; margin-bottom:4px; }
+  .kpi-label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; }
+  .kpi-card.critical .kpi-value { color:var(--red); }
+  .kpi-card.warning .kpi-value { color:var(--orange); }
+  .kpi-card.ok .kpi-value { color:var(--green-light); }
+
+  .events-tabs { display:flex; gap:7px; margin-bottom:18px; overflow-x:auto; padding-bottom:4px; }
+  .event-tab { padding:7px 12px; background:var(--bg3); border:1px solid var(--border); border-radius:8px; font-size:11px; cursor:pointer; white-space:nowrap; color:var(--text2); font-family:'DM Sans',sans-serif; transition:all 0.15s; }
+  .event-tab.active { background:var(--red); border-color:var(--red); color:var(--white); }
+
+  .priority-list { display:grid; gap:8px; margin-bottom:20px; }
+  .priority-item { background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:14px; display:flex; align-items:center; gap:14px; }
+  .priority-rank { font-family:'DM Mono',monospace; font-size:18px; font-weight:500; color:var(--text2); min-width:28px; }
+  .priority-info { flex:1; }
+  .priority-location { font-weight:600; font-size:14px; margin-bottom:4px; }
+  .priority-meta { font-size:11px; color:var(--text2); display:flex; gap:10px; flex-wrap:wrap; }
+  .priority-badge { padding:3px 9px; border-radius:100px; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; }
+  .badge-critical { background:rgba(230,57,70,0.15); color:var(--red); }
+  .badge-moderate { background:rgba(244,162,97,0.15); color:var(--orange); }
+  .badge-low { background:rgba(82,183,136,0.15); color:var(--green-light); }
+
+  .table-wrapper { background:var(--bg2); border:1px solid var(--border); border-radius:12px; overflow:hidden; overflow-x:auto; }
+  .reports-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .reports-table th { text-align:left; padding:9px 12px; color:var(--text2); font-size:11px; text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid var(--border); font-weight:500; }
+  .reports-table td { padding:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+  .reports-table tr:last-child td { border-bottom:none; }
+  .reports-table tr:hover td { background:var(--bg3); }
+  .credibility-bar { width:55px; height:5px; background:var(--bg3); border-radius:3px; overflow:hidden; }
+  .credibility-fill { height:100%; border-radius:3px; background:var(--green-light); }
+  .section-label { font-size:12px; color:var(--text2); font-weight:600; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px; }
+
+  @media(max-width:600px){
+    .dashboard-wrapper{padding:14px;}
+    .kpi-grid{grid-template-columns:repeat(2,1fr);}
+    .legend{display:none;}
+  }
+</style>
+</head>
+<body>
+
+<div id="offline-indicator" style="display:none;background:#F4A261;color:#000;padding:8px 16px;text-align:center;font-size:12px;font-weight:600;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:2000;">⚡ Offline mode — reports saved locally, will sync when signal returns</div>
+<nav>
+  <div class="logo">
+    <div class="logo-dot"></div>
+    FRIDA
+  </div>
+  <div class="nav-right">
+    <select class="lang-select" onchange="setLanguage(this.value)">
+      <option value="en">🌐 EN</option>
+      <option value="es">🌐 ES</option>
+      <option value="fr">🌐 FR</option>
+      <option value="ar">🌐 AR</option>
+      <option value="zh">🌐 ZH</option>
+      <option value="ru">🌐 RU</option>
+    </select>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showScreen('citizen-screen',this)" data-i18n="nav_citizen">🧑 Citizen</button>
+      <button class="nav-tab" onclick="showScreen('map-screen',this)" data-i18n="nav_map">🗺 Live Map</button>
+      <button class="nav-tab" onclick="showScreen('dashboard-screen',this)" data-i18n="nav_dashboard">📊 UNDP</button>
+    </div>
+  </div>
+</nav>
+
+<!-- CITIZEN -->
+<div id="citizen-screen" class="screen active">
+  <div class="citizen-wrapper">
+
+    <div id="step-0" class="form-step active">
+      <div class="emergency-screen">
+        <div class="emergency-label" data-i18n="system_label">FRIDA · Crisis Response System</div>
+        <button class="emergency-btn" onclick="nextStep(1)">
+          <span class="emergency-icon">🚨</span>
+          <span data-i18n="emergency_btn">ARE YOU IN AN EMERGENCY?</span>
+        </button>
+        <div class="signal-status">
+          <div class="signal-dot"></div>
+          <span data-i18n="signal_active">System active · GPS enabled</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="step-1" class="form-step">
+      <div class="step-header">
+        <div class="step-number" data-i18n="confirm_label">Confirmation</div>
+        <div class="step-question" data-i18n="confirm_q">Confirm emergency</div>
+      </div>
+      <div class="danger-warning" data-i18n="danger_warn">⚠️ If you are in immediate danger, do not stop. This can wait.</div>
+      <div class="options-grid">
+        <button class="option-btn" onclick="sendPartialReport({step:'confirmed',value:'yes'}); nextStep(2)">
+          <span class="option-icon">✅</span> <span data-i18n="confirm_yes">Yes, I am in an emergency</span>
+        </button>
+        <button class="option-btn" onclick="nextStep(0)">
+          <span class="option-icon">❌</span> <span data-i18n="confirm_no">No, this was accidental</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="step-2" class="form-step">
+      <div class="step-header">
+        <div class="step-number">Question 1 of 6</div>
+        <div class="step-question" data-i18n="q1">What type of crisis is occurring?</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">🔋</span><span data-i18n="tip1">Enable airplane mode to save battery. FRIDA will sync when signal returns.</span></div>
+      <div class="options-grid">
+        <button class="option-btn" onclick="setData('crisisType','Earthquake'); sendPartialReport({step:'crisis_type',value:'Earthquake'}); nextStep(3)"><span class="option-icon">🌍</span> <span data-i18n="crisis_eq">Earthquake</span></button>
+        <button class="option-btn" onclick="setData('crisisType','Flood'); sendPartialReport({step:'crisis_type',value:'Flood'}); nextStep(3)"><span class="option-icon">🌊</span> <span data-i18n="crisis_fl">Flood</span></button>
+        <button class="option-btn" onclick="setData('crisisType','Hurricane'); sendPartialReport({step:'crisis_type',value:'Hurricane'}); nextStep(3)"><span class="option-icon">🌀</span> <span data-i18n="crisis_hu">Hurricane / Cyclone</span></button>
+        <button class="option-btn" onclick="setData('crisisType','Wildfire'); sendPartialReport({step:'crisis_type',value:'Wildfire'}); nextStep(3)"><span class="option-icon">🔥</span> <span data-i18n="crisis_wi">Wildfire</span></button>
+        <button class="option-btn" onclick="setData('crisisType','Conflict'); sendPartialReport({step:'crisis_type',value:'Conflict'}); nextStep(3)"><span class="option-icon">⚠️</span> <span data-i18n="crisis_co">Conflict / Civil unrest</span></button>
+        <button class="option-btn" onclick="setData('crisisType','Other'); sendPartialReport({step:'crisis_type',value:'Other'}); nextStep(3)"><span class="option-icon">🔴</span> <span data-i18n="crisis_ot">Other emergency</span></button>
+      </div>
+    </div>
+
+    <div id="step-3" class="form-step">
+      <div class="step-header">
+        <div class="step-number">Question 2 of 6</div>
+        <div class="step-question" data-i18n="q2">What type of infrastructure is affected?</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">📱</span><span data-i18n="tip2">Lower your screen brightness to extend battery life.</span></div>
+      <div class="options-grid">
+        <button class="option-btn" onclick="setData('infraType','Residential'); sendPartialReport({step:'infra_type',value:'Residential'}); nextStep(4)"><span class="option-icon">🏠</span> <span data-i18n="infra_re">Residential</span></button>
+        <button class="option-btn" onclick="setData('infraType','Commercial'); sendPartialReport({step:'infra_type',value:'Commercial'}); nextStep(4)"><span class="option-icon">🏪</span> <span data-i18n="infra_co">Commercial</span></button>
+        <button class="option-btn" onclick="setData('infraType','Government'); sendPartialReport({step:'infra_type',value:'Government'}); nextStep(4)"><span class="option-icon">🏛️</span> <span data-i18n="infra_go">Government building</span></button>
+        <button class="option-btn" onclick="setData('infraType','Utilities'); sendPartialReport({step:'infra_type',value:'Utilities'}); nextStep(4)"><span class="option-icon">⚡</span> <span data-i18n="infra_ut">Utilities (water, power)</span></button>
+        <button class="option-btn" onclick="setData('infraType','Transport'); sendPartialReport({step:'infra_type',value:'Transport'}); nextStep(4)"><span class="option-icon">🛣️</span> <span data-i18n="infra_tr">Transport / Communication</span></button>
+        <button class="option-btn" onclick="setData('infraType','Community'); sendPartialReport({step:'infra_type',value:'Community'}); nextStep(4)"><span class="option-icon">🏥</span> <span data-i18n="infra_cm">Community (school, hospital)</span></button>
+      </div>
+    </div>
+
+    <div id="step-4" class="form-step">
+      <div class="step-header">
+        <div class="step-number">Question 3 of 6</div>
+        <div class="step-question" data-i18n="q3">What is the level of damage?</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">📞</span><span data-i18n="tip3">Do not call unless urgent. Keep lines free for emergencies.</span></div>
+      <div class="damage-grid">
+        <div class="damage-card minimal" onclick="setData('damageLevel','minimal'); sendPartialReport({step:'damage',value:'minimal'}); nextStep(5)">
+          <div class="damage-emoji">🟡</div><div class="damage-label" data-i18n="dmg_min">Minimal</div>
+        </div>
+        <div class="damage-card partial" onclick="setData('damageLevel','partial'); sendPartialReport({step:'damage',value:'partial'}); nextStep(5)">
+          <div class="damage-emoji">🟠</div><div class="damage-label" data-i18n="dmg_par">Partial</div>
+        </div>
+        <div class="damage-card complete" onclick="setData('damageLevel','complete'); sendPartialReport({step:'damage',value:'complete'}); nextStep(5)">
+          <div class="damage-emoji">🔴</div><div class="damage-label" data-i18n="dmg_com">Complete</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="step-5" class="form-step">
+      <div class="step-header">
+        <div class="step-number">Question 4 of 6</div>
+        <div class="step-question" data-i18n="q4">Take a photo of the damage</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">🛡️</span><span data-i18n="tip4">Stay safe. Only photograph if you are not in immediate danger.</span></div>
+      <label class="photo-upload" id="photo-upload-label">
+        <input type="file" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+        <div class="photo-icon">📷</div>
+        <div class="photo-label" data-i18n="photo_tap">Tap to take or upload a photo</div>
+      </label>
+      <img id="photo-preview" class="photo-preview" alt="Preview">
+      <button class="confirm-btn" onclick="nextStep(6)" data-i18n="confirm_photo">Confirm photo →</button>
+      <span class="skip-link" onclick="nextStep(6)" data-i18n="skip_photo">Skip if not safe to photograph</span>
+    </div>
+
+    <div id="step-6" class="form-step">
+      <div class="step-header">
+        <div class="step-number">Question 5 of 6</div>
+        <div class="step-question" data-i18n="q5">Is there debris that requires clearing?</div>
+      </div>
+      <div class="options-grid">
+        <button class="option-btn" onclick="setData('debris','yes'); sendPartialReport({step:'debris',value:'yes'}); nextStep(7)"><span class="option-icon">🧱</span> <span data-i18n="debris_yes">Yes, there is debris</span></button>
+        <button class="option-btn" onclick="setData('debris','no'); sendPartialReport({step:'debris',value:'no'}); nextStep(7)"><span class="option-icon">✅</span> <span data-i18n="debris_no">No debris</span></button>
+        <button class="option-btn" onclick="setData('debris','unknown'); sendPartialReport({step:'debris',value:'unknown'}); nextStep(7)"><span class="option-icon">❓</span> <span data-i18n="debris_un">Not sure</span></button>
+      </div>
+    </div>
+
+    <div id="step-7" class="form-step">
+      <div class="step-header">
+        <div class="step-number">Question 6 of 6</div>
+        <div class="step-question" data-i18n="q6">Confirm your location</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">📍</span><span data-i18n="tip6">GPS works without internet. Your location is captured automatically.</span></div>
+      <div id="location-map" style="height:180px;border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>
+      <div style="margin-bottom:14px;">
+        <div style="font-size:11px;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px;" data-i18n="or_describe">Or describe your location</div>
+        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+      </div>
+      <button class="confirm-btn" onclick="submitReport()" data-i18n="submit_btn">Submit report →</button>
+    </div>
+
+    <div id="step-success" class="form-step">
+      <div class="success-screen">
+        <div class="success-icon">✅</div>
+        <div class="success-title" data-i18n="success_title">Report submitted</div>
+        <div class="success-sub" data-i18n="success_sub">Your signal is now part of FRIDA's crisis map.<br>You are helping guide the response.</div>
+        <div class="event-id-badge"><span>●</span><span id="event-id-display">EVENT-2026-MX-047</span></div>
+        <br>
+        <button class="restart-btn" onclick="restart()" data-i18n="submit_another">Submit another report</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MAP -->
+<div id="map-screen" class="screen">
+  <div class="map-toolbar">
+    <div class="map-stats">
+      <div class="map-stat"><div class="map-stat-value red" id="stat-critical">12</div><div class="map-stat-label">Critical</div></div>
+      <div class="map-stat"><div class="map-stat-value orange" id="stat-partial">28</div><div class="map-stat-label">Partial</div></div>
+      <div class="map-stat"><div class="map-stat-value green" id="stat-minimal">9</div><div class="map-stat-label">Minimal</div></div>
+      <div class="map-stat"><div class="map-stat-value" id="stat-total" style="color:var(--text)">49</div><div class="map-stat-label">Total</div></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#E63946"></div> Complete</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#F4A261"></div> Partial</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#52B788"></div> Minimal</div>
+    </div>
+  </div>
+  <div id="map"></div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard-screen" class="screen">
+  <div class="dashboard-wrapper">
+    <div class="dashboard-header">
+      <div>
+        <div class="dashboard-title">UNDP Crisis Dashboard</div>
+        <div class="dashboard-subtitle">FRIDA · Real-time damage assessment · Updated just now</div>
+      </div>
+      <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+    </div>
+    <div class="kpi-grid">
+      <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">49</div><div class="kpi-label">Total Reports</div></div>
+      <div class="kpi-card critical"><div class="kpi-value" id="kpi-critical">12</div><div class="kpi-label">Critical Zones</div></div>
+      <div class="kpi-card warning"><div class="kpi-value">87%</div><div class="kpi-label">Data Confidence</div></div>
+      <div class="kpi-card ok"><div class="kpi-value">3</div><div class="kpi-label">Active Events</div></div>
+    </div>
+    <div class="events-tabs">
+      <button class="event-tab active">Event #47 — Earthquake MX 🔴 Active</button>
+      <button class="event-tab">Event #46 — Flood CO 🟠 Active</button>
+      <button class="event-tab">Event #31 — Conflict MM ⚫ Phase 4</button>
+    </div>
+    <div class="section-label">Priority Zones — AI Ranked</div>
+    <div class="priority-list">
+      <div class="priority-item">
+        <div class="priority-rank">01</div>
+        <div class="priority-info">
+          <div class="priority-location">Colonia Centro — Block 4</div>
+          <div class="priority-meta"><span>🏥 Hospital nearby</span><span>14 reports</span><span>Credibility 94%</span></div>
+        </div>
+        <div class="priority-badge badge-critical">Critical</div>
+      </div>
+      <div class="priority-item">
+        <div class="priority-rank">02</div>
+        <div class="priority-info">
+          <div class="priority-location">Av. Insurgentes Sur — Bridge</div>
+          <div class="priority-meta"><span>🛣️ Transport blocked</span><span>8 reports</span><span>Credibility 88%</span></div>
+        </div>
+        <div class="priority-badge badge-critical">Critical</div>
+      </div>
+      <div class="priority-item">
+        <div class="priority-rank">03</div>
+        <div class="priority-info">
+          <div class="priority-location">Escuela Primaria Benito Juárez</div>
+          <div class="priority-meta"><span>🏫 Community infra</span><span>6 reports</span><span>Credibility 91%</span></div>
+        </div>
+        <div class="priority-badge badge-moderate">Moderate</div>
+      </div>
+    </div>
+    <div class="section-label">All Reports</div>
+    <div class="table-wrapper">
+      <table class="reports-table">
+        <thead>
+          <tr><th>ID</th><th>Time</th><th>Crisis</th><th>Infrastructure</th><th>Damage</th><th>Credibility</th><th>Coordinates</th></tr>
+        </thead>
+        <tbody id="reports-tbody">
+          <tr>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-001</span></td>
+            <td>09:14</td><td>🌍 Earthquake</td><td>🏠 Residential</td>
+            <td><span class="priority-badge badge-critical">Complete</span></td>
+            <td><div class="credibility-bar"><div class="credibility-fill" style="width:92%"></div></div></td>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.43, -99.13</span></td>
+          </tr>
+          <tr>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-002</span></td>
+            <td>09:17</td><td>🌍 Earthquake</td><td>🏛️ Government</td>
+            <td><span class="priority-badge badge-moderate">Partial</span></td>
+            <td><div class="credibility-bar"><div class="credibility-fill" style="width:78%"></div></div></td>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.44, -99.14</span></td>
+          </tr>
+          <tr>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-003</span></td>
+            <td>09:21</td><td>🌍 Earthquake</td><td>🏥 Community</td>
+            <td><span class="priority-badge badge-critical">Complete</span></td>
+            <td><div class="credibility-bar"><div class="credibility-fill" style="width:95%"></div></div></td>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.42, -99.12</span></td>
+          </tr>
+          <tr>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-004</span></td>
+            <td>09:28</td><td>🌍 Earthquake</td><td>🛣️ Transport</td>
+            <td><span class="priority-badge badge-low">Minimal</span></td>
+            <td><div class="credibility-bar"><div class="credibility-fill" style="width:65%"></div></div></td>
+            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.45, -99.15</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+const state = { crisisType:'', infraType:'', damageLevel:'', debris:'', reports:[] };
+
+// ===== I18N =====
+const i18n = {
+  en: { nav_citizen:'🧑 Citizen', nav_map:'🗺 Live Map', nav_dashboard:'📊 UNDP', system_label:'FRIDA · Crisis Response System', emergency_btn:'ARE YOU IN AN EMERGENCY?', signal_active:'System active · GPS enabled', confirm_label:'Confirmation', confirm_q:'Confirm emergency', danger_warn:'⚠️ If you are in immediate danger, do not stop. This can wait.', confirm_yes:'Yes, I am in an emergency', confirm_no:'No, this was accidental', q1:'What type of crisis is occurring?', tip1:'Enable airplane mode to save battery. FRIDA will sync when signal returns.', crisis_eq:'Earthquake', crisis_fl:'Flood', crisis_hu:'Hurricane / Cyclone', crisis_wi:'Wildfire', crisis_co:'Conflict / Civil unrest', crisis_ot:'Other emergency', q2:'What type of infrastructure is affected?', tip2:'Lower your screen brightness to extend battery life.', infra_re:'Residential', infra_co:'Commercial', infra_go:'Government building', infra_ut:'Utilities (water, power)', infra_tr:'Transport / Communication', infra_cm:'Community (school, hospital)', q3:'What is the level of damage?', tip3:'Do not call unless urgent. Keep lines free for emergencies.', dmg_min:'Minimal', dmg_par:'Partial', dmg_com:'Complete', q4:'Take a photo of the damage', tip4:'Stay safe. Only photograph if you are not in immediate danger.', photo_tap:'Tap to take or upload a photo', confirm_photo:'Confirm photo →', skip_photo:'Skip if not safe to photograph', q5:'Is there debris that requires clearing?', debris_yes:'Yes, there is debris', debris_no:'No debris', debris_un:'Not sure', q6:'Confirm your location', tip6:'GPS works without internet. Your location is captured automatically.', or_describe:'Or describe your location', submit_btn:'Submit report →', success_title:'Report submitted', success_sub:'Your signal is now part of FRIDA\'s crisis map.<br>You are helping guide the response.', submit_another:'Submit another report' },
+  es: { nav_citizen:'🧑 Ciudadano', nav_map:'🗺 Mapa en vivo', nav_dashboard:'📊 PNUD', system_label:'FRIDA · Sistema de Respuesta a Crisis', emergency_btn:'¿ESTÁS EN UNA EMERGENCIA?', signal_active:'Sistema activo · GPS activado', confirm_label:'Confirmación', confirm_q:'Confirmar emergencia', danger_warn:'⚠️ Si estás en peligro inmediato, no te detengas. Esto puede esperar.', confirm_yes:'Sí, estoy en una emergencia', confirm_no:'No, fue accidental', q1:'¿Qué tipo de crisis está ocurriendo?', tip1:'Activa modo avión para ahorrar batería. FRIDA sincronizará cuando vuelva la señal.', crisis_eq:'Terremoto', crisis_fl:'Inundación', crisis_hu:'Huracán / Ciclón', crisis_wi:'Incendio forestal', crisis_co:'Conflicto / Disturbios', crisis_ot:'Otra emergencia', q2:'¿Qué tipo de infraestructura está afectada?', tip2:'Baja el brillo de tu pantalla para ahorrar batería.', infra_re:'Residencial', infra_co:'Comercial', infra_go:'Edificio gubernamental', infra_ut:'Servicios (agua, luz)', infra_tr:'Transporte / Comunicación', infra_cm:'Comunitaria (escuela, hospital)', q3:'¿Cuál es el nivel de daño?', tip3:'No llames a menos que sea urgente. Deja las líneas libres.', dmg_min:'Mínimo', dmg_par:'Parcial', dmg_com:'Completo', q4:'Toma una foto del daño', tip4:'Mantente seguro. Solo fotografía si no estás en peligro inmediato.', photo_tap:'Toca para tomar o subir una foto', confirm_photo:'Confirmar foto →', skip_photo:'Omitir si no es seguro fotografiar', q5:'¿Hay escombros que requieren limpieza?', debris_yes:'Sí, hay escombros', debris_no:'Sin escombros', debris_un:'No estoy seguro', q6:'Confirma tu ubicación', tip6:'El GPS funciona sin internet. Tu ubicación se captura automáticamente.', or_describe:'O describe tu ubicación', submit_btn:'Enviar reporte →', success_title:'Reporte enviado', success_sub:'Tu señal ahora forma parte del mapa de crisis de FRIDA.<br>Estás ayudando a guiar la respuesta.', submit_another:'Enviar otro reporte' },
+  fr: { nav_citizen:'🧑 Citoyen', nav_map:'🗺 Carte en direct', nav_dashboard:'📊 PNUD', system_label:'FRIDA · Système de réponse aux crises', emergency_btn:'ÊTES-VOUS EN URGENCE?', signal_active:'Système actif · GPS activé', confirm_label:'Confirmation', confirm_q:'Confirmer l\'urgence', danger_warn:'⚠️ Si vous êtes en danger immédiat, ne vous arrêtez pas. Cela peut attendre.', confirm_yes:'Oui, je suis en urgence', confirm_no:'Non, c\'était accidentel', q1:'Quel type de crise se produit?', tip1:'Activez le mode avion pour économiser la batterie.', crisis_eq:'Séisme', crisis_fl:'Inondation', crisis_hu:'Ouragan / Cyclone', crisis_wi:'Incendie de forêt', crisis_co:'Conflit / Troubles civils', crisis_ot:'Autre urgence', q2:'Quel type d\'infrastructure est affecté?', tip2:'Baissez la luminosité de votre écran.', infra_re:'Résidentiel', infra_co:'Commercial', infra_go:'Bâtiment gouvernemental', infra_ut:'Services publics', infra_tr:'Transport / Communication', infra_cm:'Communautaire (école, hôpital)', q3:'Quel est le niveau de dommage?', tip3:'N\'appelez pas sauf urgence.', dmg_min:'Minimal', dmg_par:'Partiel', dmg_com:'Complet', q4:'Prenez une photo des dommages', tip4:'Restez en sécurité.', photo_tap:'Appuyez pour prendre une photo', confirm_photo:'Confirmer la photo →', skip_photo:'Ignorer si ce n\'est pas sûr', q5:'Y a-t-il des débris à nettoyer?', debris_yes:'Oui, il y a des débris', debris_no:'Pas de débris', debris_un:'Je ne sais pas', q6:'Confirmez votre position', tip6:'Le GPS fonctionne sans internet.', or_describe:'Ou décrivez votre position', submit_btn:'Soumettre le rapport →', success_title:'Rapport soumis', success_sub:'Votre signal fait maintenant partie de la carte de crise de FRIDA.', submit_another:'Soumettre un autre rapport' }
+};
+let currentLang = 'en';
+
+function setLanguage(lang) {
+  currentLang = lang;
+  const dict = i18n[lang] || i18n['en'];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    if (dict[key]) el.innerHTML = dict[key];
+  });
+}
+
+// ===== NAVIGATION =====
+function showScreen(id, btn) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (id === 'map-screen') setTimeout(initMap, 150);
+}
+
+// ===== FORM =====
+function setData(key, value) { state[key] = value; }
+
+function sendPartialReport(data) {
+  const partial = { timestamp: new Date().toISOString(), eventId: 'EVT-2026-047', ...data };
+  console.log('FRIDA partial report:', JSON.stringify(partial));
+}
+
+function nextStep(step) {
+  document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+  if (step === 'success') {
+    document.getElementById('step-success').classList.add('active');
+  } else {
+    document.getElementById('step-' + step).classList.add('active');
+    if (step === 7) setTimeout(initLocationMap, 150);
+  }
+  window.scrollTo(0, 0);
+}
+
+function handlePhoto(input) {
+  if (input.files && input.files[0]) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const preview = document.getElementById('photo-preview');
+      preview.src = e.target.result;
+      preview.style.display = 'block';
+      document.getElementById('photo-upload-label').style.display = 'none';
+      sendPartialReport({ step: 'photo', value: 'uploaded' });
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+function submitReport() {
+  const report = {
+    id: 'RPT-' + String(state.reports.length + 5).padStart(3, '0'),
+    time: new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }),
+    crisis: state.crisisType || 'Earthquake',
+    infra: state.infraType || 'Residential',
+    damage: state.damageLevel || 'complete',
+    coords: '19.43, -99.13',
+    credibility: Math.floor(Math.random() * 20 + 75),
+    textLocation: document.getElementById('textLocation').value
+  };
+  state.reports.push(report);
+  addReportToTable(report);
+  addMarkerToMap(report);
+  updateKPIs(report);
+
+  const eventNum = 47 + state.reports.length;
+  document.getElementById('event-id-display').textContent = 'EVENT-2026-' + state.crisisType.slice(0,2).toUpperCase() + '-0' + eventNum;
+
+  nextStep('success');
+}
+
+function addReportToTable(r) {
+  const dc = r.damage === 'complete' ? 'badge-critical' : r.damage === 'partial' ? 'badge-moderate' : 'badge-low';
+  const dl = r.damage === 'complete' ? 'Complete' : r.damage === 'partial' ? 'Partial' : 'Minimal';
+  const infraIcons = { Residential:'🏠', Commercial:'🏪', Government:'🏛️', Utilities:'⚡', Transport:'🛣️', Community:'🏥' };
+  const icon = infraIcons[r.infra] || '🏠';
+  const row = `<tr>
+    <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.id}</span></td>
+    <td>${r.time}</td>
+    <td>🌍 ${r.crisis}</td>
+    <td>${icon} ${r.infra}</td>
+    <td><span class="priority-badge ${dc}">${dl}</span></td>
+    <td><div class="credibility-bar"><div class="credibility-fill" style="width:${r.credibility}%"></div></div></td>
+    <td><span style="font-family:'DM Mono',monospace;font-size:11px">${r.coords}</span></td>
+  </tr>`;
+  document.getElementById('reports-tbody').insertAdjacentHTML('afterbegin', row);
+}
+
+function updateKPIs(r) {
+  const totalEl = document.getElementById('kpi-total');
+  const critEl = document.getElementById('kpi-critical');
+  const statEl = document.getElementById('stat-critical');
+  const statTotal = document.getElementById('stat-total');
+  if (totalEl) totalEl.textContent = parseInt(totalEl.textContent) + 1;
+  if (statTotal) statTotal.textContent = parseInt(statTotal.textContent) + 1;
+  if (r.damage === 'complete') {
+    if (critEl) critEl.textContent = parseInt(critEl.textContent) + 1;
+    if (statEl) statEl.textContent = parseInt(statEl.textContent) + 1;
+  } else if (r.damage === 'partial') {
+    const p = document.getElementById('stat-partial');
+    if (p) p.textContent = parseInt(p.textContent) + 1;
+  } else {
+    const m = document.getElementById('stat-minimal');
+    if (m) m.textContent = parseInt(m.textContent) + 1;
+  }
+}
+
+function restart() {
+  state.crisisType = ''; state.infraType = ''; state.damageLevel = ''; state.debris = '';
+  document.getElementById('photo-preview').style.display = 'none';
+  document.getElementById('photo-upload-label').style.display = 'block';
+  document.getElementById('textLocation').value = '';
+  nextStep(0);
+}
+
+// ===== EXPORT =====
+function exportCSV() {
+  const headers = ['ID','Time','Crisis Type','Infrastructure','Damage Level','Credibility','Coordinates','Text Location'];
+  const baseRows = [
+    ['RPT-001','09:14','Earthquake','Residential','Complete','92%','19.43,-99.13',''],
+    ['RPT-002','09:17','Earthquake','Government','Partial','78%','19.44,-99.14',''],
+    ['RPT-003','09:21','Earthquake','Community','Complete','95%','19.42,-99.12',''],
+    ['RPT-004','09:28','Earthquake','Transport','Minimal','65%','19.45,-99.15',''],
+  ];
+  const newRows = state.reports.map(r => [r.id, r.time, r.crisis, r.infra, r.damage, r.credibility+'%', r.coords, r.textLocation||'']);
+  const csv = [headers, ...baseRows, ...newRows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'FRIDA_export_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ===== MAPS =====
+let mainMap = null, locationMap = null;
+const colors = { complete:'#E63946', partial:'#F4A261', minimal:'#52B788' };
+
+const demoReports = [
+  { lat:19.432, lng:-99.133, damage:'complete', label:'Residential — Complete damage' },
+  { lat:19.438, lng:-99.128, damage:'partial', label:'Government building — Partial damage' },
+  { lat:19.425, lng:-99.141, damage:'complete', label:'Hospital — Complete damage' },
+  { lat:19.445, lng:-99.125, damage:'minimal', label:'Road — Minimal damage' },
+  { lat:19.428, lng:-99.135, damage:'complete', label:'School — Complete damage' },
+  { lat:19.441, lng:-99.138, damage:'partial', label:'Market — Partial damage' },
+  { lat:19.422, lng:-99.129, damage:'minimal', label:'Apartment — Minimal damage' },
+];
+
+function initMap() {
+  if (mainMap) { mainMap.invalidateSize(); return; }
+  try {
+    mainMap = L.map('map', { zoomControl:true }).setView([19.43, -99.13], 13);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution:'© OpenStreetMap © CARTO', maxZoom:19
+    }).addTo(mainMap);
+    demoReports.forEach(r => addMapMarker(mainMap, r.lat, r.lng, r.damage, r.label));
+  } catch(e) { console.error('Map error:', e); }
+}
+
+function addMapMarker(map, lat, lng, damage, label) {
+  if (!map) return;
+  L.circleMarker([lat, lng], {
+    radius: damage === 'complete' ? 10 : damage === 'partial' ? 8 : 6,
+    fillColor: colors[damage], color:'#000', weight:1, opacity:1, fillOpacity:0.85
+  }).addTo(map).bindPopup('<strong>' + label + '</strong>');
+}
+
+function addMarkerToMap(report) {
+  if (!mainMap) return;
+  const lat = 19.43 + (Math.random() - 0.5) * 0.02;
+  const lng = -99.13 + (Math.random() - 0.5) * 0.02;
+  addMapMarker(mainMap, lat, lng, report.damage, report.infra + ' — ' + report.damage + ' damage');
+}
+
+function initLocationMap() {
+  if (locationMap) { locationMap.invalidateSize(); return; }
+  try {
+    locationMap = L.map('location-map', { zoomControl:false }).setView([19.43, -99.13], 15);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution:'© OpenStreetMap © CARTO', maxZoom:19
+    }).addTo(locationMap);
+    const marker = L.marker([19.43, -99.13]).addTo(locationMap);
+    locationMap.on('click', e => marker.setLatLng(e.latlng));
+  } catch(e) { console.error('Location map error:', e); }
+}
+</script>
+</body>
+</html>
+<script>
+// Patch: agregar data-i18n a elementos del mapa y dashboard que no los tenían
+document.addEventListener('DOMContentLoaded', function() {
+  // Map labels
+  document.querySelectorAll('.map-stat-label').forEach((el, i) => {
+    const keys = ['map_critical','map_partial','map_minimal','map_total'];
+    el.setAttribute('data-i18n', keys[i]);
+  });
+  document.querySelectorAll('.legend-item').forEach((el, i) => {
+    const keys = ['leg_complete','leg_partial','leg_minimal'];
+    el.setAttribute('data-i18n', keys[i]);
+  });
+  // Dashboard
+  const dashTitle = document.querySelector('.dashboard-title');
+  const dashSub = document.querySelector('.dashboard-subtitle');
+  if (dashTitle) dashTitle.setAttribute('data-i18n','dash_title');
+  if (dashSub) dashSub.setAttribute('data-i18n','dash_sub');
+  document.querySelectorAll('.kpi-label').forEach((el, i) => {
+    const keys = ['kpi_total','kpi_critical','kpi_confidence','kpi_events'];
+    el.setAttribute('data-i18n', keys[i]);
+  });
+  const sectionLabels = document.querySelectorAll('.section-label');
+  if (sectionLabels[0]) sectionLabels[0].setAttribute('data-i18n','priority_label');
+  if (sectionLabels[1]) sectionLabels[1].setAttribute('data-i18n','reports_label');
+  const exportBtn = document.querySelector('.export-btn');
+  if (exportBtn) exportBtn.setAttribute('data-i18n','export_btn');
+  // Table headers
+  document.querySelectorAll('.reports-table th').forEach((el, i) => {
+    const keys = ['th_id','th_time','th_crisis','th_infra','th_damage','th_cred','th_coords'];
+    el.setAttribute('data-i18n', keys[i]);
+  });
+  // Step numbers
+  document.querySelectorAll('.step-number').forEach((el, i) => {
+    const keys = ['step_confirm','step_q1','step_q2','step_q3','step_q4','step_q5','step_q6'];
+    el.setAttribute('data-i18n', keys[i]);
+  });
+});
+
+// Extend i18n with new keys
+const extraKeys = {
+  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6' },
+  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6' },
+  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6' },
+  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6' },
+  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6' },
+  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6' }
+};
+
+// Merge extra keys into i18n
+Object.keys(extraKeys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], extraKeys[lang]);
+  else i18n[lang] = extraKeys[lang];
+});
+
+// Override setLanguage to also handle placeholder
+const _origSetLanguage = setLanguage;
+function setLanguage(lang) {
+  _origSetLanguage(lang);
+  // Update placeholder
+  const placeholders = {
+    en: 'e.g. The school near the central market',
+    es: 'ej. La escuela cerca del mercado central',
+    fr: 'ex. L\'école près du marché central',
+    ar: 'مثال: المدرسة بالقرب من السوق المركزي',
+    zh: '例：中央市场附近的学校',
+    ru: 'напр. Школа рядом с центральным рынком'
+  };
+  const input = document.getElementById('textLocation');
+  if (input && placeholders[lang]) input.placeholder = placeholders[lang];
+}
+</script>
+<script>
+// Register Service Worker for offline functionality
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => {
+        console.log('FRIDA: Service Worker registered. App works offline.');
+        // Check for updates
+        reg.addEventListener('updatefound', () => {
+          const newWorker = reg.installing;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              console.log('FRIDA: New version available.');
+            }
+          });
+        });
+      })
+      .catch(err => console.log('FRIDA: Service Worker registration failed:', err));
+  });
+}
+
+// Store pending reports in localStorage when offline
+function savePendingReport(report) {
+  const pending = JSON.parse(localStorage.getItem('frida-pending') || '[]');
+  pending.push({ ...report, synced: false, savedAt: new Date().toISOString() });
+  localStorage.setItem('frida-pending', JSON.stringify(pending));
+  console.log('FRIDA: Report saved locally. Will sync when connectivity returns.');
+}
+
+// Sync pending reports when online
+window.addEventListener('online', () => {
+  console.log('FRIDA: Connectivity restored. Syncing pending reports...');
+  const pending = JSON.parse(localStorage.getItem('frida-pending') || '[]');
+  if (pending.length > 0) {
+    console.log(`FRIDA: ${pending.length} pending report(s) ready to sync.`);
+    // In production: POST to API endpoint
+    localStorage.removeItem('frida-pending');
+  }
+});
+
+// Show offline indicator
+window.addEventListener('offline', () => {
+  console.log('FRIDA: Offline mode active. Reports will be saved locally.');
+  const indicator = document.getElementById('offline-indicator');
+  if (indicator) indicator.style.display = 'flex';
+});
+
+window.addEventListener('online', () => {
+  const indicator = document.getElementById('offline-indicator');
+  if (indicator) indicator.style.display = 'none';
+});
+</script>
