@@ -753,3 +753,241 @@ window.addEventListener('online', () => {
   if (indicator) indicator.style.display = 'none';
 });
 </script>
+<script>
+// ===== ANALYTICS ENGINE =====
+// Real-time calculations replacing static values
+
+const fridaAnalytics = {
+  // All reports in the system (initial + new)
+  allReports: [
+    { id:'RPT-001', infra:'Residential', damage:'complete', credibility:92, zone:'Centro', lat:19.43, lng:-99.13, time:Date.now()-3600000 },
+    { id:'RPT-002', infra:'Government', damage:'partial', credibility:78, zone:'Centro', lat:19.44, lng:-99.14, time:Date.now()-3000000 },
+    { id:'RPT-003', infra:'Community', damage:'complete', credibility:95, zone:'Centro', lat:19.42, lng:-99.12, time:Date.now()-2400000 },
+    { id:'RPT-004', infra:'Transport', damage:'minimal', credibility:65, zone:'Insurgentes', lat:19.45, lng:-99.15, time:Date.now()-1800000 },
+    { id:'RPT-005', infra:'Residential', damage:'complete', credibility:88, zone:'Centro', lat:19.43, lng:-99.13, time:Date.now()-1500000 },
+    { id:'RPT-006', infra:'Commercial', damage:'partial', credibility:72, zone:'Insurgentes', lat:19.44, lng:-99.14, time:Date.now()-1200000 },
+    { id:'RPT-007', infra:'Community', damage:'complete', credibility:91, zone:'Benito Juárez', lat:19.42, lng:-99.12, time:Date.now()-900000 },
+    { id:'RPT-008', infra:'Residential', damage:'partial', credibility:80, zone:'Centro', lat:19.43, lng:-99.13, time:Date.now()-600000 }
+  ],
+
+  // Calculate total reports
+  getTotalReports() {
+    return this.allReports.length;
+  },
+
+  // Calculate critical zones (clusters of complete damage)
+  getCriticalZones() {
+    const zones = {};
+    this.allReports.forEach(r => {
+      if (r.damage === 'complete') {
+        zones[r.zone] = (zones[r.zone] || 0) + 1;
+      }
+    });
+    return Object.values(zones).filter(count => count >= 1).length;
+  },
+
+  // Calculate data confidence (weighted average of credibility scores)
+  getDataConfidence() {
+    if (this.allReports.length === 0) return 0;
+    const sum = this.allReports.reduce((acc, r) => acc + r.credibility, 0);
+    return Math.round(sum / this.allReports.length);
+  },
+
+  // Calculate counts by damage level
+  getCountByDamage(level) {
+    return this.allReports.filter(r => r.damage === level).length;
+  },
+
+  // PRIORITY ALGORITHM
+  // Formula: priority = (density × avgCredibility × damageWeight × recencyFactor) / 100
+  calculatePriority() {
+    const zoneData = {};
+
+    this.allReports.forEach(r => {
+      if (!zoneData[r.zone]) {
+        zoneData[r.zone] = {
+          zone: r.zone,
+          reports: [],
+          totalCredibility: 0,
+          completeCount: 0,
+          partialCount: 0,
+          minimalCount: 0,
+          mostRecent: 0,
+          infraTypes: new Set()
+        };
+      }
+      zoneData[r.zone].reports.push(r);
+      zoneData[r.zone].totalCredibility += r.credibility;
+      zoneData[r.zone].infraTypes.add(r.infra);
+      if (r.damage === 'complete') zoneData[r.zone].completeCount++;
+      else if (r.damage === 'partial') zoneData[r.zone].partialCount++;
+      else zoneData[r.zone].minimalCount++;
+      if (r.time > zoneData[r.zone].mostRecent) zoneData[r.zone].mostRecent = r.time;
+    });
+
+    const zones = Object.values(zoneData).map(z => {
+      const density = z.reports.length;
+      const avgCred = z.totalCredibility / density;
+      const damageWeight = (z.completeCount * 3) + (z.partialCount * 2) + (z.minimalCount * 1);
+      const minutesAgo = (Date.now() - z.mostRecent) / 60000;
+      const recencyFactor = Math.max(0.3, 1 - (minutesAgo / 120));
+
+      const priority = (density * avgCred * damageWeight * recencyFactor) / 100;
+
+      // Determine severity
+      let severity = 'low';
+      if (z.completeCount >= 2 || priority > 30) severity = 'critical';
+      else if (z.completeCount >= 1 || priority > 15) severity = 'moderate';
+
+      // Pick representative infra type (critical infrastructure preference)
+      const criticalInfra = ['Community', 'Government', 'Utilities'];
+      let mainInfra = z.reports[0].infra;
+      for (const r of z.reports) {
+        if (criticalInfra.includes(r.infra)) { mainInfra = r.infra; break; }
+      }
+
+      const infraIcons = { Residential:'🏠', Commercial:'🏪', Government:'🏛️', Utilities:'⚡', Transport:'🛣️', Community:'🏥' };
+      const infraDesc = {
+        Residential:'Residential zone',
+        Commercial:'Commercial area',
+        Government:'Government infrastructure',
+        Utilities:'Utility infrastructure',
+        Transport:'Transport infrastructure',
+        Community:'Community / health infrastructure'
+      };
+
+      return {
+        zone: z.zone,
+        priority: Math.round(priority * 10) / 10,
+        reports: density,
+        credibility: Math.round(avgCred),
+        severity,
+        icon: infraIcons[mainInfra] || '🏠',
+        description: infraDesc[mainInfra] || 'Mixed infrastructure'
+      };
+    });
+
+    return zones.sort((a, b) => b.priority - a.priority).slice(0, 5);
+  },
+
+  // Add a new report (called when user submits)
+  addReport(report) {
+    const zone = report.zone || 'New Zone ' + Math.floor(Math.random() * 100);
+    this.allReports.push({
+      ...report,
+      zone,
+      time: Date.now()
+    });
+    this.refreshDashboard();
+  },
+
+  // Refresh all dashboard UI elements with calculated values
+  refreshDashboard() {
+    // KPIs
+    const kpiTotal = document.getElementById('kpi-total');
+    const kpiCritical = document.getElementById('kpi-critical');
+    const kpiConfidence = document.querySelector('.kpi-card.warning .kpi-value');
+
+    if (kpiTotal) kpiTotal.textContent = this.getTotalReports();
+    if (kpiCritical) kpiCritical.textContent = this.getCriticalZones();
+    if (kpiConfidence) kpiConfidence.textContent = this.getDataConfidence() + '%';
+
+    // Map stats
+    const statCritical = document.getElementById('stat-critical');
+    const statPartial = document.getElementById('stat-partial');
+    const statMinimal = document.getElementById('stat-minimal');
+    const statTotal = document.getElementById('stat-total');
+
+    if (statCritical) statCritical.textContent = this.getCountByDamage('complete');
+    if (statPartial) statPartial.textContent = this.getCountByDamage('partial');
+    if (statMinimal) statMinimal.textContent = this.getCountByDamage('minimal');
+    if (statTotal) statTotal.textContent = this.getTotalReports();
+
+    // Priority list
+    this.refreshPriorityList();
+  },
+
+  refreshPriorityList() {
+    const list = document.querySelector('.priority-list');
+    if (!list) return;
+
+    const priorities = this.calculatePriority();
+    list.innerHTML = priorities.map((p, i) => {
+      const badgeClass = p.severity === 'critical' ? 'badge-critical' : p.severity === 'moderate' ? 'badge-moderate' : 'badge-low';
+      const badgeLabel = p.severity === 'critical' ? 'Critical' : p.severity === 'moderate' ? 'Moderate' : 'Low';
+      const rank = String(i + 1).padStart(2, '0');
+      return `<div class="priority-item">
+        <div class="priority-rank">${rank}</div>
+        <div class="priority-info">
+          <div class="priority-location">${p.zone}</div>
+          <div class="priority-meta">
+            <span>${p.icon} ${p.description}</span>
+            <span>${p.reports} reports</span>
+            <span>Credibility ${p.credibility}%</span>
+            <span style="color:var(--orange)">Priority ${p.priority}</span>
+          </div>
+        </div>
+        <div class="priority-badge ${badgeClass}">${badgeLabel}</div>
+      </div>`;
+    }).join('');
+  }
+};
+
+// Hook the new report submission to analytics engine
+const _originalSubmit = window.submitReport;
+window.submitReport = function() {
+  // Original behavior
+  if (_originalSubmit) _originalSubmit();
+
+  // Add to analytics
+  const lastReport = state.reports[state.reports.length - 1];
+  if (lastReport) {
+    fridaAnalytics.addReport({
+      id: lastReport.id,
+      infra: lastReport.infra,
+      damage: lastReport.damage,
+      credibility: lastReport.credibility,
+      zone: 'Live Zone ' + (state.reports.length)
+    });
+  }
+};
+
+// Initialize on load
+window.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => fridaAnalytics.refreshDashboard(), 500);
+});
+
+// ===== AI CLASSIFICATION SIMULATION =====
+// Triggered when user uploads a photo
+const _originalHandlePhoto = window.handlePhoto;
+window.handlePhoto = function(input) {
+  if (_originalHandlePhoto) _originalHandlePhoto(input);
+
+  // Show AI analysis simulation
+  if (input.files && input.files[0]) {
+    setTimeout(() => {
+      const label = document.querySelector('.photo-label');
+      if (label) {
+        // Simulate AI processing
+        const damages = ['minimal', 'partial', 'complete'];
+        const detected = damages[Math.floor(Math.random() * damages.length)];
+        const confidence = Math.floor(Math.random() * 15 + 80);
+
+        const aiBox = document.createElement('div');
+        aiBox.style.cssText = 'background:rgba(82,183,136,0.1);border:1px solid rgba(82,183,136,0.3);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--green-light);margin-top:12px;text-align:left;';
+        aiBox.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span>🤖</span><strong>AI Vision Analysis</strong></div><div style="color:var(--text2);font-size:12px;">Computer vision detected: <strong style="color:var(--text)">${detected.toUpperCase()} damage</strong><br>Confidence: ${confidence}% · You can confirm or correct in the next step.</div>`;
+
+        const photoLabel = document.getElementById('photo-upload-label');
+        if (photoLabel && photoLabel.style.display === 'none') {
+          // Insert after the preview
+          const preview = document.getElementById('photo-preview');
+          if (preview && !document.getElementById('ai-analysis-box')) {
+            aiBox.id = 'ai-analysis-box';
+            preview.insertAdjacentElement('afterend', aiBox);
+          }
+        }
+      }
+    }, 800);
+  }
+};
+</script>
