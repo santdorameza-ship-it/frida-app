@@ -577,7 +577,7 @@ function exportCSV() {
 }
 
 // ===== MAPS =====
-let mainMap = null, locationMap = null;
+let mainMap = null, locationMap = null, locationMapMarker = null;
 const colors = { complete:'#E63946', partial:'#F4A261', minimal:'#52B788' };
 
 const demoReports = [
@@ -615,17 +615,254 @@ function addMarkerToMap(report) {
   const lng = -99.13 + (Math.random() - 0.5) * 0.02;
   addMapMarker(mainMap, lat, lng, report.damage, report.infra + ' — ' + report.damage + ' damage');
 }
+// ===== GPS / GEOLOCATION CORE (Mejora #2) =====
 
+// Estado global de geolocalización
+const geoState = {
+  lastKnownPosition: null,  // {lat, lng, accuracy, timestamp}
+  watchId: null,
+  permissionGranted: false
+};
+
+// Pide la ubicación actual con timeout y manejo robusto de errores.
+// Devuelve una Promesa que resuelve con {lat, lng, accuracy} o rechaza con un error legible.
+function getCurrentPosition(options = {}) {
+  return new Promise((resolve, reject) => {
+    if (!('geolocation' in navigator)) {
+      reject({ code: 'NO_API', message: 'Geolocation API not supported by this browser' });
+      return;
+    }
+    
+    const opts = {
+      enableHighAccuracy: options.highAccuracy !== false,  // por defecto true
+      timeout: options.timeout || 15000,                    // 15 segundos
+      maximumAge: options.maxAge || 30000                   // aceptar cache de hasta 30s
+    };
+    
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const result = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp
+        };
+        geoState.lastKnownPosition = result;
+        geoState.permissionGranted = true;
+        console.log('FRIDA: GPS lock acquired →', result.lat.toFixed(5), result.lng.toFixed(5), '±' + Math.round(result.accuracy) + 'm');
+        resolve(result);
+      },
+      (error) => {
+        const friendly = getGeolocationErrorInfo(error);
+        console.warn('FRIDA: GPS failed →', friendly.code, '-', friendly.message);
+        reject(friendly);
+      },
+      opts
+    );
+  });
+}
+
+// Traduce errores técnicos de la API a mensajes humanos
+function getGeolocationErrorInfo(error) {
+  const lang = currentLang || 'en';
+  const messages = {
+    en: {
+      PERMISSION_DENIED: 'Location permission denied. You can still report by entering a description.',
+      POSITION_UNAVAILABLE: 'GPS signal unavailable. Try moving to an open area or describe your location.',
+      TIMEOUT: 'GPS is taking too long. You can describe your location instead.',
+      UNKNOWN: 'Could not get your location. Please describe it instead.'
+    },
+    es: {
+      PERMISSION_DENIED: 'Permiso de ubicación denegado. Puedes reportar describiendo tu ubicación.',
+      POSITION_UNAVAILABLE: 'Sin señal GPS. Intenta moverte a un área abierta o describe tu ubicación.',
+      TIMEOUT: 'El GPS está tardando demasiado. Puedes describir tu ubicación.',
+      UNKNOWN: 'No se pudo obtener tu ubicación. Por favor descríbela.'
+    },
+    fr: {
+      PERMISSION_DENIED: 'Autorisation de localisation refusée. Vous pouvez décrire votre position.',
+      POSITION_UNAVAILABLE: 'Signal GPS indisponible. Déplacez-vous en zone ouverte ou décrivez votre position.',
+      TIMEOUT: 'Le GPS prend trop de temps. Décrivez votre position.',
+      UNKNOWN: 'Impossible d\'obtenir votre position. Veuillez la décrire.'
+    },
+    ar: {
+      PERMISSION_DENIED: 'تم رفض إذن الموقع. يمكنك الإبلاغ بوصف موقعك.',
+      POSITION_UNAVAILABLE: 'إشارة GPS غير متوفرة. انتقل إلى منطقة مفتوحة أو صف موقعك.',
+      TIMEOUT: 'GPS يستغرق وقتًا طويلاً. يمكنك وصف موقعك.',
+      UNKNOWN: 'تعذر الحصول على موقعك. يرجى وصفه.'
+    },
+    zh: {
+      PERMISSION_DENIED: '位置权限被拒绝。您仍可通过描述位置进行报告。',
+      POSITION_UNAVAILABLE: 'GPS信号不可用。请移至开阔地区或描述您的位置。',
+      TIMEOUT: 'GPS响应过慢。您可以描述您的位置。',
+      UNKNOWN: '无法获取您的位置。请描述位置。'
+    },
+    ru: {
+      PERMISSION_DENIED: 'Доступ к местоположению запрещён. Опишите ваше местоположение.',
+      POSITION_UNAVAILABLE: 'Сигнал GPS недоступен. Перейдите на открытое место или опишите местоположение.',
+      TIMEOUT: 'GPS не отвечает. Опишите ваше местоположение.',
+      UNKNOWN: 'Не удалось определить местоположение. Опишите его.'
+    }
+  };
+  
+  let codeKey = 'UNKNOWN';
+  if (error.code === 1) codeKey = 'PERMISSION_DENIED';
+  else if (error.code === 2) codeKey = 'POSITION_UNAVAILABLE';
+  else if (error.code === 3) codeKey = 'TIMEOUT';
+  
+  const dict = messages[lang] || messages.en;
+  return {
+    code: codeKey,
+    message: dict[codeKey],
+    raw: error
+  };
+}
+
+// Helper para formatear coordenadas a string limpio
+function formatCoords(lat, lng) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return '---';
+  return lat.toFixed(5) + ', ' + lng.toFixed(5);
+}
 function initLocationMap() {
-  if (locationMap) { locationMap.invalidateSize(); return; }
+  // Si el mapa ya existe, solo refrescar tamaño (caso de re-entrada al paso)
+  if (locationMap) { 
+    locationMap.invalidateSize(); 
+    return; 
+  }
+  
   try {
-    locationMap = L.map('location-map', { zoomControl:false }).setView([19.43, -99.13], 15);
+    // 1. Crear mapa con fallback inicial (CDMX) — visible mientras GPS resuelve
+    const fallbackCoords = [19.43, -99.13];
+    locationMap = L.map('location-map', { zoomControl: false }).setView(fallbackCoords, 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution:'© OpenStreetMap © CARTO', maxZoom:19
+      attribution: '© OpenStreetMap © CARTO', maxZoom: 19
     }).addTo(locationMap);
-    const marker = L.marker([19.43, -99.13]).addTo(locationMap);
-    locationMap.on('click', e => marker.setLatLng(e.latlng));
-  } catch(e) { console.error('Location map error:', e); }
+    
+    // 2. Crear marcador inicial en fallback
+    locationMapMarker = L.marker(fallbackCoords, { 
+      draggable: true,
+      title: 'Drag to adjust'
+    }).addTo(locationMap);
+    
+    // 3. Permitir al usuario corregir manualmente: click en el mapa mueve el marcador
+    locationMap.on('click', e => {
+      locationMapMarker.setLatLng(e.latlng);
+      updateAccuracyDisplay(null, true);
+    });
+    
+    // 4. Si arrastra el marcador, también es ajuste manual
+    locationMapMarker.on('dragend', () => {
+      updateAccuracyDisplay(null, true);
+    });
+    
+    // 5. Mostrar indicador visual de "buscando GPS..."
+    showLocationStatus('searching');
+    
+    // 6. Intentar obtener GPS real con validación robusta de calidad
+    getCurrentPosition({ highAccuracy: true, timeout: 25000 })
+      .then(coords => {
+        // Validar calidad antes de aceptar la coordenada
+        const quality = assessGpsQuality(coords.accuracy);
+        
+        if (quality.level === 'rejected') {
+          // GPS demasiado impreciso (>5km) — no centrar mapa, pedir ajuste manual
+          showLocationStatus('imprecise', quality.message);
+          updateAccuracyDisplay(coords.accuracy, false);
+          console.warn('FRIDA: GPS rejected (accuracy too low):', Math.round(coords.accuracy) + 'm');
+          return;
+        }
+        
+        // GPS aceptable: centrar mapa y mover marcador a posición real
+        locationMap.setView([coords.lat, coords.lng], quality.zoom);
+        locationMapMarker.setLatLng([coords.lat, coords.lng]);
+        showLocationStatus(quality.level, quality.message);
+        updateAccuracyDisplay(coords.accuracy, false);
+      })
+      .catch(err => {
+        // GPS falló totalmente: timeout, permiso denegado, hardware sin señal
+        showLocationStatus('error', err.message);
+        updateAccuracyDisplay(null, false);
+      });
+      
+  } catch(e) { 
+    console.error('Location map error:', e); 
+  }
+}
+
+// Devuelve las coordenadas actuales del marcador (lo que el usuario confirmó)
+function getCurrentMapCoords() {
+  if (!locationMapMarker) return null;
+  const pos = locationMapMarker.getLatLng();
+  return { lat: pos.lat, lng: pos.lng };
+}
+
+// Evalúa la calidad de la lectura GPS y decide cómo mostrarla al usuario
+function assessGpsQuality(accuracyMeters) {
+  // Umbrales basados en prácticas estándar (Waze, Uber, Google Maps)
+  if (accuracyMeters <= 100) {
+    return {
+      level: 'success',
+      zoom: 16,
+      message: null  // no mostrar advertencia, GPS excelente
+    };
+  }
+  if (accuracyMeters <= 1000) {
+    return {
+      level: 'medium',
+      zoom: 15,
+      message: null  // GPS bueno, no advertir
+    };
+  }
+  if (accuracyMeters <= 5000) {
+    return {
+      level: 'low',
+      zoom: 13,
+      message: 'Precisión baja. Si conoces el lugar, ajusta el marcador manualmente.'
+    };
+  }
+  return {
+    level: 'rejected',
+    zoom: 10,
+    message: 'No pudimos ubicarte con precisión. Por favor, mueve el marcador al lugar correcto o describe el sitio en el siguiente paso.'
+  };
+}
+
+// Muestra estado del GPS al usuario (searching / success / error)
+function showLocationStatus(state, errorMsg) {
+  const statusEl = document.getElementById('gps-status');
+  if (!statusEl) return;
+  
+  const messages = {
+    searching: { en: '📡 Searching GPS...', es: '📡 Buscando GPS...', fr: '📡 Recherche GPS...', ar: '📡 جاري البحث عن GPS...', zh: '📡 正在搜索GPS...', ru: '📡 Поиск GPS...' },
+    success:   { en: '✓ GPS locked', es: '✓ GPS encontrado', fr: '✓ GPS verrouillé', ar: '✓ تم تحديد GPS', zh: '✓ GPS已锁定', ru: '✓ GPS получен' },
+    error:     { en: '⚠ ', es: '⚠ ', fr: '⚠ ', ar: '⚠ ', zh: '⚠ ', ru: '⚠ ' }
+  };
+  
+  const lang = currentLang || 'en';
+  let text = messages[state][lang] || messages[state]['en'];
+  if (state === 'error' && errorMsg) text += errorMsg;
+  
+  statusEl.textContent = text;
+  statusEl.className = 'gps-status gps-status-' + state;
+}
+
+// Muestra la precisión del GPS o indicador de ajuste manual
+function updateAccuracyDisplay(accuracyMeters, isManual) {
+  const accEl = document.getElementById('gps-accuracy');
+  if (!accEl) return;
+  
+  const lang = currentLang || 'en';
+  const labels = {
+    accuracy: { en: 'Accuracy: ±', es: 'Precisión: ±', fr: 'Précision: ±', ar: 'الدقة: ±', zh: '精度: ±', ru: 'Точность: ±' },
+    manual:   { en: 'Manual adjustment', es: 'Ajuste manual', fr: 'Ajustement manuel', ar: 'تعديل يدوي', zh: '手动调整', ru: 'Ручная настройка' }
+  };
+  
+  if (isManual) {
+    accEl.textContent = labels.manual[lang] || labels.manual.en;
+  } else if (typeof accuracyMeters === 'number') {
+    accEl.textContent = (labels.accuracy[lang] || labels.accuracy.en) + Math.round(accuracyMeters) + 'm';
+  } else {
+    accEl.textContent = '';
+  }
 }
 </script>
 </body>
