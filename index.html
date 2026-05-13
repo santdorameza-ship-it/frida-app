@@ -491,26 +491,89 @@ function handlePhoto(input) {
   }
 }
 
-function submitReport() {
+async function submitReport() {
+  // 1. Obtener coordenadas reales del marcador GPS (Mejora #2 conectada aquí)
+  const mapCoords = getCurrentMapCoords();
+  const lat = mapCoords ? mapCoords.lat : 19.43;
+  const lng = mapCoords ? mapCoords.lng : -99.13;
+  
+  // 2. Construir el reporte con estructura nueva y robusta
   const report = {
-    id: 'RPT-' + String(state.reports.length + 5).padStart(3, '0'),
+    id: generateReportId(),
+    timestamp: new Date().toISOString(),
     time: new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }),
+    eventId: state.eventId || ('EVT-2026-' + String(47 + state.reports.length).padStart(3, '0')),
     crisis: state.crisisType || 'Earthquake',
     infra: state.infraType || 'Residential',
     damage: state.damageLevel || 'complete',
-    coords: '19.43, -99.13',
+    coords: { lat: lat, lng: lng },
+    coordsString: lat.toFixed(5) + ', ' + lng.toFixed(5),
     credibility: Math.floor(Math.random() * 20 + 75),
-    textLocation: document.getElementById('textLocation').value
+    textLocation: (document.getElementById('textLocation') || {}).value || '',
+    syncStatus: 'pending',
+    createdAt: new Date().toISOString()
   };
+  
+  // 3. Guardar en IndexedDB (persistencia real)
+  try {
+    await dbSave(report);
+    console.log('FRIDA: Report saved to IndexedDB →', report.id);
+  } catch (err) {
+    console.error('FRIDA: Failed to save report to IndexedDB:', err);
+    // Continuar de todos modos para no bloquear al usuario en una emergencia
+  }
+  
+  // 4. Intentar sincronizar con servidor (simulado por ahora — Mejora #4 lo hará real)
+  trySyncReport(report);
+  
+  // 5. Actualizar UI (mantener compatibilidad con código existente)
   state.reports.push(report);
   addReportToTable(report);
   addMarkerToMap(report);
   updateKPIs(report);
-
+  
   const eventNum = 47 + state.reports.length;
   document.getElementById('event-id-display').textContent = 'EVENT-2026-' + state.crisisType.slice(0,2).toUpperCase() + '-0' + eventNum;
-
+  
+  // 6. Avanzar a pantalla de éxito
   nextStep('success');
+}
+
+// Intenta sincronizar un reporte con el servidor.
+// Por ahora simulado: 80% éxito, 20% falla, con delay realista.
+// En Mejora #4 esto hará llamadas reales al servidor cuando haya red.
+async function trySyncReport(report) {
+  try {
+    // Simular delay de red (entre 500ms y 2s)
+    await new Promise(resolve => setTimeout(resolve, 500 + Math.random() * 1500));
+    
+    // Simular éxito o fallo (80% éxito)
+    const success = Math.random() < 0.8;
+    
+    if (!success) {
+      throw new Error('Simulated network failure');
+    }
+    
+    // Marcar como sincronizado en la base
+    await dbMarkSynced(report.id);
+    console.log('FRIDA: Report synced →', report.id);
+    
+    // Actualizar UI: cambiar indicador de pending a synced
+    updateReportSyncStatus(report.id, 'synced');
+    
+  } catch (err) {
+    console.warn('FRIDA: Sync failed for', report.id, '- will retry later');
+    // El reporte queda como 'pending' en IndexedDB para reintentar después
+  }
+}
+
+// Actualiza visualmente el estado de sync de un reporte en la tabla.
+// La implementación visual la afinamos en Sub-paso 3D.
+function updateReportSyncStatus(reportId, status) {
+  const row = document.querySelector('tr[data-report-id="' + reportId + '"]');
+  if (row) {
+    row.setAttribute('data-sync-status', status);
+  }
 }
 
 function addReportToTable(r) {
@@ -615,6 +678,129 @@ function addMarkerToMap(report) {
   const lng = -99.13 + (Math.random() - 0.5) * 0.02;
   addMapMarker(mainMap, lat, lng, report.damage, report.infra + ' — ' + report.damage + ' damage');
 }
+// ===== INDEXEDDB STORAGE LAYER (Mejora #3) =====
+
+const DB_NAME = 'frida-db';
+const DB_VERSION = 1;
+const STORE_REPORTS = 'reports';
+
+let dbInstance = null;
+
+// Abre (o crea si no existe) la base de datos.
+// Devuelve una Promesa que resuelve con la instancia de la base.
+function dbOpen() {
+  if (dbInstance) return Promise.resolve(dbInstance);
+  
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    
+    // Este evento se dispara solo la primera vez (o si la versión sube).
+    // Aquí definimos la estructura de la base de datos.
+    request.onupgradeneeded = (event) => {
+      const db = event.target.result;
+      
+      if (!db.objectStoreNames.contains(STORE_REPORTS)) {
+        const store = db.createObjectStore(STORE_REPORTS, { keyPath: 'id' });
+        store.createIndex('timestamp', 'timestamp', { unique: false });
+        store.createIndex('syncStatus', 'syncStatus', { unique: false });
+        console.log('FRIDA: IndexedDB schema created');
+      }
+    };
+    
+    request.onsuccess = (event) => {
+      dbInstance = event.target.result;
+      console.log('FRIDA: IndexedDB opened (version ' + DB_VERSION + ')');
+      resolve(dbInstance);
+    };
+    
+    request.onerror = (event) => {
+      console.error('FRIDA: IndexedDB failed to open:', event.target.error);
+      reject(event.target.error);
+    };
+  });
+}
+
+// Guarda un reporte en la base. Si ya existe (mismo id), lo reemplaza.
+async function dbSave(report) {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_REPORTS], 'readwrite');
+    const store = tx.objectStore(STORE_REPORTS);
+    const request = store.put(report);
+    
+    request.onsuccess = () => resolve(report);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Lee todos los reportes guardados, ordenados por timestamp descendente (más recientes primero).
+async function dbGetAll() {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_REPORTS], 'readonly');
+    const store = tx.objectStore(STORE_REPORTS);
+    const request = store.getAll();
+    
+    request.onsuccess = () => {
+      const reports = request.result || [];
+      // Ordenar por timestamp descendente
+      reports.sort((a, b) => (b.timestamp || '').localeCompare(a.timestamp || ''));
+      resolve(reports);
+    };
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Lee solo los reportes pendientes de sincronizar.
+async function dbGetPending() {
+  const all = await dbGetAll();
+  return all.filter(r => r.syncStatus === 'pending');
+}
+
+// Elimina un reporte por ID. Útil después de sincronización exitosa.
+async function dbDelete(reportId) {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_REPORTS], 'readwrite');
+    const store = tx.objectStore(STORE_REPORTS);
+    const request = store.delete(reportId);
+    
+    request.onsuccess = () => resolve(reportId);
+    request.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Marca un reporte como sincronizado (cambia syncStatus de 'pending' a 'synced').
+async function dbMarkSynced(reportId) {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_REPORTS], 'readwrite');
+    const store = tx.objectStore(STORE_REPORTS);
+    const getReq = store.get(reportId);
+    
+    getReq.onsuccess = () => {
+      const report = getReq.result;
+      if (!report) {
+        reject(new Error('Report not found: ' + reportId));
+        return;
+      }
+      report.syncStatus = 'synced';
+      report.syncedAt = new Date().toISOString();
+      const putReq = store.put(report);
+      putReq.onsuccess = () => resolve(report);
+      putReq.onerror = (e) => reject(e.target.error);
+    };
+    getReq.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Genera un ID único para un reporte nuevo
+function generateReportId() {
+  return 'RPT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+}
+
+// Inicialización: abrir la base de datos al cargar la app
+dbOpen().catch(err => console.error('FRIDA: Failed to initialize DB:', err));
 // ===== GPS / GEOLOCATION CORE (Mejora #2) =====
 
 // Estado global de geolocalización
