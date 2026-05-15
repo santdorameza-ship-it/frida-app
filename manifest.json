@@ -1,7 +1,7 @@
-{
-  "name": "FRIDA — First Response Integrated Damage Assessment",
+﻿{
+  "name": "FRIDA — Crisis Mapping",
   "short_name": "FRIDA",
-  "description": "Crisis damage reporting system designed for extreme stress and zero connectivity",
+  "description": "First Response Integrated Damage Assessment",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0A0A0A",
@@ -21,7 +21,6 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["utilities", "health", "social"],
   "lang": "en",
-  "screenshots": []
+  "categories": ["utilities", "social"]
 }

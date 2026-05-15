@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FRIDA — First Response Integrated Damage Assessment</title>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="icon-192.png">
 <meta name="theme-color" content="#E63946">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="FRIDA">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -22,6 +25,14 @@
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; overflow-x:hidden; }
 
+  /* RTL fix: mantener barra superior orientada LTR aunque el contenido sea árabe */
+html[dir="rtl"] body > nav,
+html[dir="rtl"] body > header,
+html[dir="rtl"] nav.nav-top,
+html[dir="rtl"] .nav-tabs,
+html[dir="rtl"] .lang-select {
+  direction: ltr !important;
+}
   nav { display:flex; justify-content:space-between; align-items:center; padding:12px 16px; background:var(--bg2); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:1000; flex-wrap:wrap; gap:8px; }
   .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px; letter-spacing:-0.5px; }
   .logo-dot { width:9px; height:9px; background:var(--red); border-radius:50%; animation:pulse 2s infinite; }
@@ -157,14 +168,14 @@
 </head>
 <body>
 
-<div id="offline-indicator" style="display:none;background:#F4A261;color:#000;padding:8px 16px;text-align:center;font-size:12px;font-weight:600;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:2000;">⚡ Offline mode — reports saved locally, will sync when signal returns</div>
+<div id="offline-indicator" style="display:none;background:#F4A261;color:#000;padding:8px 16px;text-align:center;font-size:12px;font-weight:600;align-items:center;justify-content:center;gap:8px;position:sticky;top:0;z-index:2000;"><span data-i18n="offline_msg">⚡ Offline mode — reports saved locally, will sync when signal returns</span></div>
 <nav>
   <div class="logo">
     <div class="logo-dot"></div>
     FRIDA
   </div>
   <div class="nav-right">
-    <select class="lang-select" onchange="setLanguage(this.value)">
+    <select class="lang-select" onchange="setLanguage(this.value)" onclick="this.dataset.prev=this.value" onblur="if(this.dataset.prev!==undefined&&this.value!==this.dataset.prev){setLanguage(this.value);}">
       <option value="en">🌐 EN</option>
       <option value="es">🌐 ES</option>
       <option value="fr">🌐 FR</option>
@@ -216,7 +227,7 @@
 
     <div id="step-2" class="form-step">
       <div class="step-header">
-        <div class="step-number">Question 1 of 6</div>
+        <div class="step-number" data-i18n="step_q1">Question 1 of 6</div>
         <div class="step-question" data-i18n="q1">What type of crisis is occurring?</div>
       </div>
       <div class="survival-tip"><span class="tip-icon">🔋</span><span data-i18n="tip1">Enable airplane mode to save battery. FRIDA will sync when signal returns.</span></div>
@@ -232,7 +243,7 @@
 
     <div id="step-3" class="form-step">
       <div class="step-header">
-        <div class="step-number">Question 2 of 6</div>
+        <div class="step-number" data-i18n="step_q2">Question 2 of 6</div>
         <div class="step-question" data-i18n="q2">What type of infrastructure is affected?</div>
       </div>
       <div class="survival-tip"><span class="tip-icon">📱</span><span data-i18n="tip2">Lower your screen brightness to extend battery life.</span></div>
@@ -248,7 +259,7 @@
 
     <div id="step-4" class="form-step">
       <div class="step-header">
-        <div class="step-number">Question 3 of 6</div>
+        <div class="step-number" data-i18n="step_q3">Question 3 of 6</div>
         <div class="step-question" data-i18n="q3">What is the level of damage?</div>
       </div>
       <div class="survival-tip"><span class="tip-icon">📞</span><span data-i18n="tip3">Do not call unless urgent. Keep lines free for emergencies.</span></div>
@@ -267,7 +278,7 @@
 
     <div id="step-5" class="form-step">
       <div class="step-header">
-        <div class="step-number">Question 4 of 6</div>
+        <div class="step-number" data-i18n="step_q4">Question 4 of 6</div>
         <div class="step-question" data-i18n="q4">Take a photo of the damage</div>
       </div>
       <div class="survival-tip"><span class="tip-icon">🛡️</span><span data-i18n="tip4">Stay safe. Only photograph if you are not in immediate danger.</span></div>
@@ -283,7 +294,7 @@
 
     <div id="step-6" class="form-step">
       <div class="step-header">
-        <div class="step-number">Question 5 of 6</div>
+        <div class="step-number" data-i18n="step_q5">Question 5 of 6</div>
         <div class="step-question" data-i18n="q5">Is there debris that requires clearing?</div>
       </div>
       <div class="options-grid">
@@ -295,7 +306,7 @@
 
     <div id="step-7" class="form-step">
       <div class="step-header">
-        <div class="step-number">Question 6 of 6</div>
+        <div class="step-number" data-i18n="step_q6">Question 6 of 6</div>
         <div class="step-question" data-i18n="q6">Confirm your location</div>
       </div>
       <div class="survival-tip"><span class="tip-icon">📍</span><span data-i18n="tip6">GPS works without internet. Your location is captured automatically.</span></div>
@@ -325,15 +336,15 @@
 <div id="map-screen" class="screen">
   <div class="map-toolbar">
     <div class="map-stats">
-      <div class="map-stat"><div class="map-stat-value red" id="stat-critical">12</div><div class="map-stat-label">Critical</div></div>
-      <div class="map-stat"><div class="map-stat-value orange" id="stat-partial">28</div><div class="map-stat-label">Partial</div></div>
-      <div class="map-stat"><div class="map-stat-value green" id="stat-minimal">9</div><div class="map-stat-label">Minimal</div></div>
-      <div class="map-stat"><div class="map-stat-value" id="stat-total" style="color:var(--text)">49</div><div class="map-stat-label">Total</div></div>
+      <div class="map-stat"><div class="map-stat-value red" id="stat-critical">0</div><div class="map-stat-label" data-i18n="map_critical">Critical</div></div>
+      <div class="map-stat"><div class="map-stat-value orange" id="stat-partial">0</div><div class="map-stat-label" data-i18n="map_partial">Partial</div></div>
+      <div class="map-stat"><div class="map-stat-value green" id="stat-minimal">0</div><div class="map-stat-label" data-i18n="map_minimal">Minimal</div></div>
+      <div class="map-stat"><div class="map-stat-value" id="stat-total" style="color:var(--text)">0</div><div class="map-stat-label" data-i18n="map_total">Total</div></div>
     </div>
     <div class="legend">
-      <div class="legend-item"><div class="legend-dot" style="background:#E63946"></div> Complete</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#F4A261"></div> Partial</div>
-      <div class="legend-item"><div class="legend-dot" style="background:#52B788"></div> Minimal</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#E63946"></div> <span data-i18n="leg_complete">Complete</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#F4A261"></div> <span data-i18n="leg_partial">Partial</span></div>
+      <div class="legend-item"><div class="legend-dot" style="background:#52B788"></div> <span data-i18n="leg_minimal">Minimal</span></div>
     </div>
   </div>
   <div id="map"></div>
@@ -344,84 +355,34 @@
   <div class="dashboard-wrapper">
     <div class="dashboard-header">
       <div>
-        <div class="dashboard-title">UNDP Crisis Dashboard</div>
-        <div class="dashboard-subtitle">FRIDA · Real-time damage assessment · Updated just now</div>
+        <div class="dashboard-title" data-i18n="dash_title">UNDP Crisis Dashboard</div>
+        <div class="dashboard-subtitle" data-i18n="dash_sub">FRIDA · Real-time damage assessment · Updated just now</div>
       </div>
-      <button class="export-btn" onclick="exportCSV()">⬇ Export CSV</button>
+      <button class="export-btn" onclick="exportCSV()" data-i18n="export_btn">⬇ Export CSV</button>
     </div>
     <div class="kpi-grid">
-      <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">49</div><div class="kpi-label">Total Reports</div></div>
-      <div class="kpi-card critical"><div class="kpi-value" id="kpi-critical">12</div><div class="kpi-label">Critical Zones</div></div>
-      <div class="kpi-card warning"><div class="kpi-value">87%</div><div class="kpi-label">Data Confidence</div></div>
-      <div class="kpi-card ok"><div class="kpi-value">3</div><div class="kpi-label">Active Events</div></div>
+      <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">0</div><div class="kpi-label" data-i18n="kpi_total">Total Reports</div></div>
+      <div class="kpi-card critical"><div class="kpi-value" id="kpi-critical">0</div><div class="kpi-label" data-i18n="kpi_critical">Critical Zones</div></div>
+      <div class="kpi-card warning"><div class="kpi-value" id="kpi-confidence">0%</div><div class="kpi-label" data-i18n="kpi_confidence">Data Confidence</div></div>
+      <div class="kpi-card ok"><div class="kpi-value" id="kpi-events">0</div><div class="kpi-label" data-i18n="kpi_events">Active Events</div></div>
     </div>
     <div class="events-tabs">
-      <button class="event-tab active">Event #47 — Earthquake MX 🔴 Active</button>
-      <button class="event-tab">Event #46 — Flood CO 🟠 Active</button>
-      <button class="event-tab">Event #31 — Conflict MM ⚫ Phase 4</button>
+      <button class="event-tab active" id="current-event-tab" data-i18n="no_active_event">No active event</button>
     </div>
-    <div class="section-label">Priority Zones — AI Ranked</div>
-    <div class="priority-list">
-      <div class="priority-item">
-        <div class="priority-rank">01</div>
-        <div class="priority-info">
-          <div class="priority-location">Colonia Centro — Block 4</div>
-          <div class="priority-meta"><span>🏥 Hospital nearby</span><span>14 reports</span><span>Credibility 94%</span></div>
-        </div>
-        <div class="priority-badge badge-critical">Critical</div>
-      </div>
-      <div class="priority-item">
-        <div class="priority-rank">02</div>
-        <div class="priority-info">
-          <div class="priority-location">Av. Insurgentes Sur — Bridge</div>
-          <div class="priority-meta"><span>🛣️ Transport blocked</span><span>8 reports</span><span>Credibility 88%</span></div>
-        </div>
-        <div class="priority-badge badge-critical">Critical</div>
-      </div>
-      <div class="priority-item">
-        <div class="priority-rank">03</div>
-        <div class="priority-info">
-          <div class="priority-location">Escuela Primaria Benito Juárez</div>
-          <div class="priority-meta"><span>🏫 Community infra</span><span>6 reports</span><span>Credibility 91%</span></div>
-        </div>
-        <div class="priority-badge badge-moderate">Moderate</div>
+    <div id="priority-zones-container" style="display:none;">
+      <div class="section-label" data-i18n="priority_label">Priority Zones — AI Ranked</div>
+      <div class="priority-list" id="priority-list">
+        <!-- Vacío por defecto. Se llena dinámicamente cuando hay 5+ reportes (algoritmo de priorización en roadmap v2) -->
       </div>
     </div>
-    <div class="section-label">All Reports</div>
+    <div class="section-label" data-i18n="reports_label">All Reports</div>
     <div class="table-wrapper">
       <table class="reports-table">
         <thead>
-          <tr><th>ID</th><th>Time</th><th>Crisis</th><th>Infrastructure</th><th>Damage</th><th>Credibility</th><th>Coordinates</th></tr>
+          <tr><th data-i18n="th_id">ID</th><th data-i18n="th_time">Time</th><th data-i18n="th_crisis">Crisis</th><th data-i18n="th_infra">Infrastructure</th><th data-i18n="th_damage">Damage</th><th data-i18n="th_cred">Credibility</th><th data-i18n="th_coords">Coordinates</th></tr>
         </thead>
         <tbody id="reports-tbody">
-          <tr>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-001</span></td>
-            <td>09:14</td><td>🌍 Earthquake</td><td>🏠 Residential</td>
-            <td><span class="priority-badge badge-critical">Complete</span></td>
-            <td><div class="credibility-bar"><div class="credibility-fill" style="width:92%"></div></div></td>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.43, -99.13</span></td>
-          </tr>
-          <tr>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-002</span></td>
-            <td>09:17</td><td>🌍 Earthquake</td><td>🏛️ Government</td>
-            <td><span class="priority-badge badge-moderate">Partial</span></td>
-            <td><div class="credibility-bar"><div class="credibility-fill" style="width:78%"></div></div></td>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.44, -99.14</span></td>
-          </tr>
-          <tr>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-003</span></td>
-            <td>09:21</td><td>🌍 Earthquake</td><td>🏥 Community</td>
-            <td><span class="priority-badge badge-critical">Complete</span></td>
-            <td><div class="credibility-bar"><div class="credibility-fill" style="width:95%"></div></div></td>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.42, -99.12</span></td>
-          </tr>
-          <tr>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">RPT-004</span></td>
-            <td>09:28</td><td>🌍 Earthquake</td><td>🛣️ Transport</td>
-            <td><span class="priority-badge badge-low">Minimal</span></td>
-            <td><div class="credibility-bar"><div class="credibility-fill" style="width:65%"></div></div></td>
-            <td><span style="font-family:'DM Mono',monospace;font-size:11px">19.45, -99.15</span></td>
-          </tr>
+          <!-- Tabla vacía por diseño — se llena dinámicamente desde IndexedDB vía loadReportsFromDB() (Lote C) -->
         </tbody>
       </table>
     </div>
@@ -436,18 +397,14 @@ const state = { crisisType:'', infraType:'', damageLevel:'', debris:'', reports:
 const i18n = {
   en: { nav_citizen:'🧑 Citizen', nav_map:'🗺 Live Map', nav_dashboard:'📊 UNDP', system_label:'FRIDA · Crisis Response System', emergency_btn:'ARE YOU IN AN EMERGENCY?', signal_active:'System active · GPS enabled', confirm_label:'Confirmation', confirm_q:'Confirm emergency', danger_warn:'⚠️ If you are in immediate danger, do not stop. This can wait.', confirm_yes:'Yes, I am in an emergency', confirm_no:'No, this was accidental', q1:'What type of crisis is occurring?', tip1:'Enable airplane mode to save battery. FRIDA will sync when signal returns.', crisis_eq:'Earthquake', crisis_fl:'Flood', crisis_hu:'Hurricane / Cyclone', crisis_wi:'Wildfire', crisis_co:'Conflict / Civil unrest', crisis_ot:'Other emergency', q2:'What type of infrastructure is affected?', tip2:'Lower your screen brightness to extend battery life.', infra_re:'Residential', infra_co:'Commercial', infra_go:'Government building', infra_ut:'Utilities (water, power)', infra_tr:'Transport / Communication', infra_cm:'Community (school, hospital)', q3:'What is the level of damage?', tip3:'Do not call unless urgent. Keep lines free for emergencies.', dmg_min:'Minimal', dmg_par:'Partial', dmg_com:'Complete', q4:'Take a photo of the damage', tip4:'Stay safe. Only photograph if you are not in immediate danger.', photo_tap:'Tap to take or upload a photo', confirm_photo:'Confirm photo →', skip_photo:'Skip if not safe to photograph', q5:'Is there debris that requires clearing?', debris_yes:'Yes, there is debris', debris_no:'No debris', debris_un:'Not sure', q6:'Confirm your location', tip6:'GPS works without internet. Your location is captured automatically.', or_describe:'Or describe your location', submit_btn:'Submit report →', success_title:'Report submitted', success_sub:'Your signal is now part of FRIDA\'s crisis map.<br>You are helping guide the response.', submit_another:'Submit another report' },
   es: { nav_citizen:'🧑 Ciudadano', nav_map:'🗺 Mapa en vivo', nav_dashboard:'📊 PNUD', system_label:'FRIDA · Sistema de Respuesta a Crisis', emergency_btn:'¿ESTÁS EN UNA EMERGENCIA?', signal_active:'Sistema activo · GPS activado', confirm_label:'Confirmación', confirm_q:'Confirmar emergencia', danger_warn:'⚠️ Si estás en peligro inmediato, no te detengas. Esto puede esperar.', confirm_yes:'Sí, estoy en una emergencia', confirm_no:'No, fue accidental', q1:'¿Qué tipo de crisis está ocurriendo?', tip1:'Activa modo avión para ahorrar batería. FRIDA sincronizará cuando vuelva la señal.', crisis_eq:'Terremoto', crisis_fl:'Inundación', crisis_hu:'Huracán / Ciclón', crisis_wi:'Incendio forestal', crisis_co:'Conflicto / Disturbios', crisis_ot:'Otra emergencia', q2:'¿Qué tipo de infraestructura está afectada?', tip2:'Baja el brillo de tu pantalla para ahorrar batería.', infra_re:'Residencial', infra_co:'Comercial', infra_go:'Edificio gubernamental', infra_ut:'Servicios (agua, luz)', infra_tr:'Transporte / Comunicación', infra_cm:'Comunitaria (escuela, hospital)', q3:'¿Cuál es el nivel de daño?', tip3:'No llames a menos que sea urgente. Deja las líneas libres.', dmg_min:'Mínimo', dmg_par:'Parcial', dmg_com:'Completo', q4:'Toma una foto del daño', tip4:'Mantente seguro. Solo fotografía si no estás en peligro inmediato.', photo_tap:'Toca para tomar o subir una foto', confirm_photo:'Confirmar foto →', skip_photo:'Omitir si no es seguro fotografiar', q5:'¿Hay escombros que requieren limpieza?', debris_yes:'Sí, hay escombros', debris_no:'Sin escombros', debris_un:'No estoy seguro', q6:'Confirma tu ubicación', tip6:'El GPS funciona sin internet. Tu ubicación se captura automáticamente.', or_describe:'O describe tu ubicación', submit_btn:'Enviar reporte →', success_title:'Reporte enviado', success_sub:'Tu señal ahora forma parte del mapa de crisis de FRIDA.<br>Estás ayudando a guiar la respuesta.', submit_another:'Enviar otro reporte' },
-  fr: { nav_citizen:'🧑 Citoyen', nav_map:'🗺 Carte en direct', nav_dashboard:'📊 PNUD', system_label:'FRIDA · Système de réponse aux crises', emergency_btn:'ÊTES-VOUS EN URGENCE?', signal_active:'Système actif · GPS activé', confirm_label:'Confirmation', confirm_q:'Confirmer l\'urgence', danger_warn:'⚠️ Si vous êtes en danger immédiat, ne vous arrêtez pas. Cela peut attendre.', confirm_yes:'Oui, je suis en urgence', confirm_no:'Non, c\'était accidentel', q1:'Quel type de crise se produit?', tip1:'Activez le mode avion pour économiser la batterie.', crisis_eq:'Séisme', crisis_fl:'Inondation', crisis_hu:'Ouragan / Cyclone', crisis_wi:'Incendie de forêt', crisis_co:'Conflit / Troubles civils', crisis_ot:'Autre urgence', q2:'Quel type d\'infrastructure est affecté?', tip2:'Baissez la luminosité de votre écran.', infra_re:'Résidentiel', infra_co:'Commercial', infra_go:'Bâtiment gouvernemental', infra_ut:'Services publics', infra_tr:'Transport / Communication', infra_cm:'Communautaire (école, hôpital)', q3:'Quel est le niveau de dommage?', tip3:'N\'appelez pas sauf urgence.', dmg_min:'Minimal', dmg_par:'Partiel', dmg_com:'Complet', q4:'Prenez une photo des dommages', tip4:'Restez en sécurité.', photo_tap:'Appuyez pour prendre une photo', confirm_photo:'Confirmer la photo →', skip_photo:'Ignorer si ce n\'est pas sûr', q5:'Y a-t-il des débris à nettoyer?', debris_yes:'Oui, il y a des débris', debris_no:'Pas de débris', debris_un:'Je ne sais pas', q6:'Confirmez votre position', tip6:'Le GPS fonctionne sans internet.', or_describe:'Ou décrivez votre position', submit_btn:'Soumettre le rapport →', success_title:'Rapport soumis', success_sub:'Votre signal fait maintenant partie de la carte de crise de FRIDA.', submit_another:'Soumettre un autre rapport' }
+  fr: { nav_citizen:'🧑 Citoyen', nav_map:'🗺 Carte en direct', nav_dashboard:'📊 PNUD', system_label:'FRIDA · Système de réponse aux crises', emergency_btn:'ÊTES-VOUS EN URGENCE?', signal_active:'Système actif · GPS activé', confirm_label:'Confirmation', confirm_q:'Confirmer l\'urgence', danger_warn:'⚠️ Si vous êtes en danger immédiat, ne vous arrêtez pas. Cela peut attendre.', confirm_yes:'Oui, je suis en urgence', confirm_no:'Non, c\'était accidentel', q1:'Quel type de crise se produit?', tip1:'Activez le mode avion pour économiser la batterie.', crisis_eq:'Séisme', crisis_fl:'Inondation', crisis_hu:'Ouragan / Cyclone', crisis_wi:'Incendie de forêt', crisis_co:'Conflit / Troubles civils', crisis_ot:'Autre urgence', q2:'Quel type d\'infrastructure est affecté?', tip2:'Baissez la luminosité de votre écran.', infra_re:'Résidentiel', infra_co:'Commercial', infra_go:'Bâtiment gouvernemental', infra_ut:'Services publics', infra_tr:'Transport / Communication', infra_cm:'Communautaire (école, hôpital)', q3:'Quel est le niveau de dommage?', tip3:'N\'appelez pas sauf urgence.', dmg_min:'Minimal', dmg_par:'Partiel', dmg_com:'Complet', q4:'Prenez une photo des dommages', tip4:'Restez en sécurité.', photo_tap:'Appuyez pour prendre une photo', confirm_photo:'Confirmer la photo →', skip_photo:'Ignorer si ce n\'est pas sûr', q5:'Y a-t-il des débris à nettoyer?', debris_yes:'Oui, il y a des débris', debris_no:'Pas de débris', debris_un:'Je ne sais pas', q6:'Confirmez votre position', tip6:'Le GPS fonctionne sans internet.', or_describe:'Ou décrivez votre position', submit_btn:'Soumettre le rapport →', success_title:'Rapport soumis', success_sub:'Votre signal fait maintenant partie de la carte de crise de FRIDA.', submit_another:'Soumettre un autre rapport' },
+  ar: { nav_citizen:'🧑 المواطن', nav_map:'🗺 الخريطة المباشرة', nav_dashboard:'📊 UNDP', system_label:'FRIDA · نظام الاستجابة للأزمات', emergency_btn:'هل أنت في حالة طوارئ؟', signal_active:'النظام نشط · GPS مفعّل', confirm_label:'تأكيد', confirm_q:'تأكيد الطوارئ', danger_warn:'⚠️ إذا كنت في خطر فوري، لا تتوقف. هذا يمكن أن ينتظر.', confirm_yes:'نعم، أنا في حالة طوارئ', confirm_no:'لا، كان ذلك عرضياً', q1:'ما نوع الأزمة التي تحدث؟', tip1:'فعّل وضع الطيران لتوفير البطارية. ستتم المزامنة عند عودة الإشارة.', crisis_eq:'زلزال', crisis_fl:'فيضان', crisis_hu:'إعصار', crisis_wi:'حريق غابات', crisis_co:'نزاع / اضطرابات مدنية', crisis_ot:'طوارئ أخرى', q2:'ما نوع البنية التحتية المتأثرة؟', tip2:'اخفض سطوع الشاشة لإطالة عمر البطارية.', infra_re:'سكني', infra_co:'تجاري', infra_go:'مبنى حكومي', infra_ut:'مرافق (ماء، كهرباء)', infra_tr:'نقل / اتصالات', infra_cm:'مجتمعي (مدرسة، مستشفى)', q3:'ما مستوى الضرر؟', tip3:'لا تتصل إلا إذا كان عاجلاً. اترك الخطوط مجانية للطوارئ.', dmg_min:'بسيط', dmg_par:'جزئي', dmg_com:'كامل', q4:'التقط صورة للضرر', tip4:'حافظ على سلامتك. لا تصور إلا إذا لم تكن في خطر مباشر.', photo_tap:'اضغط لالتقاط أو تحميل صورة', confirm_photo:'تأكيد الصورة ←', skip_photo:'تخطي إذا لم يكن آمناً', q5:'هل هناك حطام يحتاج إلى إزالة؟', debris_yes:'نعم، هناك حطام', debris_no:'لا يوجد حطام', debris_un:'لست متأكداً', q6:'تأكيد موقعك', tip6:'يعمل GPS بدون إنترنت. يتم التقاط موقعك تلقائياً.', or_describe:'أو صف موقعك', submit_btn:'إرسال التقرير ←', success_title:'تم إرسال التقرير', success_sub:'إشارتك الآن جزء من خريطة الأزمات الخاصة بـ FRIDA.<br>أنت تساعد في توجيه الاستجابة.', submit_another:'إرسال تقرير آخر' },
+  zh: { nav_citizen:'🧑 公民', nav_map:'🗺 实时地图', nav_dashboard:'📊 UNDP', system_label:'FRIDA · 危机响应系统', emergency_btn:'您处于紧急情况吗？', signal_active:'系统活动中 · GPS已启用', confirm_label:'确认', confirm_q:'确认紧急情况', danger_warn:'⚠️ 如果您处于直接危险中，请不要停止。这可以等待。', confirm_yes:'是的，我处于紧急情况', confirm_no:'不，是意外', q1:'正在发生什么类型的危机？', tip1:'启用飞行模式以节省电池。FRIDA将在信号恢复时同步。', crisis_eq:'地震', crisis_fl:'洪水', crisis_hu:'飓风 / 气旋', crisis_wi:'野火', crisis_co:'冲突 / 内乱', crisis_ot:'其他紧急情况', q2:'受影响的基础设施类型是什么？', tip2:'降低屏幕亮度以延长电池寿命。', infra_re:'住宅', infra_co:'商业', infra_go:'政府建筑', infra_ut:'公用事业（水、电）', infra_tr:'交通 / 通讯', infra_cm:'社区（学校、医院）', q3:'损坏程度如何？', tip3:'除非紧急，否则不要打电话。保持线路畅通以应对紧急情况。', dmg_min:'轻微', dmg_par:'部分', dmg_com:'完全', q4:'拍摄损坏照片', tip4:'保持安全。只有在没有直接危险时才拍照。', photo_tap:'点击拍照或上传照片', confirm_photo:'确认照片 →', skip_photo:'如果不安全则跳过', q5:'是否有需要清理的碎片？', debris_yes:'是的，有碎片', debris_no:'没有碎片', debris_un:'不确定', q6:'确认您的位置', tip6:'GPS无需互联网即可工作。您的位置会自动捕获。', or_describe:'或描述您的位置', submit_btn:'提交报告 →', success_title:'报告已提交', success_sub:'您的信号现在是FRIDA危机地图的一部分。<br>您正在帮助指导响应。', submit_another:'提交另一份报告' },
+  ru: { nav_citizen:'🧑 Гражданин', nav_map:'🗺 Карта в реальном времени', nav_dashboard:'📊 ПРООН', system_label:'FRIDA · Система реагирования на кризисы', emergency_btn:'У ВАС ЧРЕЗВЫЧАЙНАЯ СИТУАЦИЯ?', signal_active:'Система активна · GPS включён', confirm_label:'Подтверждение', confirm_q:'Подтвердите чрезвычайную ситуацию', danger_warn:'⚠️ Если вы в непосредственной опасности, не останавливайтесь. Это может подождать.', confirm_yes:'Да, у меня чрезвычайная ситуация', confirm_no:'Нет, это было случайно', q1:'Какой тип кризиса происходит?', tip1:'Включите режим полёта для экономии батареи. FRIDA синхронизируется при возврате сигнала.', crisis_eq:'Землетрясение', crisis_fl:'Наводнение', crisis_hu:'Ураган / Циклон', crisis_wi:'Лесной пожар', crisis_co:'Конфликт / Гражданские беспорядки', crisis_ot:'Другая чрезвычайная ситуация', q2:'Какой тип инфраструктуры пострадал?', tip2:'Уменьшите яркость экрана для увеличения срока службы батареи.', infra_re:'Жилой', infra_co:'Коммерческий', infra_go:'Государственное здание', infra_ut:'Коммунальные услуги (вода, электричество)', infra_tr:'Транспорт / Связь', infra_cm:'Общественный (школа, больница)', q3:'Каков уровень ущерба?', tip3:'Не звоните, если это не срочно. Освободите линии для экстренных случаев.', dmg_min:'Минимальный', dmg_par:'Частичный', dmg_com:'Полный', q4:'Сфотографируйте повреждение', tip4:'Будьте в безопасности. Фотографируйте только если вам не угрожает непосредственная опасность.', photo_tap:'Нажмите, чтобы сделать или загрузить фото', confirm_photo:'Подтвердить фото →', skip_photo:'Пропустить, если небезопасно', q5:'Есть ли обломки, требующие расчистки?', debris_yes:'Да, есть обломки', debris_no:'Нет обломков', debris_un:'Не уверен', q6:'Подтвердите ваше местоположение', tip6:'GPS работает без интернета. Ваше местоположение фиксируется автоматически.', or_describe:'Или опишите ваше местоположение', submit_btn:'Отправить отчёт →', success_title:'Отчёт отправлен', success_sub:'Ваш сигнал теперь часть кризисной карты FRIDA.<br>Вы помогаете направлять реагирование.', submit_another:'Отправить другой отчёт' }
 };
 let currentLang = 'en';
 
-function setLanguage(lang) {
-  currentLang = lang;
-  const dict = i18n[lang] || i18n['en'];
-  document.querySelectorAll('[data-i18n]').forEach(el => {
-    const key = el.getAttribute('data-i18n');
-    if (dict[key]) el.innerHTML = dict[key];
-  });
-}
+// NOTE: setLanguage vieja eliminada (Lote B) — la versión completa con auto-detect/persist está más abajo (Mejora #1)
 
 // ===== NAVIGATION =====
 function showScreen(id, btn) {
@@ -532,8 +489,16 @@ async function submitReport() {
   addMarkerToMap(report);
   updateKPIs(report);
   
+  // 5b. Recalcular analytics (KPIs y Priority Zones) con todos los reportes reales
+  if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
+  
   const eventNum = 47 + state.reports.length;
   document.getElementById('event-id-display').textContent = 'EVENT-2026-' + state.crisisType.slice(0,2).toUpperCase() + '-0' + eventNum;
+  
+  // Desactivar Conflict Mode (banner + bloqueo de foto) ahora que el reporte se envió
+  if (state.conflictMode && typeof deactivateConflictMode === 'function') {
+    deactivateConflictMode();
+  }
   
   // 6. Avanzar a pantalla de éxito
   nextStep('success');
@@ -568,12 +533,32 @@ async function trySyncReport(report) {
 }
 
 // Actualiza visualmente el estado de sync de un reporte en la tabla.
-// La implementación visual la afinamos en Sub-paso 3D.
+// (Lote D — Sub-paso 3D: ahora actualiza tanto el atributo como el ícono visible.)
 function updateReportSyncStatus(reportId, status) {
   const row = document.querySelector('tr[data-report-id="' + reportId + '"]');
-  if (row) {
-    row.setAttribute('data-sync-status', status);
+  if (!row) return;
+  
+  // Actualizar atributo (para CSS o queries futuras)
+  row.setAttribute('data-sync-status', status);
+  
+  // Actualizar el ícono visible en la primera celda
+  const firstCell = row.querySelector('td:first-child');
+  if (!firstCell) return;
+  
+  // Construir nuevo HTML de la celda preservando el ID del reporte
+  const idSpan = firstCell.querySelector('span:last-child');
+  const idText = idSpan ? idSpan.outerHTML : '';
+  
+  let syncIcon = '';
+  if (status === 'synced') {
+    syncIcon = '<span title="Synced" style="color:#4ade80;font-size:10px;">✓</span> ';
+  } else if (status === 'pending') {
+    syncIcon = '<span title="Pending sync" style="color:#fbbf24;font-size:10px;">⏳</span> ';
+  } else if (status === 'failed') {
+    syncIcon = '<span title="Sync failed" style="color:#ef4444;font-size:10px;">✗</span> ';
   }
+  
+  firstCell.innerHTML = syncIcon + idText;
 }
 
 function addReportToTable(r) {
@@ -581,14 +566,34 @@ function addReportToTable(r) {
   const dl = r.damage === 'complete' ? 'Complete' : r.damage === 'partial' ? 'Partial' : 'Minimal';
   const infraIcons = { Residential:'🏠', Commercial:'🏪', Government:'🏛️', Utilities:'⚡', Transport:'🛣️', Community:'🏥' };
   const icon = infraIcons[r.infra] || '🏠';
-  const row = `<tr>
-    <td><span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.id}</span></td>
+  
+  // Renderizar coords correctamente, sea objeto {lat,lng} o string legacy
+  let coordsDisplay = '---';
+  if (r.coordsString) {
+    // Reportes nuevos tienen coordsString ya pre-formateado
+    coordsDisplay = r.coordsString;
+  } else if (r.coords && typeof r.coords.lat === 'number') {
+    coordsDisplay = r.coords.lat.toFixed(5) + ', ' + r.coords.lng.toFixed(5);
+  } else if (typeof r.coords === 'string') {
+    coordsDisplay = r.coords;
+  }
+  
+  // Indicador visual de sync (preparación para Sub-paso 3D)
+  let syncIcon = '';
+  if (r.syncStatus === 'synced') {
+    syncIcon = '<span title="Synced" style="color:#4ade80;font-size:10px;">✓</span> ';
+  } else if (r.syncStatus === 'pending') {
+    syncIcon = '<span title="Pending sync" style="color:#fbbf24;font-size:10px;">⏳</span> ';
+  }
+  
+  const row = `<tr data-report-id="${r.id}" data-sync-status="${r.syncStatus || 'unknown'}">
+    <td>${syncIcon}<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.id}</span></td>
     <td>${r.time}</td>
     <td>🌍 ${r.crisis}</td>
     <td>${icon} ${r.infra}</td>
     <td><span class="priority-badge ${dc}">${dl}</span></td>
     <td><div class="credibility-bar"><div class="credibility-fill" style="width:${r.credibility}%"></div></div></td>
-    <td><span style="font-family:'DM Mono',monospace;font-size:11px">${r.coords}</span></td>
+    <td><span style="font-family:'DM Mono',monospace;font-size:11px">${coordsDisplay}</span></td>
   </tr>`;
   document.getElementById('reports-tbody').insertAdjacentHTML('afterbegin', row);
 }
@@ -610,6 +615,28 @@ function updateKPIs(r) {
     const m = document.getElementById('stat-minimal');
     if (m) m.textContent = parseInt(m.textContent) + 1;
   }
+  
+  // Actualizar event tab dinámicamente con el evento más reciente
+  const eventTab = document.getElementById('current-event-tab');
+  if (eventTab && r.eventId) {
+    const crisisEmojis = { Earthquake:'🌍', Flood:'💧', Hurricane:'🌀', Wildfire:'🔥', Conflict:'⚫', Other:'⚠️' };
+    const emoji = crisisEmojis[r.crisis] || '🔴';
+    eventTab.textContent = r.eventId + ' — ' + r.crisis + ' ' + emoji + ' Active';
+  }
+  
+  // Actualizar KPI de eventos activos (cuenta eventIds únicos)
+  const eventsEl = document.getElementById('kpi-events');
+  if (eventsEl) {
+    const uniqueEvents = new Set(state.reports.map(rp => rp.eventId).filter(Boolean));
+    eventsEl.textContent = uniqueEvents.size || 0;
+  }
+  
+  // Confidence: promedio de credibility de todos los reportes
+  const confEl = document.getElementById('kpi-confidence');
+  if (confEl && state.reports.length > 0) {
+    const avg = state.reports.reduce((sum, rp) => sum + (rp.credibility || 0), 0) / state.reports.length;
+    confEl.textContent = Math.round(avg) + '%';
+  }
 }
 
 function restart() {
@@ -617,41 +644,69 @@ function restart() {
   document.getElementById('photo-preview').style.display = 'none';
   document.getElementById('photo-upload-label').style.display = 'block';
   document.getElementById('textLocation').value = '';
+  
+  // Desactivar Conflict Mode si estaba activo (banner + foto bloqueada)
+  if (state.conflictMode && typeof deactivateConflictMode === 'function') {
+    deactivateConflictMode();
+  }
+  
   nextStep(0);
 }
 
 // ===== EXPORT =====
 function exportCSV() {
-  const headers = ['ID','Time','Crisis Type','Infrastructure','Damage Level','Credibility','Coordinates','Text Location'];
-  const baseRows = [
-    ['RPT-001','09:14','Earthquake','Residential','Complete','92%','19.43,-99.13',''],
-    ['RPT-002','09:17','Earthquake','Government','Partial','78%','19.44,-99.14',''],
-    ['RPT-003','09:21','Earthquake','Community','Complete','95%','19.42,-99.12',''],
-    ['RPT-004','09:28','Earthquake','Transport','Minimal','65%','19.45,-99.15',''],
-  ];
-  const newRows = state.reports.map(r => [r.id, r.time, r.crisis, r.infra, r.damage, r.credibility+'%', r.coords, r.textLocation||'']);
-  const csv = [headers, ...baseRows, ...newRows].map(r => r.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const headers = ['ID','Time','Crisis Type','Infrastructure','Damage Level','Credibility','Coordinates','Text Location','Sync Status','Event ID'];
+  
+  // Solo exportar reportes REALES (eliminados los 4 RPT hardcoded del Lote A)
+  const rows = state.reports.map(r => {
+    // Manejar coords como objeto {lat,lng} o como string legacy
+    let coordsStr = '';
+    if (r.coordsString) {
+      coordsStr = r.coordsString;
+    } else if (r.coords && typeof r.coords.lat === 'number') {
+      coordsStr = r.coords.lat.toFixed(5) + ', ' + r.coords.lng.toFixed(5);
+    } else if (typeof r.coords === 'string') {
+      coordsStr = r.coords;
+    }
+    return [
+      r.id, 
+      r.time, 
+      r.crisis, 
+      r.infra, 
+      r.damage, 
+      (r.credibility || 0) + '%', 
+      coordsStr, 
+      r.textLocation || '',
+      r.syncStatus || 'unknown',
+      r.eventId || ''
+    ];
+  });
+  
+  // Escapar comillas para CSV correcto
+  const escape = (s) => {
+    const str = String(s);
+    if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+      return '"' + str.replace(/"/g, '""') + '"';
+    }
+    return str;
+  };
+  
+  const csv = [headers, ...rows].map(r => r.map(escape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = 'FRIDA_export_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
+  
+  console.log('FRIDA: Exported', rows.length, 'reports to CSV');
 }
 
 // ===== MAPS =====
 let mainMap = null, locationMap = null, locationMapMarker = null;
 const colors = { complete:'#E63946', partial:'#F4A261', minimal:'#52B788' };
 
-const demoReports = [
-  { lat:19.432, lng:-99.133, damage:'complete', label:'Residential — Complete damage' },
-  { lat:19.438, lng:-99.128, damage:'partial', label:'Government building — Partial damage' },
-  { lat:19.425, lng:-99.141, damage:'complete', label:'Hospital — Complete damage' },
-  { lat:19.445, lng:-99.125, damage:'minimal', label:'Road — Minimal damage' },
-  { lat:19.428, lng:-99.135, damage:'complete', label:'School — Complete damage' },
-  { lat:19.441, lng:-99.138, damage:'partial', label:'Market — Partial damage' },
-  { lat:19.422, lng:-99.129, damage:'minimal', label:'Apartment — Minimal damage' },
-];
+// NOTE: demoReports array eliminado (Lote A.1) — el mapa ahora carga solo reportes reales desde IndexedDB
 
 function initMap() {
   if (mainMap) { mainMap.invalidateSize(); return; }
@@ -660,7 +715,18 @@ function initMap() {
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       attribution:'© OpenStreetMap © CARTO', maxZoom:19
     }).addTo(mainMap);
-    demoReports.forEach(r => addMapMarker(mainMap, r.lat, r.lng, r.damage, r.label));
+    
+    // Dibujar todos los reportes existentes (cargados desde IndexedDB)
+    if (state.reports && state.reports.length > 0) {
+      console.log('FRIDA: Drawing', state.reports.length, 'existing reports on map');
+      state.reports.forEach(report => addMarkerToMap(report));
+      
+      // Centrar mapa en el último reporte para que el usuario vea algo de inmediato
+      const lastReport = state.reports[state.reports.length - 1];
+      if (lastReport.coords && typeof lastReport.coords.lat === 'number') {
+        mainMap.setView([lastReport.coords.lat, lastReport.coords.lng], 13);
+      }
+    }
   } catch(e) { console.error('Map error:', e); }
 }
 
@@ -674,10 +740,211 @@ function addMapMarker(map, lat, lng, damage, label) {
 
 function addMarkerToMap(report) {
   if (!mainMap) return;
-  const lat = 19.43 + (Math.random() - 0.5) * 0.02;
-  const lng = -99.13 + (Math.random() - 0.5) * 0.02;
-  addMapMarker(mainMap, lat, lng, report.damage, report.infra + ' — ' + report.damage + ' damage');
+  
+  // Extraer coordenadas reales del reporte
+  let lat, lng;
+  
+  if (report.coords && typeof report.coords.lat === 'number' && typeof report.coords.lng === 'number') {
+    lat = report.coords.lat;
+    lng = report.coords.lng;
+  } else if (typeof report.coords === 'string') {
+    const parts = report.coords.split(',').map(s => parseFloat(s.trim()));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      lat = parts[0];
+      lng = parts[1];
+    } else {
+      lat = 19.43; lng = -99.13;
+    }
+  } else {
+    lat = 19.43; lng = -99.13;
+  }
+  
+  // Aplicar geo-fuzzing para vista pública (privacidad Layer 4)
+  // Las coords originales se preservan en IndexedDB para uso interno UNDP autorizado
+  const crisisType = report.crisis || report.crisisType;
+  const publicCoords = applyGeoFuzzing(lat, lng, crisisType);
+  
+  // Etiqueta del marcador indica si están fuzzeadas y por qué
+  let labelExtra = '';
+  if (publicCoords.fuzzed) {
+    labelExtra = isConflictMode(report) 
+      ? ' (location protected — conflict zone)' 
+      : ' (~50m accuracy)';
+  }
+  
+  addMapMarker(mainMap, publicCoords.lat, publicCoords.lng, report.damage, 
+               report.infra + ' — ' + report.damage + ' damage' + labelExtra);
 }
+
+// ===== PRIVACY MODULE: GEO-FUZZING DUAL MODE + CONFLICT MODE =====
+// Implementa lo prometido en Layer 4 de la propuesta:
+// "Differential geo-fuzzing — 200 meters in active conflict zones, 
+//  50 meters in densely populated disaster zones"
+
+const PRIVACY_CONFIG = {
+  // Radio de fuzzing en metros según tipo de crisis
+  DISASTER_FUZZ_RADIUS_M: 50,     // Desastres naturales (sismo, inundación, etc.)
+  CONFLICT_FUZZ_RADIUS_M: 500,    // Conflict mode: protección agresiva
+  
+  // Crisis que activan Conflict Mode
+  CONFLICT_TYPES: ['Conflict']
+};
+
+// Determina si un reporte está en Conflict Mode
+function isConflictMode(report) {
+  if (!report) return false;
+  return PRIVACY_CONFIG.CONFLICT_TYPES.includes(report.crisis || report.crisisType);
+}
+
+// Aplica geo-fuzzing a coordenadas según el tipo de crisis.
+// Devuelve coordenadas modificadas que protegen la identidad del reportante.
+// Esto NO modifica las coords originales (que se preservan en DB para uso interno UNDP).
+function applyGeoFuzzing(lat, lng, crisisType) {
+  if (typeof lat !== 'number' || typeof lng !== 'number') return { lat, lng };
+  
+  const isConflict = PRIVACY_CONFIG.CONFLICT_TYPES.includes(crisisType);
+  const radiusM = isConflict ? PRIVACY_CONFIG.CONFLICT_FUZZ_RADIUS_M : PRIVACY_CONFIG.DISASTER_FUZZ_RADIUS_M;
+  
+  // Convertir metros a grados (aproximación: 1 grado ≈ 111km en latitud)
+  const radiusDeg = radiusM / 111000;
+  
+  // Ángulo aleatorio y distancia aleatoria dentro del radio
+  const angle = Math.random() * 2 * Math.PI;
+  const distance = Math.random() * radiusDeg;
+  
+  // Compensar deformación de longitud según latitud
+  const dLat = distance * Math.cos(angle);
+  const dLng = distance * Math.sin(angle) / Math.cos(lat * Math.PI / 180);
+  
+  return {
+    lat: lat + dLat,
+    lng: lng + dLng,
+    fuzzed: true,
+    fuzzRadius: radiusM
+  };
+}
+
+// Activa o desactiva el Conflict Mode visualmente cuando el usuario
+// selecciona "Conflict / Civil unrest" como tipo de crisis.
+function activateConflictMode() {
+  console.log('FRIDA: 🛡️ Conflict Mode activated — enhanced privacy protections');
+  
+  // Mostrar banner de privacidad mejorada
+  let banner = document.getElementById('conflict-mode-banner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'conflict-mode-banner';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#1a1a2e;color:#fbbf24;padding:10px 16px;text-align:center;font-size:12px;font-weight:600;z-index:3000;border-bottom:1px solid #fbbf24;box-shadow:0 2px 8px rgba(0,0,0,0.5);';
+    banner.innerHTML = '🛡️ <span data-i18n="conflict_mode_active">Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled, ephemeral storage</span>';
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+  banner.style.display = 'block';
+  
+  // Bloquear cámara en paso de foto
+  const photoStep = document.getElementById('step-5');
+  if (photoStep) {
+    const photoLabel = photoStep.querySelector('.photo-upload');
+    const skipLink = photoStep.querySelector('.skip-link');
+    if (photoLabel) {
+      photoLabel.style.opacity = '0.3';
+      photoLabel.style.pointerEvents = 'none';
+      photoLabel.style.position = 'relative';
+      
+      // Agregar overlay explicativo
+      let overlay = photoLabel.querySelector('.conflict-photo-overlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.className = 'conflict-photo-overlay';
+        overlay.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(26,26,46,0.85);color:#fbbf24;font-size:13px;font-weight:600;text-align:center;padding:20px;pointer-events:auto;border-radius:12px;';
+        overlay.innerHTML = '🛡️<br><span data-i18n="conflict_photo_disabled">Photos disabled in Conflict Mode for your safety</span>';
+        photoLabel.appendChild(overlay);
+      }
+    }
+    if (skipLink) {
+      skipLink.style.display = 'block';
+      skipLink.style.fontWeight = '700';
+    }
+  }
+  
+  state.conflictMode = true;
+}
+
+function deactivateConflictMode() {
+  const banner = document.getElementById('conflict-mode-banner');
+  if (banner) banner.style.display = 'none';
+  
+  // Re-habilitar cámara
+  const photoStep = document.getElementById('step-5');
+  if (photoStep) {
+    const photoLabel = photoStep.querySelector('.photo-upload');
+    if (photoLabel) {
+      photoLabel.style.opacity = '';
+      photoLabel.style.pointerEvents = '';
+      const overlay = photoLabel.querySelector('.conflict-photo-overlay');
+      if (overlay) overlay.remove();
+    }
+  }
+  
+  state.conflictMode = false;
+}
+
+// Hook al setData de crisisType para activar Conflict Mode
+const _originalSetData = window.setData;
+window.setData = function(field, value) {
+  // Ejecutar comportamiento original
+  if (_originalSetData) _originalSetData(field, value);
+  else state[field] = value;
+  
+  // Detectar activación de Conflict Mode
+  if (field === 'crisisType') {
+    if (PRIVACY_CONFIG.CONFLICT_TYPES.includes(value)) {
+      activateConflictMode();
+    } else if (state.conflictMode) {
+      deactivateConflictMode();
+    }
+  }
+};
+
+// Strip EXIF metadata de fotos antes de almacenar (privacidad Layer 4)
+// EXIF puede contener GPS exacto del dispositivo, hora, modelo, etc.
+function stripExifFromImage(file) {
+  return new Promise((resolve) => {
+    if (!file || !file.type.startsWith('image/')) {
+      resolve(file);
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        // Dibujar imagen en canvas elimina automáticamente EXIF
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        
+        // Convertir a Blob sin EXIF
+        canvas.toBlob((blob) => {
+          if (blob) {
+            console.log('FRIDA: EXIF stripped from photo (', file.size, '→', blob.size, 'bytes)');
+            resolve(blob);
+          } else {
+            resolve(file);
+          }
+        }, 'image/jpeg', 0.85);
+      };
+      img.onerror = () => resolve(file);
+      img.src = e.target.result;
+    };
+    reader.onerror = () => resolve(file);
+    reader.readAsDataURL(file);
+  });
+}
+
+
+
 // ===== INDEXEDDB STORAGE LAYER (Mejora #3) =====
 
 const DB_NAME = 'frida-db';
@@ -799,8 +1066,60 @@ function generateReportId() {
   return 'RPT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 }
 
-// Inicialización: abrir la base de datos al cargar la app
-dbOpen().catch(err => console.error('FRIDA: Failed to initialize DB:', err));
+// ===== INICIALIZACIÓN DE STORAGE (Lote C — Sub-paso 3C) =====
+
+// Carga todos los reportes guardados en IndexedDB y los muestra en la UI.
+// Se ejecuta una vez al inicio. Si la DB está vacía, no hace nada visible.
+async function loadReportsFromDB() {
+  try {
+    const saved = await dbGetAll();
+    
+    if (saved.length === 0) {
+      console.log('FRIDA: No saved reports to load');
+      return;
+    }
+    
+    console.log('FRIDA: Loading', saved.length, 'saved reports from IndexedDB');
+    
+    // Resetear estado para evitar duplicados si se llama dos veces
+    state.reports = [];
+    
+    // Reconstruir UI desde los datos persistidos
+    saved.forEach(report => {
+      state.reports.push(report);
+      
+      // Solo dibujar si las funciones de UI están disponibles
+      try {
+        if (typeof addReportToTable === 'function') addReportToTable(report);
+        if (typeof addMarkerToMap === 'function') addMarkerToMap(report);
+        if (typeof updateKPIs === 'function') updateKPIs(report);
+      } catch (e) {
+        console.warn('FRIDA: Could not render report', report.id, '-', e.message);
+      }
+    });
+    
+    console.log('FRIDA: Restored', saved.length, 'reports to UI');
+    
+    // Refrescar analytics ahora que tenemos todos los reportes en state.reports
+    if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
+  } catch (err) {
+    console.error('FRIDA: Failed to load reports from DB:', err);
+  }
+}
+
+// Inicialización completa: abrir DB y cargar reportes existentes
+async function initializeStorage() {
+  try {
+    await dbOpen();
+    // Esperar un poco para que el DOM y los maps estén listos antes de pintar reportes
+    setTimeout(() => loadReportsFromDB(), 300);
+  } catch (err) {
+    console.error('FRIDA: Storage initialization failed:', err);
+  }
+}
+
+// Arranca al cargar la página
+initializeStorage();
 // ===== GPS / GEOLOCATION CORE (Mejora #2) =====
 
 // Estado global de geolocalización
@@ -1054,51 +1373,19 @@ function updateAccuracyDisplay(accuracyMeters, isManual) {
 </body>
 </html>
 <script>
-// Patch: agregar data-i18n a elementos del mapa y dashboard que no los tenían
-document.addEventListener('DOMContentLoaded', function() {
-  // Map labels
-  document.querySelectorAll('.map-stat-label').forEach((el, i) => {
-    const keys = ['map_critical','map_partial','map_minimal','map_total'];
-    el.setAttribute('data-i18n', keys[i]);
-  });
-  document.querySelectorAll('.legend-item').forEach((el, i) => {
-    const keys = ['leg_complete','leg_partial','leg_minimal'];
-    el.setAttribute('data-i18n', keys[i]);
-  });
-  // Dashboard
-  const dashTitle = document.querySelector('.dashboard-title');
-  const dashSub = document.querySelector('.dashboard-subtitle');
-  if (dashTitle) dashTitle.setAttribute('data-i18n','dash_title');
-  if (dashSub) dashSub.setAttribute('data-i18n','dash_sub');
-  document.querySelectorAll('.kpi-label').forEach((el, i) => {
-    const keys = ['kpi_total','kpi_critical','kpi_confidence','kpi_events'];
-    el.setAttribute('data-i18n', keys[i]);
-  });
-  const sectionLabels = document.querySelectorAll('.section-label');
-  if (sectionLabels[0]) sectionLabels[0].setAttribute('data-i18n','priority_label');
-  if (sectionLabels[1]) sectionLabels[1].setAttribute('data-i18n','reports_label');
-  const exportBtn = document.querySelector('.export-btn');
-  if (exportBtn) exportBtn.setAttribute('data-i18n','export_btn');
-  // Table headers
-  document.querySelectorAll('.reports-table th').forEach((el, i) => {
-    const keys = ['th_id','th_time','th_crisis','th_infra','th_damage','th_cred','th_coords'];
-    el.setAttribute('data-i18n', keys[i]);
-  });
-  // Step numbers
-  document.querySelectorAll('.step-number').forEach((el, i) => {
-    const keys = ['step_confirm','step_q1','step_q2','step_q3','step_q4','step_q5','step_q6'];
-    el.setAttribute('data-i18n', keys[i]);
-  });
-});
+// ===== EXTENSIÓN DEL DICCIONARIO I18N =====
+// Las claves de las pantallas Map y Dashboard se añaden aquí.
+// Los atributos data-i18n correspondientes ya están directamente en el HTML.
+// (Patch DOMContentLoaded redundante eliminado — los data-i18n ahora están en el HTML)
 
 // Extend i18n with new keys
 const extraKeys = {
-  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6' },
-  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6' },
-  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6' },
-  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6' },
-  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6' },
-  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6' }
+  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety' },
+  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad' },
+  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité' },
+  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك' },
+  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全' },
+  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности' }
 };
 
 // Merge extra keys into i18n
@@ -1106,6 +1393,8 @@ Object.keys(extraKeys).forEach(lang => {
   if (i18n[lang]) Object.assign(i18n[lang], extraKeys[lang]);
   else i18n[lang] = extraKeys[lang];
 });
+
+// El re-render del idioma se hace al final, después de definir SUPPORTED_LANGS y setLanguage
 
 // ===== LANGUAGE SYSTEM (Mejora #1: auto-detect + persist + placeholder) =====
 
@@ -1169,7 +1458,33 @@ document.addEventListener('DOMContentLoaded', () => {
   const initialLang = detectInitialLanguage();
   setLanguage(initialLang);
   console.log('FRIDA: Language auto-detected →', initialLang);
+  
+  // CRÍTICO: sincronizar el selector visualmente con el idioma real
+  const selector = document.querySelector('.lang-select');
+  if (selector) {
+    selector.value = initialLang;
+    
+    // Listener adicional que SIEMPRE dispara, incluso si seleccionan el mismo valor
+    // (resuelve el bug donde el selector está en 'es' pero la página está en otro idioma)
+    selector.addEventListener('change', function(e) {
+      setLanguage(this.value);
+    });
+  }
 });
+
+// Re-aplicar el idioma actual una vez todo el script esté cargado.
+// Esto es por si el HTML se renderizó antes de que extraKeys fueran mergeadas.
+if (typeof currentLang !== 'undefined') {
+  // Esperar el siguiente tick para asegurar que todo está listo
+  setTimeout(() => {
+    try { 
+      setLanguage(currentLang);
+      // Resincronizar selector después del re-render
+      const sel = document.querySelector('.lang-select');
+      if (sel) sel.value = currentLang;
+    } catch(e) { console.warn('Re-render lang failed:', e); }
+  }, 100);
+}
 </script>
 <script>
 // Register Service Worker for offline functionality
@@ -1225,20 +1540,14 @@ window.addEventListener('online', () => {
 </script>
 <script>
 // ===== ANALYTICS ENGINE =====
-// Real-time calculations replacing static values
+// Calcula KPIs y zonas de prioridad desde reportes REALES (state.reports)
+// (Reescrito en Lote A — antes tenía 8 reportes RPT-001..008 hardcoded)
 
 const fridaAnalytics = {
-  // All reports in the system (initial + new)
-  allReports: [
-    { id:'RPT-001', infra:'Residential', damage:'complete', credibility:92, zone:'Centro', lat:19.43, lng:-99.13, time:Date.now()-3600000 },
-    { id:'RPT-002', infra:'Government', damage:'partial', credibility:78, zone:'Centro', lat:19.44, lng:-99.14, time:Date.now()-3000000 },
-    { id:'RPT-003', infra:'Community', damage:'complete', credibility:95, zone:'Centro', lat:19.42, lng:-99.12, time:Date.now()-2400000 },
-    { id:'RPT-004', infra:'Transport', damage:'minimal', credibility:65, zone:'Insurgentes', lat:19.45, lng:-99.15, time:Date.now()-1800000 },
-    { id:'RPT-005', infra:'Residential', damage:'complete', credibility:88, zone:'Centro', lat:19.43, lng:-99.13, time:Date.now()-1500000 },
-    { id:'RPT-006', infra:'Commercial', damage:'partial', credibility:72, zone:'Insurgentes', lat:19.44, lng:-99.14, time:Date.now()-1200000 },
-    { id:'RPT-007', infra:'Community', damage:'complete', credibility:91, zone:'Benito Juárez', lat:19.42, lng:-99.12, time:Date.now()-900000 },
-    { id:'RPT-008', infra:'Residential', damage:'partial', credibility:80, zone:'Centro', lat:19.43, lng:-99.13, time:Date.now()-600000 }
-  ],
+  // Devuelve siempre los reportes reales del state
+  get allReports() {
+    return state.reports || [];
+  },
 
   // Calculate total reports
   getTotalReports() {
@@ -1250,7 +1559,9 @@ const fridaAnalytics = {
     const zones = {};
     this.allReports.forEach(r => {
       if (r.damage === 'complete') {
-        zones[r.zone] = (zones[r.zone] || 0) + 1;
+        // Usar approximación de zona desde coords (redondear a 0.01 grados ≈ 1km)
+        const zoneKey = this._zoneKeyFromReport(r);
+        zones[zoneKey] = (zones[zoneKey] || 0) + 1;
       }
     });
     return Object.values(zones).filter(count => count >= 1).length;
@@ -1259,7 +1570,7 @@ const fridaAnalytics = {
   // Calculate data confidence (weighted average of credibility scores)
   getDataConfidence() {
     if (this.allReports.length === 0) return 0;
-    const sum = this.allReports.reduce((acc, r) => acc + r.credibility, 0);
+    const sum = this.allReports.reduce((acc, r) => acc + (r.credibility || 0), 0);
     return Math.round(sum / this.allReports.length);
   },
 
@@ -1268,15 +1579,31 @@ const fridaAnalytics = {
     return this.allReports.filter(r => r.damage === level).length;
   },
 
+  // Helper: derivar "zona" desde las coordenadas de un reporte (cuadrante de ~1km)
+  _zoneKeyFromReport(r) {
+    let lat, lng;
+    if (r.coords && typeof r.coords.lat === 'number') {
+      lat = r.coords.lat; lng = r.coords.lng;
+    } else if (typeof r.coords === 'string') {
+      const parts = r.coords.split(',').map(s => parseFloat(s.trim()));
+      lat = parts[0]; lng = parts[1];
+    } else {
+      return 'Unknown';
+    }
+    // Redondear a 2 decimales ≈ celdas de 1.1km
+    return lat.toFixed(2) + ',' + lng.toFixed(2);
+  },
+
   // PRIORITY ALGORITHM
   // Formula: priority = (density × avgCredibility × damageWeight × recencyFactor) / 100
   calculatePriority() {
     const zoneData = {};
 
     this.allReports.forEach(r => {
-      if (!zoneData[r.zone]) {
-        zoneData[r.zone] = {
-          zone: r.zone,
+      const zone = this._zoneKeyFromReport(r);
+      if (!zoneData[zone]) {
+        zoneData[zone] = {
+          zone: zone,
           reports: [],
           totalCredibility: 0,
           completeCount: 0,
@@ -1286,13 +1613,14 @@ const fridaAnalytics = {
           infraTypes: new Set()
         };
       }
-      zoneData[r.zone].reports.push(r);
-      zoneData[r.zone].totalCredibility += r.credibility;
-      zoneData[r.zone].infraTypes.add(r.infra);
-      if (r.damage === 'complete') zoneData[r.zone].completeCount++;
-      else if (r.damage === 'partial') zoneData[r.zone].partialCount++;
-      else zoneData[r.zone].minimalCount++;
-      if (r.time > zoneData[r.zone].mostRecent) zoneData[r.zone].mostRecent = r.time;
+      const reportTime = r.timestamp ? new Date(r.timestamp).getTime() : Date.now();
+      zoneData[zone].reports.push(r);
+      zoneData[zone].totalCredibility += (r.credibility || 0);
+      zoneData[zone].infraTypes.add(r.infra);
+      if (r.damage === 'complete') zoneData[zone].completeCount++;
+      else if (r.damage === 'partial') zoneData[zone].partialCount++;
+      else zoneData[zone].minimalCount++;
+      if (reportTime > zoneData[zone].mostRecent) zoneData[zone].mostRecent = reportTime;
     });
 
     const zones = Object.values(zoneData).map(z => {
@@ -1340,27 +1668,21 @@ const fridaAnalytics = {
     return zones.sort((a, b) => b.priority - a.priority).slice(0, 5);
   },
 
-  // Add a new report (called when user submits)
-  addReport(report) {
-    const zone = report.zone || 'New Zone ' + Math.floor(Math.random() * 100);
-    this.allReports.push({
-      ...report,
-      zone,
-      time: Date.now()
-    });
-    this.refreshDashboard();
-  },
-
   // Refresh all dashboard UI elements with calculated values
   refreshDashboard() {
     // KPIs
     const kpiTotal = document.getElementById('kpi-total');
     const kpiCritical = document.getElementById('kpi-critical');
-    const kpiConfidence = document.querySelector('.kpi-card.warning .kpi-value');
+    const kpiConfidence = document.getElementById('kpi-confidence');
+    const kpiEvents = document.getElementById('kpi-events');
 
     if (kpiTotal) kpiTotal.textContent = this.getTotalReports();
     if (kpiCritical) kpiCritical.textContent = this.getCriticalZones();
     if (kpiConfidence) kpiConfidence.textContent = this.getDataConfidence() + '%';
+    if (kpiEvents) {
+      const uniqueEvents = new Set(this.allReports.map(r => r.eventId).filter(Boolean));
+      kpiEvents.textContent = uniqueEvents.size || 0;
+    }
 
     // Map stats
     const statCritical = document.getElementById('stat-critical');
@@ -1373,15 +1695,28 @@ const fridaAnalytics = {
     if (statMinimal) statMinimal.textContent = this.getCountByDamage('minimal');
     if (statTotal) statTotal.textContent = this.getTotalReports();
 
-    // Priority list
+    // Priority list — solo mostrar si hay al menos 5 reportes
     this.refreshPriorityList();
   },
 
   refreshPriorityList() {
-    const list = document.querySelector('.priority-list');
-    if (!list) return;
+    const list = document.getElementById('priority-list');
+    const container = document.getElementById('priority-zones-container');
+    if (!list || !container) return;
+
+    // Solo mostrar priority zones cuando hay suficientes reportes para que sea significativo
+    if (this.allReports.length < 5) {
+      container.style.display = 'none';
+      return;
+    }
 
     const priorities = this.calculatePriority();
+    if (priorities.length === 0) {
+      container.style.display = 'none';
+      return;
+    }
+
+    container.style.display = 'block';
     list.innerHTML = priorities.map((p, i) => {
       const badgeClass = p.severity === 'critical' ? 'badge-critical' : p.severity === 'moderate' ? 'badge-moderate' : 'badge-low';
       const badgeLabel = p.severity === 'critical' ? 'Critical' : p.severity === 'moderate' ? 'Moderate' : 'Low';
@@ -1389,7 +1724,7 @@ const fridaAnalytics = {
       return `<div class="priority-item">
         <div class="priority-rank">${rank}</div>
         <div class="priority-info">
-          <div class="priority-location">${p.zone}</div>
+          <div class="priority-location">Zone ${p.zone}</div>
           <div class="priority-meta">
             <span>${p.icon} ${p.description}</span>
             <span>${p.reports} reports</span>
@@ -1403,28 +1738,18 @@ const fridaAnalytics = {
   }
 };
 
-// Hook the new report submission to analytics engine
-const _originalSubmit = window.submitReport;
-window.submitReport = function() {
-  // Original behavior
-  if (_originalSubmit) _originalSubmit();
-
-  // Add to analytics
-  const lastReport = state.reports[state.reports.length - 1];
-  if (lastReport) {
-    fridaAnalytics.addReport({
-      id: lastReport.id,
-      infra: lastReport.infra,
-      damage: lastReport.damage,
-      credibility: lastReport.credibility,
-      zone: 'Live Zone ' + (state.reports.length)
-    });
+// Refrescar dashboard cada vez que cambia state.reports
+// (alternativa al wrapper sobre submitReport — más limpio)
+function refreshAnalyticsUI() {
+  if (typeof fridaAnalytics !== 'undefined' && fridaAnalytics.refreshDashboard) {
+    fridaAnalytics.refreshDashboard();
   }
-};
+}
 
-// Initialize on load
+// Llamar refresh inicial cuando cargue la página
 window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => fridaAnalytics.refreshDashboard(), 500);
+  // Pequeño delay para que loadReportsFromDB termine primero
+  setTimeout(() => refreshAnalyticsUI(), 700);
 });
 
 // ===== AI CLASSIFICATION SIMULATION =====
@@ -1460,4 +1785,83 @@ window.handlePhoto = function(input) {
     }, 800);
   }
 };
+
+/*
+ * ====================================================================
+ * CHANGELOG — Sesión 14 mayo 2026 (Lotes A, B, C, D)
+ * ====================================================================
+ * 
+ * LOTE A — Limpieza de datos demo (eliminar contenido falso pre-cargado)
+ * ----------------------------------------------------------------------
+ * A.1: Eliminado const demoReports[] (eran 7 marcadores aleatorios en CDMX)
+ *      y la línea demoReports.forEach() dentro de initMap()
+ * A.2: Limpiado <tbody id="reports-tbody"> — eliminadas 4 filas RPT-001 a 
+ *      RPT-004 con datos inventados
+ * A.3: Stats del Live Map (Critical/Partial/Minimal/Total) y KPIs del 
+ *      Dashboard inicializados en 0 en lugar de 12/28/9/49
+ *      También añadidos IDs id="kpi-confidence" y id="kpi-events" para 
+ *      actualización dinámica
+ *      Event tabs reducidos: ya no hay 3 eventos hardcoded (#47, #46, #31),
+ *      ahora un solo tab dinámico con id="current-event-tab"
+ * A.4: Sección "Priority Zones" envuelta en <div id="priority-zones-
+ *      container" style="display:none;"> — oculta hasta tener algoritmo 
+ *      de priorización dinámico (roadmap v2)
+ * A.5 (descubierto durante limpieza): Reescrito el módulo fridaAnalytics
+ *      que tenía 8 reportes RPT-001..008 hardcoded. Ahora usa state.reports
+ *      (reportes reales). También se eliminó el wrapper sobre submitReport
+ *      que causaba doble llamada. Ahora se llama refreshAnalyticsUI() 
+ *      explícitamente desde submitReport y loadReportsFromDB.
+ * A.6 (bonus): exportCSV() limpiado — ya no inyecta 4 filas RPT hardcoded
+ *      en el CSV de exportación. Solo exporta reportes reales de state.reports.
+ *      También se mejoró el escape de comillas en CSV (RFC 4180).
+ * 
+ * FIX-1 (post-prueba): initMap() ahora dibuja TODOS los reportes existentes 
+ *      cuando se inicializa el mapa. Antes, los reportes cargados desde 
+ *      IndexedDB no aparecían en el mapa porque mainMap aún era null al
+ *      momento del loadReportsFromDB. Ahora cuando el usuario va a la pestaña 
+ *      Live Map, initMap recorre state.reports y dibuja todos los marcadores.
+ *      Además centra el mapa en el último reporte para que el usuario vea algo.
+ * 
+ * FIX-2 (post-prueba): Agregados atributos data-i18n a TODO el Dashboard 
+ *      (KPIs labels, dashboard title/subtitle, export button, priority label,
+ *      reports label, table headers) y a la legend del Live Map (Complete/
+ *      Partial/Minimal). Antes estos textos estaban hardcoded en inglés sin 
+ *      data-i18n, por lo que nunca se traducían. Ahora se traducen 
+ *      automáticamente al cambiar el idioma. El diccionario extraKeys ya 
+ *      tenía las traducciones para los 6 idiomas — solo faltaba conectar 
+ *      el HTML.
+ * 
+ * LOTE B — Eliminar función setLanguage duplicada
+ * ----------------------------------------------------------------------
+ * B.1: Eliminada función setLanguage() vieja en línea ~393 (versión 
+ *      simple sin auto-detect ni persistencia). La versión completa de 
+ *      Mejora #1 (con auto-detección de idioma y persistencia en 
+ *      localStorage) queda como única implementación.
+ * 
+ * LOTE C — Sub-paso 3C: cargar reportes guardados al iniciar (Mejora #3)
+ * ----------------------------------------------------------------------
+ * C.1: Reemplazada inicialización simple "dbOpen().catch(...)" por dos 
+ *      funciones nuevas:
+ *      - loadReportsFromDB(): lee todos los reportes de IndexedDB y los 
+ *        renderiza en tabla, mapa y KPIs
+ *      - initializeStorage(): orquesta apertura de DB + carga inicial 
+ *        con timeout de 300ms para esperar que el DOM esté listo
+ *      Resultado: ahora los reportes sobreviven al refresh de la página.
+ * 
+ * LOTE D — Sub-paso 3D: actualización visual del estado de sync
+ * ----------------------------------------------------------------------
+ * D.1: updateReportSyncStatus() ahora actualiza tanto el atributo 
+ *      data-sync-status como el ÍCONO VISIBLE (✓ verde / ⏳ amarillo / 
+ *      ✗ rojo) en la primera celda de la fila correspondiente.
+ *      Resultado: cuando un reporte pasa de pending a synced, el ícono 
+ *      cambia visualmente en tiempo real.
+ * 
+ * BONUS — Mejora a updateKPIs
+ * ----------------------------------------------------------------------
+ * - Actualiza event tab dinámicamente con el último reporte recibido
+ * - Calcula KPI "Active Events" contando eventIds únicos
+ * - Calcula KPI "Data Confidence" como promedio de credibility
+ * 
+ * ====================================================================
+ */
 </script>
