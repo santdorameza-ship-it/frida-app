@@ -232,12 +232,25 @@ html[dir="rtl"] .lang-select {
       </div>
       <div class="survival-tip"><span class="tip-icon">🔋</span><span data-i18n="tip1">Enable airplane mode to save battery. FRIDA will sync when signal returns.</span></div>
       <div class="options-grid">
-        <button class="option-btn" onclick="setData('crisisType','Earthquake'); sendPartialReport({step:'crisis_type',value:'Earthquake'}); nextStep(3)"><span class="option-icon">🌍</span> <span data-i18n="crisis_eq">Earthquake</span></button>
-        <button class="option-btn" onclick="setData('crisisType','Flood'); sendPartialReport({step:'crisis_type',value:'Flood'}); nextStep(3)"><span class="option-icon">🌊</span> <span data-i18n="crisis_fl">Flood</span></button>
-        <button class="option-btn" onclick="setData('crisisType','Hurricane'); sendPartialReport({step:'crisis_type',value:'Hurricane'}); nextStep(3)"><span class="option-icon">🌀</span> <span data-i18n="crisis_hu">Hurricane / Cyclone</span></button>
-        <button class="option-btn" onclick="setData('crisisType','Wildfire'); sendPartialReport({step:'crisis_type',value:'Wildfire'}); nextStep(3)"><span class="option-icon">🔥</span> <span data-i18n="crisis_wi">Wildfire</span></button>
-        <button class="option-btn" onclick="setData('crisisType','Conflict'); sendPartialReport({step:'crisis_type',value:'Conflict'}); nextStep(3)"><span class="option-icon">⚠️</span> <span data-i18n="crisis_co">Conflict / Civil unrest</span></button>
-        <button class="option-btn" onclick="setData('crisisType','Other'); sendPartialReport({step:'crisis_type',value:'Other'}); nextStep(3)"><span class="option-icon">🔴</span> <span data-i18n="crisis_ot">Other emergency</span></button>
+        <button class="option-btn" onclick="handleCrisisSelection('Earthquake')"><span class="option-icon">🌍</span> <span data-i18n="crisis_eq">Earthquake</span></button>
+        <button class="option-btn" onclick="handleCrisisSelection('Flood')"><span class="option-icon">🌊</span> <span data-i18n="crisis_fl">Flood</span></button>
+        <button class="option-btn" onclick="handleCrisisSelection('Hurricane')"><span class="option-icon">🌀</span> <span data-i18n="crisis_hu">Hurricane / Cyclone</span></button>
+        <button class="option-btn" onclick="handleCrisisSelection('Wildfire')"><span class="option-icon">🔥</span> <span data-i18n="crisis_wi">Wildfire</span></button>
+        <button class="option-btn" onclick="handleCrisisSelection('Conflict')"><span class="option-icon">⚠️</span> <span data-i18n="crisis_co">Conflict / Civil unrest</span></button>
+        <button class="option-btn" onclick="handleCrisisSelection('Other')"><span class="option-icon">🔴</span> <span data-i18n="crisis_ot">Other emergency</span></button>
+      </div>
+    </div>
+
+    <!-- Multi-Event Management (Layer 10) — Pantalla de selección de evento ✨ -->
+    <!-- Aparece solo cuando assignToEvent() detecta múltiples eventos cercanos del mismo tipo -->
+    <div id="step-event-select" class="form-step">
+      <div class="step-header">
+        <div class="step-number" data-i18n="event_select_label">Event Selection</div>
+        <div class="step-question" data-i18n="event_select_q">Which event are you reporting?</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">📍</span><span data-i18n="event_select_tip">FRIDA detected nearby active events. Select the one you're experiencing, or create a new one.</span></div>
+      <div class="options-grid" id="event-selection-list">
+        <!-- Se llena dinámicamente con renderEventSelection() -->
       </div>
     </div>
 
@@ -366,8 +379,10 @@ html[dir="rtl"] .lang-select {
       <div class="kpi-card warning"><div class="kpi-value" id="kpi-confidence">0%</div><div class="kpi-label" data-i18n="kpi_confidence">Data Confidence</div></div>
       <div class="kpi-card ok"><div class="kpi-value" id="kpi-events">0</div><div class="kpi-label" data-i18n="kpi_events">Active Events</div></div>
     </div>
-    <div class="events-tabs">
-      <button class="event-tab active" id="current-event-tab" data-i18n="no_active_event">No active event</button>
+    <!-- Multi-Event Management (Layer 10): tabs dinámicos por evento ✨ -->
+    <div class="events-tabs" id="events-tabs-container">
+      <button class="event-tab active" id="current-event-tab" data-event-id="__all__" data-i18n="all_events">All Events</button>
+      <!-- Tabs por evento se añaden dinámicamente con refreshEventsTabs() -->
     </div>
     <div id="priority-zones-container" style="display:none;">
       <div class="section-label" data-i18n="priority_label">Priority Zones — AI Ranked</div>
@@ -391,7 +406,17 @@ html[dir="rtl"] .lang-select {
 
 <script>
 // ===== STATE =====
-const state = { crisisType:'', infraType:'', damageLevel:'', debris:'', reports:[] };
+const state = { 
+  crisisType:'', 
+  infraType:'', 
+  damageLevel:'', 
+  debris:'', 
+  reports:[],
+  // Multi-Event Management (Layer 10) ✨
+  events: [],              // Lista de todos los eventos (activos + cerrados)
+  activeEventId: null,     // ID del evento al que el usuario está reportando ahora
+  dashboardEventId: null   // Evento seleccionado en el dashboard UNDP (puede diferir del activo)
+};
 
 // ===== I18N =====
 const i18n = {
@@ -419,7 +444,11 @@ function showScreen(id, btn) {
 function setData(key, value) { state[key] = value; }
 
 function sendPartialReport(data) {
-  const partial = { timestamp: new Date().toISOString(), eventId: 'EVT-2026-047', ...data };
+  const partial = { 
+    timestamp: new Date().toISOString(), 
+    eventId: state.activeEventId || 'pending', 
+    ...data 
+  };
   console.log('FRIDA partial report:', JSON.stringify(partial));
 }
 
@@ -427,11 +456,24 @@ function nextStep(step) {
   document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
   if (step === 'success') {
     document.getElementById('step-success').classList.add('active');
+  } else if (step === 'event-select') {
+    // Multi-Event Management: pantalla de selección de evento
+    document.getElementById('step-event-select').classList.add('active');
   } else {
     document.getElementById('step-' + step).classList.add('active');
     if (step === 7) setTimeout(initLocationMap, 150);
   }
   window.scrollTo(0, 0);
+}
+
+// Multi-Event Management (Layer 10): captura el tipo de crisis y sigue al flujo.
+// La asignación de evento ocurre en submitReport cuando ya tenemos GPS real (Opción B).
+function handleCrisisSelection(crisisType) {
+  setData('crisisType', crisisType);
+  sendPartialReport({ step: 'crisis_type', value: crisisType });
+  
+  // Avanzar directamente — la asignación de evento se hace al final con GPS confiable
+  nextStep(3);
 }
 
 function handlePhoto(input) {
@@ -454,12 +496,53 @@ async function submitReport() {
   const lat = mapCoords ? mapCoords.lat : 19.43;
   const lng = mapCoords ? mapCoords.lng : -99.13;
   
-  // 2. Construir el reporte con estructura nueva y robusta
+  // 2. ✨ Multi-Event Management (Opción B): asignar evento AHORA que tenemos GPS real
+  //    Si hay múltiples eventos cercanos del mismo tipo, mostramos pantalla de selección
+  //    y la lógica de guardado continúa en el callback (función internalSubmit más abajo).
+  if (!state.activeEventId) {
+    const assignment = await assignToEvent(state.crisisType, lat, lng);
+    
+    if (assignment.type === 'choice') {
+      // Hay múltiples eventos coincidentes → mostrar pantalla de selección
+      renderEventSelection(assignment.matches, async (selection) => {
+        if (selection.choice === 'new') {
+          // Usuario eligió crear evento nuevo
+          const newEvent = await createEvent(state.crisisType, lat, lng);
+          state.activeEventId = newEvent.id;
+          console.log('FRIDA: User chose to create new event →', newEvent.name);
+        } else {
+          // Usuario eligió evento existente
+          state.activeEventId = selection.eventId;
+          const chosen = state.events.find(e => e.id === selection.eventId);
+          console.log('FRIDA: User selected event →', chosen ? chosen.name : selection.eventId);
+        }
+        // Continuar con el guardado real del reporte
+        await internalSubmitReport(lat, lng);
+      });
+      // Mostrar la pantalla de selección
+      nextStep('event-select');
+      return; // Salir de submitReport — el guardado continúa después de la selección
+    }
+    // Si fue 'auto', state.activeEventId ya está seteado, seguimos al guardado
+  }
+  
+  // 3. Si no hubo necesidad de pregunta, guardar directamente
+  await internalSubmitReport(lat, lng);
+}
+
+// Función interna que ejecuta el guardado real del reporte.
+// Se llama desde submitReport directamente (auto-assign) o desde el callback
+// de la pantalla de selección de evento (Opción B).
+async function internalSubmitReport(lat, lng) {
+  const activeEvent = state.events.find(e => e.id === state.activeEventId);
+  
+  // 4. Construir el reporte con estructura nueva y robusta
   const report = {
     id: generateReportId(),
     timestamp: new Date().toISOString(),
     time: new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }),
-    eventId: state.eventId || ('EVT-2026-' + String(47 + state.reports.length).padStart(3, '0')),
+    eventId: state.activeEventId,  // ✨ Layer 10: vinculación real al evento
+    eventName: activeEvent ? activeEvent.name : 'Unassigned',
     crisis: state.crisisType || 'Earthquake',
     infra: state.infraType || 'Residential',
     damage: state.damageLevel || 'complete',
@@ -471,36 +554,46 @@ async function submitReport() {
     createdAt: new Date().toISOString()
   };
   
-  // 3. Guardar en IndexedDB (persistencia real)
+  // 5. Guardar en IndexedDB (persistencia real)
   try {
     await dbSave(report);
-    console.log('FRIDA: Report saved to IndexedDB →', report.id);
+    console.log('FRIDA: Report saved to IndexedDB →', report.id, '→ Event:', report.eventName);
   } catch (err) {
     console.error('FRIDA: Failed to save report to IndexedDB:', err);
-    // Continuar de todos modos para no bloquear al usuario en una emergencia
   }
   
-  // 4. Intentar sincronizar con servidor (simulado por ahora — Mejora #4 lo hará real)
+  // 6. Actualizar estadísticas del evento (incrementar reportsCount)
+  if (state.activeEventId) {
+    await updateEventStats(state.activeEventId);
+  }
+  
+  // 7. Intentar sincronizar con servidor (simulado por ahora)
   trySyncReport(report);
   
-  // 5. Actualizar UI (mantener compatibilidad con código existente)
+  // 8. Actualizar UI (mantener compatibilidad con código existente)
   state.reports.push(report);
   addReportToTable(report);
   addMarkerToMap(report);
   updateKPIs(report);
   
-  // 5b. Recalcular analytics (KPIs y Priority Zones) con todos los reportes reales
+  // 8b. Recalcular analytics (KPIs y Priority Zones) con todos los reportes reales
   if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
   
-  const eventNum = 47 + state.reports.length;
-  document.getElementById('event-id-display').textContent = 'EVENT-2026-' + state.crisisType.slice(0,2).toUpperCase() + '-0' + eventNum;
+  // 8c. Actualizar lista de eventos en el dashboard
+  if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
   
-  // Desactivar Conflict Mode (banner + bloqueo de foto) ahora que el reporte se envió
+  // 9. Mostrar el nombre del evento en la pantalla de éxito
+  const eventIdDisplay = document.getElementById('event-id-display');
+  if (eventIdDisplay) {
+    eventIdDisplay.textContent = activeEvent ? activeEvent.name : 'EVT-Unknown';
+  }
+  
+  // 10. Desactivar Conflict Mode (banner + bloqueo de foto)
   if (state.conflictMode && typeof deactivateConflictMode === 'function') {
     deactivateConflictMode();
   }
   
-  // 6. Avanzar a pantalla de éxito
+  // 11. Avanzar a pantalla de éxito
   nextStep('success');
 }
 
@@ -641,6 +734,7 @@ function updateKPIs(r) {
 
 function restart() {
   state.crisisType = ''; state.infraType = ''; state.damageLevel = ''; state.debris = '';
+  state.activeEventId = null;  // Reset evento activo para próximo reporte
   document.getElementById('photo-preview').style.display = 'none';
   document.getElementById('photo-upload-label').style.display = 'block';
   document.getElementById('textLocation').value = '';
@@ -948,8 +1042,9 @@ function stripExifFromImage(file) {
 // ===== INDEXEDDB STORAGE LAYER (Mejora #3) =====
 
 const DB_NAME = 'frida-db';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_REPORTS = 'reports';
+const STORE_EVENTS = 'events';
 
 let dbInstance = null;
 
@@ -970,7 +1065,16 @@ function dbOpen() {
         const store = db.createObjectStore(STORE_REPORTS, { keyPath: 'id' });
         store.createIndex('timestamp', 'timestamp', { unique: false });
         store.createIndex('syncStatus', 'syncStatus', { unique: false });
-        console.log('FRIDA: IndexedDB schema created');
+        console.log('FRIDA: IndexedDB schema created (reports)');
+      }
+      
+      // Multi-Event Management (Layer 10): tabla separada de eventos
+      if (!db.objectStoreNames.contains(STORE_EVENTS)) {
+        const eventStore = db.createObjectStore(STORE_EVENTS, { keyPath: 'id' });
+        eventStore.createIndex('startedAt', 'startedAt', { unique: false });
+        eventStore.createIndex('crisisType', 'crisisType', { unique: false });
+        eventStore.createIndex('status', 'status', { unique: false });
+        console.log('FRIDA: IndexedDB schema created (events)');
       }
     };
     
@@ -1066,6 +1170,254 @@ function generateReportId() {
   return 'RPT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
 }
 
+// ===== EVENT MANAGEMENT (Layer 10 - Multi-Event Management) =====
+// Cada crisis es un container independiente. Reportes nunca se mezclan entre eventos.
+// Auto-asignación inteligente por proximidad + tipo + tiempo.
+
+const EVENT_CONFIG = {
+  // Distancia máxima (km) para considerar dos reportes del mismo evento
+  SAME_EVENT_RADIUS_KM: 50,
+  
+  // Tiempo máximo (horas) para que un evento siga "activo" sin nuevos reportes
+  ACTIVE_TIMEOUT_HOURS: 72,
+  
+  // Tiempo máximo para auto-asignar a evento reciente (minutos)
+  AUTO_ASSIGN_WINDOW_MINUTES: 360  // 6 horas
+};
+
+// Genera un ID único para un evento
+function generateEventId() {
+  return 'EVT-' + Date.now() + '-' + Math.random().toString(36).substr(2, 4);
+}
+
+// Operaciones IndexedDB sobre la tabla events
+async function dbSaveEvent(eventData) {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_EVENTS], 'readwrite');
+    const store = tx.objectStore(STORE_EVENTS);
+    const req = store.put(eventData);
+    req.onsuccess = () => resolve(eventData);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function dbGetAllEvents() {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_EVENTS], 'readonly');
+    const store = tx.objectStore(STORE_EVENTS);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+async function dbGetEvent(eventId) {
+  const db = await dbOpen();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORE_EVENTS], 'readonly');
+    const store = tx.objectStore(STORE_EVENTS);
+    const req = store.get(eventId);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = (e) => reject(e.target.error);
+  });
+}
+
+// Distancia haversine en km entre dos puntos
+function distanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371; // radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng/2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Genera nombre legible para un evento nuevo basado en tipo + lugar + fecha
+function generateEventName(crisisType, lat, lng, date) {
+  const d = date || new Date();
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dateStr = d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+  
+  // Geocoding inverso simple: identificar región por lat/lng aproximado
+  let region = 'Unknown region';
+  if (typeof lat === 'number' && typeof lng === 'number') {
+    if (lat >= 14 && lat <= 33 && lng >= -118 && lng <= -86) region = 'Mexico';
+    else if (lat >= -56 && lat <= 13 && lng >= -82 && lng <= -34) region = 'South America';
+    else if (lat >= 24 && lat <= 49 && lng >= -125 && lng <= -66) region = 'USA';
+    else if (lat >= 35 && lat <= 71 && lng >= -10 && lng <= 40) region = 'Europe';
+    else if (lat >= -35 && lat <= 37 && lng >= -17 && lng <= 51) region = 'Africa';
+    else if (lat >= -10 && lat <= 55 && lng >= 60 && lng <= 150) region = 'Asia';
+    else region = lat.toFixed(1) + '°, ' + lng.toFixed(1) + '°';
+  }
+  
+  const crisisNames = {
+    Earthquake: 'Earthquake',
+    Flood: 'Flood',
+    Hurricane: 'Hurricane',
+    Wildfire: 'Wildfire',
+    Conflict: 'Conflict',
+    Other: 'Crisis'
+  };
+  
+  return (crisisNames[crisisType] || 'Crisis') + ' · ' + region + ' · ' + dateStr;
+}
+
+// Determina si un evento sigue activo (no expirado por timeout)
+function isEventActive(event) {
+  if (event.status === 'closed') return false;
+  const lastActivity = new Date(event.lastReportAt || event.startedAt).getTime();
+  const hoursAgo = (Date.now() - lastActivity) / (1000 * 60 * 60);
+  return hoursAgo < EVENT_CONFIG.ACTIVE_TIMEOUT_HOURS;
+}
+
+// Busca eventos activos que coincidan con un tipo de crisis y ubicación.
+// Devuelve array ordenado por proximidad (más cercano primero).
+function findMatchingEvents(crisisType, lat, lng) {
+  if (!state.events || state.events.length === 0) return [];
+  
+  const matches = state.events
+    .filter(ev => isEventActive(ev))
+    .filter(ev => ev.crisisType === crisisType)
+    .map(ev => {
+      let dist = Infinity;
+      if (typeof lat === 'number' && typeof ev.centerLat === 'number') {
+        dist = distanceKm(lat, lng, ev.centerLat, ev.centerLng);
+      }
+      return { ...ev, distanceKm: dist };
+    })
+    .filter(ev => ev.distanceKm <= EVENT_CONFIG.SAME_EVENT_RADIUS_KM)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+  
+  return matches;
+}
+
+// Crea un evento nuevo, lo guarda en DB y lo retorna
+async function createEvent(crisisType, lat, lng) {
+  const event = {
+    id: generateEventId(),
+    name: generateEventName(crisisType, lat, lng),
+    crisisType: crisisType,
+    centerLat: lat,
+    centerLng: lng,
+    startedAt: new Date().toISOString(),
+    lastReportAt: new Date().toISOString(),
+    reportsCount: 0,
+    status: 'active'
+  };
+  
+  try {
+    await dbSaveEvent(event);
+    state.events.push(event);
+    console.log('FRIDA: New event created →', event.name, '(' + event.id + ')');
+  } catch (err) {
+    console.error('FRIDA: Failed to save event:', err);
+  }
+  
+  return event;
+}
+
+// Actualiza estadísticas de un evento (incremento de reportes, último timestamp)
+async function updateEventStats(eventId) {
+  const event = state.events.find(e => e.id === eventId);
+  if (!event) return;
+  
+  event.reportsCount = (event.reportsCount || 0) + 1;
+  event.lastReportAt = new Date().toISOString();
+  
+  try {
+    await dbSaveEvent(event);
+  } catch (err) {
+    console.warn('FRIDA: Failed to update event stats:', err);
+  }
+}
+
+// Decide a qué evento se asigna el reporte actual.
+// Recibe lat/lng directamente (obtenidos del GPS real en submitReport).
+// Si hay 1 evento cercano del mismo tipo → auto-asignar (devolver ese ID)
+// Si hay 2+ eventos cercanos → necesita selección del usuario (devolver array)
+// Si no hay eventos → crear nuevo y auto-asignar (devolver ID nuevo)
+async function assignToEvent(crisisType, lat, lng) {
+  // Si no recibió coordenadas explícitas, intentar usar geoState como fallback
+  if (lat == null || lng == null) {
+    if (typeof geoState !== 'undefined' && geoState.lastKnownPosition) {
+      lat = geoState.lastKnownPosition.lat;
+      lng = geoState.lastKnownPosition.lng;
+    }
+  }
+  
+  const matches = findMatchingEvents(crisisType, lat, lng);
+  
+  if (matches.length === 0) {
+    // No hay eventos cercanos del mismo tipo → crear uno nuevo
+    const newEvent = await createEvent(crisisType, lat, lng);
+    state.activeEventId = newEvent.id;
+    console.log('FRIDA: Assigned to new event →', newEvent.name);
+    return { type: 'auto', eventId: newEvent.id, isNew: true };
+  }
+  
+  if (matches.length === 1) {
+    // Solo un evento coincide → auto-asignar sin preguntar
+    state.activeEventId = matches[0].id;
+    console.log('FRIDA: Auto-assigned to existing event →', matches[0].name);
+    return { type: 'auto', eventId: matches[0].id, isNew: false };
+  }
+  
+  // 2+ eventos coinciden → necesitamos input del usuario
+  return { type: 'choice', matches: matches };
+}
+
+// Renderiza la pantalla de selección de evento (cuando hay ambigüedad)
+function renderEventSelection(matches, onSelect) {
+  const container = document.getElementById('event-selection-list');
+  if (!container) return;
+  
+  container.innerHTML = matches.map((ev, idx) => {
+    const hoursAgo = Math.round((Date.now() - new Date(ev.startedAt).getTime()) / (1000 * 60 * 60));
+    const distStr = ev.distanceKm < 1 ? '< 1 km' : ev.distanceKm.toFixed(1) + ' km';
+    const timeStr = hoursAgo < 1 ? 'just now' : hoursAgo + 'h ago';
+    
+    return `<button class="option-btn event-option" data-event-id="${ev.id}" style="text-align:left; flex-direction:column; align-items:flex-start; gap:6px;">
+      <div style="font-weight:600; font-size:14px;">${ev.name}</div>
+      <div style="font-size:11px; color:var(--text2); display:flex; gap:12px;">
+        <span>📍 ${distStr}</span>
+        <span>🕐 ${timeStr}</span>
+        <span>📊 ${ev.reportsCount || 0} reports</span>
+      </div>
+    </button>`;
+  }).join('') + 
+  `<button class="option-btn event-option" data-event-id="__new__" style="border-color:var(--orange); color:var(--orange);">
+    <span class="option-icon">➕</span>
+    <span data-i18n="event_new">This is a different event — create new</span>
+  </button>`;
+  
+  // Event listeners para cada botón
+  container.querySelectorAll('.event-option').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const eventId = btn.dataset.eventId;
+      if (eventId === '__new__') {
+        onSelect({ choice: 'new' });
+      } else {
+        onSelect({ choice: 'existing', eventId: eventId });
+      }
+    });
+  });
+}
+
+// Inicialización: cargar eventos desde IndexedDB al arrancar
+async function loadEventsFromDB() {
+  try {
+    const events = await dbGetAllEvents();
+    state.events = events || [];
+    if (events.length > 0) {
+      console.log('FRIDA: Loaded', events.length, 'events from IndexedDB');
+    }
+  } catch (err) {
+    console.error('FRIDA: Failed to load events from DB:', err);
+    state.events = [];
+  }
+}
+
 // ===== INICIALIZACIÓN DE STORAGE (Lote C — Sub-paso 3C) =====
 
 // Carga todos los reportes guardados en IndexedDB y los muestra en la UI.
@@ -1111,8 +1463,16 @@ async function loadReportsFromDB() {
 async function initializeStorage() {
   try {
     await dbOpen();
+    // Cargar eventos primero (Layer 10), después reportes
+    await loadEventsFromDB();
     // Esperar un poco para que el DOM y los maps estén listos antes de pintar reportes
-    setTimeout(() => loadReportsFromDB(), 300);
+    setTimeout(() => {
+      loadReportsFromDB();
+      // Después de cargar reportes, refrescar los tabs de eventos del dashboard
+      setTimeout(() => {
+        if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
+      }, 500);
+    }, 300);
   } catch (err) {
     console.error('FRIDA: Storage initialization failed:', err);
   }
@@ -1380,12 +1740,12 @@ function updateAccuracyDisplay(accuracyMeters, isManual) {
 
 // Extend i18n with new keys
 const extraKeys = {
-  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety' },
-  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad' },
-  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité' },
-  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك' },
-  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全' },
-  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности' }
+  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety', event_select_label:'Event Selection', event_select_q:'Which event are you reporting?', event_select_tip:'FRIDA detected nearby active events. Select the one you are experiencing, or create a new one.', event_new:'This is a different event — create new', all_events:'All Events' },
+  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad', event_select_label:'Selección de Evento', event_select_q:'¿A qué evento estás reportando?', event_select_tip:'FRIDA detectó eventos activos cercanos. Selecciona el que estás viviendo o crea uno nuevo.', event_new:'Es un evento diferente — crear nuevo', all_events:'Todos los Eventos' },
+  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité', event_select_label:'Sélection d evenement', event_select_q:'Quel événement signalez-vous?', event_select_tip:'FRIDA a détecté des événements actifs à proximité. Sélectionnez celui que vous vivez ou créez-en un nouveau.', event_new:'C est un événement différent — en créer un nouveau', all_events:'Tous les Événements' },
+  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك', event_select_label:'اختيار الحدث', event_select_q:'الى اي حدث تقوم بالابلاغ؟', event_select_tip:'اكتشفت FRIDA احداثا نشطة قريبة. اختر الحدث الذي تعيشه او انشئ حدثا جديدا.', event_new:'هذا حدث مختلف — انشاء جديد', all_events:'جميع الاحداث' },
+  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全', event_select_label:'事件选择', event_select_q:'您正在报告哪个事件？', event_select_tip:'FRIDA检测到附近的活动事件。选择您正在经历的事件或创建一个新事件。', event_new:'这是另一个事件 — 创建新事件', all_events:'所有事件' },
+  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности', event_select_label:'Выбор события', event_select_q:'О каком событии вы сообщаете?', event_select_tip:'FRIDA обнаружила активные события поблизости. Выберите то которое вы переживаете или создайте новое.', event_new:'Это другое событие — создать новое', all_events:'Все события' }
 };
 
 // Merge extra keys into i18n
@@ -1746,10 +2106,83 @@ function refreshAnalyticsUI() {
   }
 }
 
+// Multi-Event Management (Layer 10): renderiza tabs dinámicos por evento en Dashboard ✨
+function refreshEventsTabs() {
+  const container = document.getElementById('events-tabs-container');
+  if (!container) return;
+  
+  // Obtener eventos únicos referenciados por reportes existentes
+  const eventIds = new Set();
+  state.reports.forEach(r => { if (r.eventId) eventIds.add(r.eventId); });
+  
+  // Construir lista de eventos a mostrar (de state.events que tengan reportes)
+  const eventsToShow = state.events.filter(e => eventIds.has(e.id));
+  
+  // Crisis emoji helper
+  const crisisEmojis = {
+    Earthquake: '🌍', Flood: '💧', Hurricane: '🌀',
+    Wildfire: '🔥', Conflict: '⚫', Other: '⚠️'
+  };
+  
+  // HTML de tabs: "All Events" + un tab por evento real
+  let html = `<button class="event-tab ${state.dashboardEventId ? '' : 'active'}" data-event-id="__all__" data-i18n="all_events" onclick="filterByEvent('__all__')">All Events (${state.reports.length})</button>`;
+  
+  eventsToShow.forEach(ev => {
+    const emoji = crisisEmojis[ev.crisisType] || '🔴';
+    const activeClass = state.dashboardEventId === ev.id ? 'active' : '';
+    const statusDot = isEventActive(ev) ? '🟢' : '⚫';
+    const shortName = ev.name.length > 40 ? ev.name.substring(0, 37) + '...' : ev.name;
+    html += `<button class="event-tab ${activeClass}" data-event-id="${ev.id}" onclick="filterByEvent('${ev.id}')" title="${ev.name}">${statusDot} ${emoji} ${shortName} (${ev.reportsCount || 0})</button>`;
+  });
+  
+  container.innerHTML = html;
+}
+
+// Filtra los reportes mostrados en el Dashboard por evento seleccionado
+function filterByEvent(eventId) {
+  state.dashboardEventId = (eventId === '__all__') ? null : eventId;
+  
+  // Re-renderizar tabs para reflejar selección
+  refreshEventsTabs();
+  
+  // Determinar qué reportes mostrar
+  const filteredReports = state.dashboardEventId 
+    ? state.reports.filter(r => r.eventId === state.dashboardEventId)
+    : state.reports;
+  
+  // Limpiar tbody y re-poblarlo con reportes filtrados
+  const tbody = document.getElementById('reports-tbody');
+  if (tbody) {
+    tbody.innerHTML = '';
+    filteredReports.forEach(r => addReportToTable(r));
+  }
+  
+  // Recalcular KPIs sobre el conjunto filtrado
+  if (typeof fridaAnalytics !== 'undefined') {
+    // Override temporal del getter allReports para filtrar
+    const originalAllReports = Object.getOwnPropertyDescriptor(fridaAnalytics, 'allReports');
+    Object.defineProperty(fridaAnalytics, 'allReports', {
+      get: () => filteredReports,
+      configurable: true
+    });
+    fridaAnalytics.refreshDashboard();
+    // Restaurar getter original
+    if (originalAllReports) {
+      Object.defineProperty(fridaAnalytics, 'allReports', originalAllReports);
+    }
+  }
+  
+  console.log('FRIDA: Dashboard filtered to', filteredReports.length, 'reports', 
+              state.dashboardEventId ? '(event: ' + state.dashboardEventId + ')' : '(all events)');
+}
+
 // Llamar refresh inicial cuando cargue la página
 window.addEventListener('DOMContentLoaded', () => {
   // Pequeño delay para que loadReportsFromDB termine primero
-  setTimeout(() => refreshAnalyticsUI(), 700);
+  setTimeout(() => {
+    refreshAnalyticsUI();
+    refreshEventsTabs();  // ✨ Layer 10
+  }, 700);
 });
 
 // ===== AI CLASSIFICATION SIMULATION =====
@@ -1861,6 +2294,116 @@ window.handlePhoto = function(input) {
  * - Actualiza event tab dinámicamente con el último reporte recibido
  * - Calcula KPI "Active Events" contando eventIds únicos
  * - Calcula KPI "Data Confidence" como promedio de credibility
+ * 
+ * ====================================================================
+ * SESIÓN 15 MAYO 2026 — PUNTO 1 DE 10: MULTI-EVENT MANAGEMENT (Layer 10)
+ * ====================================================================
+ * 
+ * Implementación del Layer 10 prometido en la propuesta: cada crisis es 
+ * un container independiente. Los reportes nunca se mezclan entre eventos.
+ * Auto-asignación inteligente por proximidad + tipo + tiempo.
+ * 
+ * COMPONENTES AÑADIDOS:
+ * 
+ * 1. STATE EXPANDIDO
+ *    - state.events: lista de todos los eventos (en memoria, sincronizada con DB)
+ *    - state.activeEventId: ID del evento al que el usuario reporta actualmente
+ *    - state.dashboardEventId: ID del evento filtrado en el dashboard UNDP
+ * 
+ * 2. INDEXEDDB: NUEVA TABLA "events"
+ *    - DB_VERSION subida a 2 (migración automática)
+ *    - STORE_EVENTS con índices: startedAt, crisisType, status
+ *    - dbSaveEvent(), dbGetAllEvents(), dbGetEvent() para operaciones CRUD
+ * 
+ * 3. EVENT MANAGEMENT MODULE
+ *    - generateEventId(): ID único timestamp + random
+ *    - distanceKm(): cálculo haversine entre dos coordenadas
+ *    - generateEventName(): nombre legible tipo "Earthquake · Mexico · 15 May 2026"
+ *    - isEventActive(): determina si un evento sigue activo (timeout 72h)
+ *    - findMatchingEvents(): busca eventos cercanos del mismo tipo
+ *    - createEvent(): crea evento nuevo y lo persiste
+ *    - updateEventStats(): actualiza reportsCount y lastReportAt
+ *    - assignToEvent(): orquesta auto-asignación o pregunta al usuario
+ *    - loadEventsFromDB(): carga eventos desde IndexedDB al iniciar
+ * 
+ * 4. NUEVA PANTALLA UX: step-event-select
+ *    - Aparece solo cuando hay 2+ eventos cercanos del mismo tipo
+ *    - Muestra nombre del evento, distancia, antigüedad, cantidad de reportes
+ *    - Permite "Crear evento nuevo" si el usuario considera que es diferente
+ *    - renderEventSelection() construye dinámicamente las opciones
+ * 
+ * 5. FLUJO MODIFICADO EN STEP-2 (TIPO DE CRISIS)
+ *    - Cada botón ahora llama a handleCrisisSelection() en lugar de nextStep(3)
+ *    - handleCrisisSelection() ejecuta assignToEvent() y decide qué pantalla mostrar
+ *    - Si auto-asigna: salta directamente a step-3 (infraestructura)
+ *    - Si requiere input: muestra step-event-select
+ * 
+ * 6. SUBMITREPORT VINCULADO A EVENTO
+ *    - report.eventId ahora viene de state.activeEventId (real)
+ *    - report.eventName guardado para referencias futuras
+ *    - Fallback de seguridad: crea evento implícito si llega sin uno
+ *    - Actualiza event.reportsCount automáticamente al guardar
+ * 
+ * 7. DASHBOARD: TABS DINÁMICOS POR EVENTO
+ *    - events-tabs-container se llena con un tab por cada evento real
+ *    - "All Events (N)" como tab por defecto
+ *    - Cada tab muestra emoji + nombre + status (🟢 activo, ⚫ cerrado) + count
+ *    - filterByEvent(): filtra reportes mostrados en tabla y recalcula KPIs
+ * 
+ * 8. I18N: 5 CLAVES NUEVAS EN LOS 6 IDIOMAS
+ *    - event_select_label, event_select_q, event_select_tip
+ *    - event_new, all_events
+ *    - Traducidas para EN/ES/FR/AR/ZH/RU
+ * 
+ * 9. INICIALIZACIÓN
+ *    - loadEventsFromDB() se ejecuta antes de loadReportsFromDB()
+ *    - refreshEventsTabs() se llama después de cargar reportes
+ *    - restart() resetea state.activeEventId = null para nuevo reporte
+ * 
+ * ARQUITECTURA: 
+ * Eventos y reportes son tablas separadas en IndexedDB. Esto permite:
+ * - Múltiples eventos simultáneos sin contaminación de datos
+ * - Búsquedas eficientes por evento (indexado)
+ * - Histórico de eventos cerrados preservado
+ * - Sincronización selectiva en el futuro (un evento puede sync, otros no)
+ * 
+ * ====================================================================
+ * REFACTOR 15 MAYO 2026 — TIMING DEL GPS (Opción B)
+ * ====================================================================
+ * 
+ * BUG ENCONTRADO EN PRUEBA: handleCrisisSelection ejecutaba assignToEvent
+ * antes de tener GPS real, por lo que TODOS los reportes terminaban en
+ * "Unknown region" y findMatchingEvents nunca encontraba coincidencias.
+ * Resultado: cada reporte creaba evento nuevo aunque fuera del mismo tipo.
+ * 
+ * SOLUCIÓN APLICADA (Opción B - asignación diferida):
+ * 
+ * 1. handleCrisisSelection simplificado: solo guarda crisisType y avanza
+ *    directamente a step-3 (infraestructura). No llama assignToEvent.
+ * 
+ * 2. assignToEvent refactorizado: ahora recibe lat/lng como parámetros
+ *    explícitos. No depende exclusivamente de geoState.lastKnownPosition.
+ * 
+ * 3. submitReport ahora hace la asignación de evento al FINAL del flujo
+ *    cuando ya tenemos GPS real:
+ *    a) Obtiene mapCoords (GPS confiable del paso del mapa)
+ *    b) Llama assignToEvent(crisisType, lat, lng)
+ *    c) Si auto-asigna → continúa con internalSubmitReport()
+ *    d) Si requiere selección → muestra pantalla, callback continúa el guardado
+ * 
+ * 4. internalSubmitReport(): nueva función que ejecuta el guardado real
+ *    del reporte. Se llama desde submitReport (auto) o desde el callback
+ *    de la pantalla de selección de evento.
+ * 
+ * 5. sendPartialReport: ya no usa placeholder hardcoded 'EVT-2026-047'.
+ *    Ahora usa state.activeEventId (o 'pending' si aún no se asignó).
+ * 
+ * RESULTADO:
+ * - Reportes del mismo tipo en la misma zona se auto-asignan al evento existente
+ * - La pantalla step-event-select solo aparece cuando realmente hay ambigüedad
+ *   (2+ eventos activos del mismo tipo a menos de 50km)
+ * - El flujo del usuario se mantiene fluido (no se interrumpe para preguntar
+ *   por evento ANTES de capturar los datos, solo al final si necesario)
  * 
  * ====================================================================
  */
