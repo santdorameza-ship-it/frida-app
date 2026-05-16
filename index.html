@@ -1778,12 +1778,9 @@ async function supabaseSaveReport(report) {
       return { success: false, error: error.message };
     }
     
-    // Si tiene coords, actualizar geom para PostGIS
-    if (report.coords && report.coords.lat && report.coords.lng) {
-      await supabaseClient.rpc('exec_sql', {
-        sql: `UPDATE ${SUPABASE_CONFIG.tableReports} SET geom = ST_SetSRID(ST_MakePoint(${report.coords.lng}, ${report.coords.lat}), 4326)::geography WHERE id = '${report.id}'`
-      }).then(() => {}).catch(() => {});  // best effort, no fail si no existe la RPC
-    }
+    // Nota: el campo geom (PostGIS GEOGRAPHY) se puede actualizar con un trigger 
+    // del lado de PostgreSQL si se necesitan queries espaciales. Para el MVP, 
+    // lat/lng como columnas dobles son suficientes.
     
     console.log('FRIDA: ☁️ Report synced to Supabase →', report.id);
     return { success: true, data: data };
