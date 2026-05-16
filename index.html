@@ -452,6 +452,14 @@ html[dir="rtl"] .lang-select {
       <!-- Se llena dinámicamente con updateGisLegend() -->
     </div>
     
+    <!-- Priority Ranking (Punto 5 / Layer 8): Cards ricas con breakdown ✨ -->
+    <div id="priority-zones-rich-section" style="display:none; margin-bottom:24px;">
+      <div class="section-label" data-i18n="priority_rich_label">🧠 Priority Zones — Explainable AI</div>
+      <div id="priority-zones-rich-list">
+        <!-- Se llena dinámicamente con renderPriorityZonesDashboard() -->
+      </div>
+    </div>
+    
     <div id="priority-zones-container" style="display:none;">
       <div class="section-label" data-i18n="priority_label">Priority Zones — AI Ranked</div>
       <div class="priority-list" id="priority-list">
@@ -677,6 +685,9 @@ async function internalSubmitReport(lat, lng) {
   
   // 8d. ✨ Density Triangulation: recalcular clusters con el nuevo reporte
   if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
+  
+  // 8e. ✨ Punto 5: Priority Ranking con el cluster actualizado
+  if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
   
   // 9. Mostrar el nombre del evento en la pantalla de éxito
   const eventIdDisplay = document.getElementById('event-id-display');
@@ -977,6 +988,8 @@ function initMap() {
         if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
         // ✨ Punto 4: dibujar también las capas GIS de encuestas
         if (typeof refreshGisLayers === 'function') refreshGisLayers();
+        // ✨ Punto 5: emojis de prioridad sobre clusters
+        if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
       }, 100);
     }
   } catch(e) { console.error('Map error:', e); }
@@ -2250,6 +2263,11 @@ async function submitSurvey() {
     refreshGisLayers();
   }
   
+  // ✨ Punto 5: la nueva encuesta puede cambiar el priority score de zonas cercanas
+  if (typeof refreshPriorityZones === 'function') {
+    refreshPriorityZones();
+  }
+  
   // Limpiar state.currentSurvey para próximo reporte
   state.currentSurvey = { roads: null, services: [], help: null, injuries: null };
   state.pendingSurveyReportId = null;
@@ -2447,6 +2465,340 @@ function updateGisLegend() {
     </div>`;
 }
 
+// ===== PRIORITY RANKING ENGINE (Punto 5 / Layer 8 parcial) ✨ =====
+// Algoritmo determinístico explicable que rankea clusters de daño por prioridad
+// humanitaria. Combina 5 factores con pesos calibrados para crisis response.
+// Cada zona obtiene un score 0-100 y una recomendación accionable.
+
+const PRIORITY_CONFIG = {
+  // Pesos de cada factor (deben sumar 100)
+  WEIGHT_DAMAGE: 30,       // Severidad ponderada del daño
+  WEIGHT_DENSITY: 20,      // Cantidad de reportes en la zona
+  WEIGHT_INJURIES: 25,     // Heridos reportados en encuestas GIS
+  WEIGHT_ACCESS: 15,       // Carreteras bloqueadas + ayuda no llegada
+  WEIGHT_CREDIBILITY: 10,  // Credibility promedio post-validación temporal
+  
+  // Umbrales de categorización del score final (0-100)
+  THRESHOLD_CRITICAL: 70,
+  THRESHOLD_HIGH: 50,
+  THRESHOLD_MEDIUM: 30,
+  
+  // Radio para buscar encuestas GIS asociadas a un cluster (metros)
+  SURVEY_LOOKUP_RADIUS_M: 600
+};
+
+// Busca encuestas GIS cercanas a un cluster (para enriquecer el score)
+function findSurveysNearCluster(cluster) {
+  if (!state.surveys || state.surveys.length === 0) return [];
+  
+  return state.surveys.filter(survey => {
+    if (!survey.coords) return false;
+    const distM = distanceKm(cluster.centerLat, cluster.centerLng, 
+                              survey.coords.lat, survey.coords.lng) * 1000;
+    return distM <= PRIORITY_CONFIG.SURVEY_LOOKUP_RADIUS_M;
+  });
+}
+
+// Calcula el score de prioridad de un cluster + breakdown explicable
+function computePriorityScore(cluster) {
+  if (!cluster) return null;
+  
+  // FACTOR 1: DAMAGE SEVERITY (0-30 puntos)
+  // Severidad ponderada: complete=3 partial=2 minimal=1
+  // Normalizar: 0 reportes complete = 0, 5+ reportes complete = max
+  const damageRaw = cluster.completeCount * 3 + cluster.partialCount * 2 + cluster.minimalCount * 1;
+  const damageNormalized = Math.min(damageRaw / 15, 1);  // 15 = saturación
+  const damageScore = Math.round(damageNormalized * PRIORITY_CONFIG.WEIGHT_DAMAGE);
+  
+  // FACTOR 2: REPORT DENSITY (0-20 puntos)
+  // 3 reportes = 0.3, 10+ reportes = 1.0
+  const densityNormalized = Math.min((cluster.reportCount - 2) / 8, 1);
+  const densityScore = Math.round(Math.max(0, densityNormalized) * PRIORITY_CONFIG.WEIGHT_DENSITY);
+  
+  // FACTOR 3: INJURIES REPORTED (0-25 puntos)
+  // Busca encuestas GIS cercanas
+  const nearbySurveys = findSurveysNearCluster(cluster);
+  let injuriesScore = 0;
+  let manyInjuries = 0, fewInjuries = 0;
+  nearbySurveys.forEach(s => {
+    if (s.answers.injuries === 'many') manyInjuries++;
+    else if (s.answers.injuries === 'few') fewInjuries++;
+  });
+  // many = 1.0, few = 0.5
+  const injuriesRaw = manyInjuries * 1.0 + fewInjuries * 0.5;
+  const injuriesNormalized = Math.min(injuriesRaw / 3, 1);
+  injuriesScore = Math.round(injuriesNormalized * PRIORITY_CONFIG.WEIGHT_INJURIES);
+  
+  // FACTOR 4: ACCESS BLOCKED (0-15 puntos)
+  // Carreteras bloqueadas + ayuda no llegada = acceso crítico
+  let blockedRoads = 0, awaitingHelp = 0;
+  nearbySurveys.forEach(s => {
+    if (s.answers.roads === 'yes') blockedRoads++;
+    if (s.answers.help === 'not_yet') awaitingHelp++;
+  });
+  // Si hay reportes de ambas cosas, peso máximo
+  const accessRaw = blockedRoads * 0.6 + awaitingHelp * 0.4;
+  const accessNormalized = Math.min(accessRaw / 2, 1);
+  const accessScore = Math.round(accessNormalized * PRIORITY_CONFIG.WEIGHT_ACCESS);
+  
+  // FACTOR 5: CREDIBILITY (0-10 puntos)
+  // Promedio de effectiveCredibility de los reportes del cluster
+  let credSum = 0, credCount = 0;
+  if (cluster.reports && Array.isArray(cluster.reports)) {
+    cluster.reports.forEach(r => {
+      const cred = (typeof r.effectiveCredibility === 'number') ? r.effectiveCredibility : (r.credibility || 75);
+      credSum += cred;
+      credCount++;
+    });
+  }
+  const avgCred = credCount > 0 ? credSum / credCount : 75;
+  const credNormalized = avgCred / 100;  // 0-1
+  const credibilityScore = Math.round(credNormalized * PRIORITY_CONFIG.WEIGHT_CREDIBILITY);
+  
+  // SCORE TOTAL
+  const totalScore = damageScore + densityScore + injuriesScore + accessScore + credibilityScore;
+  
+  // CATEGORIZACIÓN
+  let level, levelColor, levelEmoji;
+  if (totalScore >= PRIORITY_CONFIG.THRESHOLD_CRITICAL) {
+    level = 'critical';
+    levelColor = '#E63946';
+    levelEmoji = '🚨';
+  } else if (totalScore >= PRIORITY_CONFIG.THRESHOLD_HIGH) {
+    level = 'high';
+    levelColor = '#F4A261';
+    levelEmoji = '⚠️';
+  } else if (totalScore >= PRIORITY_CONFIG.THRESHOLD_MEDIUM) {
+    level = 'medium';
+    levelColor = '#F1C40F';
+    levelEmoji = 'ℹ️';
+  } else {
+    level = 'low';
+    levelColor = '#52B788';
+    levelEmoji = '⚪';
+  }
+  
+  // RECOMENDACIÓN ACCIONABLE basada en los factores dominantes
+  let recommendation = '';
+  if (manyInjuries > 0 || (fewInjuries > 0 && blockedRoads > 0)) {
+    recommendation = 'Send rescue team — injuries reported with access challenges';
+  } else if (blockedRoads > 0 && awaitingHelp > 0) {
+    recommendation = 'Clear access route — community awaiting help with blocked roads';
+  } else if (cluster.completeCount >= 3) {
+    recommendation = 'Search & rescue priority — multiple structural collapses';
+  } else if (nearbySurveys.some(s => Array.isArray(s.answers.services) && s.answers.services.length > 0 && !s.answers.services.includes('none'))) {
+    recommendation = 'Restore utilities — service failures reported';
+  } else if (cluster.partialCount + cluster.completeCount >= 3) {
+    recommendation = 'Damage assessment team — multiple structural damages';
+  } else {
+    recommendation = 'Monitor — situation developing, low immediate urgency';
+  }
+  
+  return {
+    clusterId: cluster.id,
+    clusterRank: cluster.rank,
+    centerLat: cluster.centerLat,
+    centerLng: cluster.centerLng,
+    radiusM: cluster.radiusM,
+    totalScore: totalScore,
+    level: level,
+    levelColor: levelColor,
+    levelEmoji: levelEmoji,
+    recommendation: recommendation,
+    dominantInfra: cluster.dominantInfra,
+    reportCount: cluster.reportCount,
+    surveyCount: nearbySurveys.length,
+    breakdown: {
+      damage: { score: damageScore, max: PRIORITY_CONFIG.WEIGHT_DAMAGE, raw: damageRaw },
+      density: { score: densityScore, max: PRIORITY_CONFIG.WEIGHT_DENSITY, count: cluster.reportCount },
+      injuries: { score: injuriesScore, max: PRIORITY_CONFIG.WEIGHT_INJURIES, many: manyInjuries, few: fewInjuries },
+      access: { score: accessScore, max: PRIORITY_CONFIG.WEIGHT_ACCESS, blockedRoads: blockedRoads, awaitingHelp: awaitingHelp },
+      credibility: { score: credibilityScore, max: PRIORITY_CONFIG.WEIGHT_CREDIBILITY, avg: Math.round(avgCred) }
+    },
+    firstReportTimestamp: cluster.latestTimestamp,  // del cluster (timestamp más reciente disponible)
+    cluster: cluster  // referencia al cluster original
+  };
+}
+
+// Detecta zonas de prioridad: toma clusters de Density Triangulation, computa score
+// y rankea por totalScore descendente
+function detectPriorityZones(eventId) {
+  if (typeof detectDamageClusters !== 'function') return [];
+  
+  const clusters = detectDamageClusters(eventId);
+  if (clusters.length === 0) return [];
+  
+  const zones = clusters.map(c => computePriorityScore(c)).filter(z => z !== null);
+  
+  // Rankear por score descendente
+  zones.sort((a, b) => b.totalScore - a.totalScore);
+  
+  // Re-asignar rank tras el sort
+  zones.forEach((z, i) => { z.priorityRank = i + 1; });
+  
+  return zones;
+}
+
+// Renderiza las zonas de prioridad en el Dashboard con cards ricas
+function renderPriorityZonesDashboard(zones) {
+  const container = document.getElementById('priority-zones-rich-list');
+  if (!container) return;
+  
+  if (zones.length === 0) {
+    // Ocultar sección si no hay zonas
+    const section = document.getElementById('priority-zones-rich-section');
+    if (section) section.style.display = 'none';
+    return;
+  }
+  
+  const section = document.getElementById('priority-zones-rich-section');
+  if (section) section.style.display = 'block';
+  
+  // Etiquetas multilenguaje
+  const levelLabels = {
+    critical: { en: 'CRITICAL', es: 'CRÍTICO', fr: 'CRITIQUE', ar: 'حرج', zh: '严重', ru: 'КРИТИЧЕСКИЙ' },
+    high:     { en: 'HIGH',     es: 'ALTO',    fr: 'ÉLEVÉ',    ar: 'مرتفع', zh: '高',   ru: 'ВЫСОКИЙ' },
+    medium:   { en: 'MEDIUM',   es: 'MEDIO',   fr: 'MOYEN',    ar: 'متوسط', zh: '中',   ru: 'СРЕДНИЙ' },
+    low:      { en: 'LOW',      es: 'BAJO',    fr: 'FAIBLE',   ar: 'منخفض', zh: '低',   ru: 'НИЗКИЙ' }
+  };
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  
+  container.innerHTML = zones.map(z => {
+    const levelLabel = (levelLabels[z.level] || levelLabels.low)[lang] || z.level;
+    
+    // Tiempo desde primer reporte
+    let timeAgo = '';
+    if (z.firstReportTimestamp) {
+      const minutesAgo = Math.round((Date.now() - z.firstReportTimestamp) / 60000);
+      if (minutesAgo < 60) timeAgo = minutesAgo + ' min ago';
+      else if (minutesAgo < 1440) timeAgo = Math.round(minutesAgo / 60) + 'h ago';
+      else timeAgo = Math.round(minutesAgo / 1440) + 'd ago';
+    }
+    
+    const bd = z.breakdown;
+    
+    return `<div class="priority-card" style="background:var(--bg3); border:1px solid var(--border); border-left:5px solid ${z.levelColor}; padding:16px; border-radius:12px; margin-bottom:12px;">
+      <!-- Header: rank + score + level badge -->
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div style="background:${z.levelColor}; color:white; width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px;">${z.levelEmoji}</div>
+          <div>
+            <div style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">Priority #${z.priorityRank} · ${z.dominantInfra}</div>
+            <div style="font-size:18px; font-weight:700; color:var(--text); margin-top:2px;">${z.totalScore}<span style="font-size:13px; color:var(--text2); font-weight:400;">/100</span></div>
+          </div>
+        </div>
+        <div style="background:${z.levelColor}; color:white; padding:5px 12px; border-radius:6px; font-size:11px; font-weight:700; letter-spacing:0.5px;">${levelLabel}</div>
+      </div>
+      
+      <!-- Barra de progreso visual del score -->
+      <div style="background:var(--bg2); height:8px; border-radius:4px; overflow:hidden; margin-bottom:14px;">
+        <div style="background:${z.levelColor}; height:100%; width:${z.totalScore}%; transition:width 0.4s;"></div>
+      </div>
+      
+      <!-- Recomendación accionable -->
+      <div style="background:rgba(255,255,255,0.03); padding:10px 12px; border-radius:8px; margin-bottom:12px; font-size:13px; color:var(--text);">
+        <span style="color:${z.levelColor}; font-weight:600;">→</span> ${z.recommendation}
+      </div>
+      
+      <!-- Breakdown del score (5 factores) -->
+      <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:8px; font-size:10px;">
+        <div style="background:var(--bg2); padding:8px; border-radius:6px; text-align:center;">
+          <div style="color:var(--text2); margin-bottom:3px;">Damage</div>
+          <div style="font-weight:700; color:var(--text); font-size:13px;">${bd.damage.score}<span style="color:var(--text2); font-size:9px;">/${bd.damage.max}</span></div>
+        </div>
+        <div style="background:var(--bg2); padding:8px; border-radius:6px; text-align:center;">
+          <div style="color:var(--text2); margin-bottom:3px;">Density</div>
+          <div style="font-weight:700; color:var(--text); font-size:13px;">${bd.density.score}<span style="color:var(--text2); font-size:9px;">/${bd.density.max}</span></div>
+        </div>
+        <div style="background:var(--bg2); padding:8px; border-radius:6px; text-align:center;">
+          <div style="color:var(--text2); margin-bottom:3px;">Injuries</div>
+          <div style="font-weight:700; color:var(--text); font-size:13px;">${bd.injuries.score}<span style="color:var(--text2); font-size:9px;">/${bd.injuries.max}</span></div>
+        </div>
+        <div style="background:var(--bg2); padding:8px; border-radius:6px; text-align:center;">
+          <div style="color:var(--text2); margin-bottom:3px;">Access</div>
+          <div style="font-weight:700; color:var(--text); font-size:13px;">${bd.access.score}<span style="color:var(--text2); font-size:9px;">/${bd.access.max}</span></div>
+        </div>
+        <div style="background:var(--bg2); padding:8px; border-radius:6px; text-align:center;">
+          <div style="color:var(--text2); margin-bottom:3px;">Credibility</div>
+          <div style="font-weight:700; color:var(--text); font-size:13px;">${bd.credibility.score}<span style="color:var(--text2); font-size:9px;">/${bd.credibility.max}</span></div>
+        </div>
+      </div>
+      
+      <!-- Footer: stats secundarias -->
+      <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:10px; color:var(--text2);">
+        <span>📊 ${z.reportCount} reports · ${z.surveyCount} surveys</span>
+        <span>🕐 ${timeAgo}</span>
+        <span style="font-family:'DM Mono',monospace;">📍 ${z.centerLat.toFixed(4)}, ${z.centerLng.toFixed(4)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Dibuja emojis de prioridad sobre cada cluster en el mapa principal
+let priorityEmojiLayer = null;
+
+function drawPriorityEmojisOnMap(zones) {
+  if (!mainMap) return;
+  
+  // Limpiar emojis previos
+  if (priorityEmojiLayer) {
+    mainMap.removeLayer(priorityEmojiLayer);
+  }
+  
+  if (zones.length === 0) {
+    priorityEmojiLayer = null;
+    return;
+  }
+  
+  priorityEmojiLayer = L.layerGroup();
+  
+  zones.forEach(z => {
+    // Emoji flotante sobre el centro del cluster (offset ligero para no tapar el número de cluster)
+    const emojiIcon = L.divIcon({
+      className: 'priority-emoji-marker',
+      html: `<div style="font-size:22px; filter:drop-shadow(0 2px 4px rgba(0,0,0,0.6)); transform:translate(0, -28px);">${z.levelEmoji}</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15]
+    });
+    
+    const marker = L.marker([z.centerLat, z.centerLng], { 
+      icon: emojiIcon,
+      interactive: true
+    });
+    
+    const tooltipHtml = `<div style="font-family:'DM Sans',sans-serif; font-size:12px;">
+      <div style="font-weight:700; color:${z.levelColor}; margin-bottom:4px;">
+        ${z.levelEmoji} Priority #${z.priorityRank} — ${z.totalScore}/100
+      </div>
+      <div style="font-size:11px; color:#666; margin-bottom:6px;">${z.recommendation}</div>
+      <div style="font-size:10px;">📊 ${z.reportCount} reports · ${z.surveyCount} surveys</div>
+    </div>`;
+    
+    marker.bindTooltip(tooltipHtml, { sticky: true, direction: 'top' });
+    priorityEmojiLayer.addLayer(marker);
+  });
+  
+  priorityEmojiLayer.addTo(mainMap);
+}
+
+// Función orquestadora: detecta zonas, renderiza dashboard, dibuja mapa
+function refreshPriorityZones() {
+  const eventFilter = state.dashboardEventId || null;
+  const zones = detectPriorityZones(eventFilter);
+  
+  if (typeof renderPriorityZonesDashboard === 'function') {
+    renderPriorityZonesDashboard(zones);
+  }
+  
+  if (typeof drawPriorityEmojisOnMap === 'function') {
+    drawPriorityEmojisOnMap(zones);
+  }
+  
+  if (zones.length > 0) {
+    console.log('FRIDA: Priority ranking computed for', zones.length, 'zone(s) — top score:', zones[0].totalScore);
+  }
+}
+
 // ===== INICIALIZACIÓN DE STORAGE (Lote C — Sub-paso 3C) =====
 
 // Carga todos los reportes guardados en IndexedDB y los muestra en la UI.
@@ -2489,6 +2841,9 @@ async function loadReportsFromDB() {
     
     // ✨ Density Triangulation: detectar clusters de los reportes cargados
     if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
+    
+    // ✨ Punto 5: aplicar Priority Ranking sobre clusters detectados
+    if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
   } catch (err) {
     console.error('FRIDA: Failed to load reports from DB:', err);
   }
@@ -2779,12 +3134,12 @@ function updateAccuracyDisplay(accuracyMeters, isManual) {
 
 // Extend i18n with new keys
 const extraKeys = {
-  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety', event_select_label:'Event Selection', event_select_q:'Which event are you reporting?', event_select_tip:'FRIDA detected nearby active events. Select the one you are experiencing, or create a new one.', event_new:'This is a different event — create new', all_events:'All Events', clusters_label:'🎯 Damage Clusters — AI Triangulated', survey_label:'Optional Survey', survey_q:'Help us understand secondary needs (optional)', survey_tip:'Each answer builds a layer of community knowledge for first responders. Skip if you cannot answer safely.', survey_q_roads:'🛣️ Are there blocked roads nearby?', survey_q_services:'⚡ Which services are failing?', survey_q_help:'🚑 Has professional help arrived?', survey_q_injuries:'🩹 Are there visible injuries?', survey_yes:'Yes', survey_no:'No', survey_unknown:'Don\'t know', survey_water:'Water', survey_power:'Power', survey_internet:'Internet', survey_gas:'Gas', survey_none:'None failing', survey_help_yes:'Yes', survey_help_no:'Not yet', survey_inj_many:'Yes, many', survey_inj_few:'Yes, few', survey_inj_material:'Material damage only', survey_submit:'Submit survey →', survey_skip:'Skip' },
-  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad', event_select_label:'Selección de Evento', event_select_q:'¿A qué evento estás reportando?', event_select_tip:'FRIDA detectó eventos activos cercanos. Selecciona el que estás viviendo o crea uno nuevo.', event_new:'Es un evento diferente — crear nuevo', all_events:'Todos los Eventos', clusters_label:'🎯 Clusters de Daño — Triangulados por IA', survey_label:'Encuesta Opcional', survey_q:'Ayúdanos a entender necesidades secundarias (opcional)', survey_tip:'Cada respuesta construye una capa de conocimiento comunitario para los rescatistas. Salta si no puedes responder con seguridad.', survey_q_roads:'🛣️ ¿Hay carreteras bloqueadas cerca?', survey_q_services:'⚡ ¿Qué servicios están fallando?', survey_q_help:'🚑 ¿Ha llegado ayuda profesional?', survey_q_injuries:'🩹 ¿Hay heridos visibles?', survey_yes:'Sí', survey_no:'No', survey_unknown:'No sé', survey_water:'Agua', survey_power:'Electricidad', survey_internet:'Internet', survey_gas:'Gas', survey_none:'Ninguno falla', survey_help_yes:'Sí', survey_help_no:'Aún no', survey_inj_many:'Sí, muchos', survey_inj_few:'Sí, pocos', survey_inj_material:'Solo daño material', survey_submit:'Enviar encuesta →', survey_skip:'Saltar' },
-  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité', event_select_label:'Sélection d evenement', event_select_q:'Quel événement signalez-vous?', event_select_tip:'FRIDA a détecté des événements actifs à proximité. Sélectionnez celui que vous vivez ou créez-en un nouveau.', event_new:'C est un événement différent — en créer un nouveau', all_events:'Tous les Événements', clusters_label:'🎯 Clusters de dommages — Triangulés par IA', survey_label:'Enquête Optionnelle', survey_q:'Aidez-nous à comprendre les besoins secondaires (optionnel)', survey_tip:'Chaque réponse construit une couche de connaissance communautaire. Sautez si vous ne pouvez pas répondre en sécurité.', survey_q_roads:'🛣️ Y a-t-il des routes bloquées à proximité?', survey_q_services:'⚡ Quels services fonctionnent mal?', survey_q_help:'🚑 Laide professionnelle est-elle arrivée?', survey_q_injuries:'🩹 Y a-t-il des blessés visibles?', survey_yes:'Oui', survey_no:'Non', survey_unknown:'Je ne sais pas', survey_water:'Eau', survey_power:'Électricité', survey_internet:'Internet', survey_gas:'Gaz', survey_none:'Aucun défaillant', survey_help_yes:'Oui', survey_help_no:'Pas encore', survey_inj_many:'Oui, beaucoup', survey_inj_few:'Oui, peu', survey_inj_material:'Dommages matériels uniquement', survey_submit:'Soumettre →', survey_skip:'Passer' },
-  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك', event_select_label:'اختيار الحدث', event_select_q:'الى اي حدث تقوم بالابلاغ؟', event_select_tip:'اكتشفت FRIDA احداثا نشطة قريبة. اختر الحدث الذي تعيشه او انشئ حدثا جديدا.', event_new:'هذا حدث مختلف — انشاء جديد', all_events:'جميع الاحداث', clusters_label:'🎯 مجموعات الأضرار — مثلثة بالذكاء الاصطناعي', survey_label:'استبيان اختياري', survey_q:'ساعدنا في فهم الاحتياجات الثانوية (اختياري)', survey_tip:'كل إجابة تبني طبقة من المعرفة المجتمعية للمستجيبين الأوائل.', survey_q_roads:'🛣️ هل هناك طرق مغلقة قريبة؟', survey_q_services:'⚡ ما هي الخدمات المعطلة؟', survey_q_help:'🚑 هل وصلت المساعدة المهنية؟', survey_q_injuries:'🩹 هل هناك إصابات مرئية؟', survey_yes:'نعم', survey_no:'لا', survey_unknown:'لا أعرف', survey_water:'ماء', survey_power:'كهرباء', survey_internet:'إنترنت', survey_gas:'غاز', survey_none:'لا شيء معطل', survey_help_yes:'نعم', survey_help_no:'لم تصل بعد', survey_inj_many:'نعم، كثيرون', survey_inj_few:'نعم، قليلون', survey_inj_material:'أضرار مادية فقط', survey_submit:'إرسال →', survey_skip:'تخطي' },
-  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全', event_select_label:'事件选择', event_select_q:'您正在报告哪个事件？', event_select_tip:'FRIDA检测到附近的活动事件。选择您正在经历的事件或创建一个新事件。', event_new:'这是另一个事件 — 创建新事件', all_events:'所有事件', clusters_label:'🎯 损害集群 — AI三角定位', survey_label:'可选调查', survey_q:'帮助我们了解次要需求（可选）', survey_tip:'每个回答都为第一响应者构建了一层社区知识。', survey_q_roads:'🛣️ 附近有道路堵塞吗？', survey_q_services:'⚡ 哪些服务出现故障？', survey_q_help:'🚑 专业帮助是否已到达？', survey_q_injuries:'🩹 是否有可见的伤员？', survey_yes:'是', survey_no:'否', survey_unknown:'不知道', survey_water:'水', survey_power:'电力', survey_internet:'互联网', survey_gas:'燃气', survey_none:'无故障', survey_help_yes:'是', survey_help_no:'尚未', survey_inj_many:'是的，许多', survey_inj_few:'是的，少数', survey_inj_material:'仅物质损害', survey_submit:'提交 →', survey_skip:'跳过' },
-  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности', event_select_label:'Выбор события', event_select_q:'О каком событии вы сообщаете?', event_select_tip:'FRIDA обнаружила активные события поблизости. Выберите то которое вы переживаете или создайте новое.', event_new:'Это другое событие — создать новое', all_events:'Все события', clusters_label:'🎯 Кластеры ущерба — триангулированы ИИ', survey_label:'Дополнительный опрос', survey_q:'Помогите понять вторичные потребности (необязательно)', survey_tip:'Каждый ответ создает слой знаний сообщества для спасателей.', survey_q_roads:'🛣️ Есть ли заблокированные дороги поблизости?', survey_q_services:'⚡ Какие службы не работают?', survey_q_help:'🚑 Прибыла ли профессиональная помощь?', survey_q_injuries:'🩹 Есть ли видимые травмы?', survey_yes:'Да', survey_no:'Нет', survey_unknown:'Не знаю', survey_water:'Вода', survey_power:'Электричество', survey_internet:'Интернет', survey_gas:'Газ', survey_none:'Все работает', survey_help_yes:'Да', survey_help_no:'Еще нет', survey_inj_many:'Да, много', survey_inj_few:'Да, мало', survey_inj_material:'Только материальный ущерб', survey_submit:'Отправить →', survey_skip:'Пропустить' }
+  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety', event_select_label:'Event Selection', event_select_q:'Which event are you reporting?', event_select_tip:'FRIDA detected nearby active events. Select the one you are experiencing, or create a new one.', event_new:'This is a different event — create new', all_events:'All Events', clusters_label:'🎯 Damage Clusters — AI Triangulated', survey_label:'Optional Survey', survey_q:'Help us understand secondary needs (optional)', survey_tip:'Each answer builds a layer of community knowledge for first responders. Skip if you cannot answer safely.', survey_q_roads:'🛣️ Are there blocked roads nearby?', survey_q_services:'⚡ Which services are failing?', survey_q_help:'🚑 Has professional help arrived?', survey_q_injuries:'🩹 Are there visible injuries?', survey_yes:'Yes', survey_no:'No', survey_unknown:'Don\'t know', survey_water:'Water', survey_power:'Power', survey_internet:'Internet', survey_gas:'Gas', survey_none:'None failing', survey_help_yes:'Yes', survey_help_no:'Not yet', survey_inj_many:'Yes, many', survey_inj_few:'Yes, few', survey_inj_material:'Material damage only', survey_submit:'Submit survey →', survey_skip:'Skip', priority_rich_label:'🧠 Priority Zones — Explainable AI' },
+  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad', event_select_label:'Selección de Evento', event_select_q:'¿A qué evento estás reportando?', event_select_tip:'FRIDA detectó eventos activos cercanos. Selecciona el que estás viviendo o crea uno nuevo.', event_new:'Es un evento diferente — crear nuevo', all_events:'Todos los Eventos', clusters_label:'🎯 Clusters de Daño — Triangulados por IA', survey_label:'Encuesta Opcional', survey_q:'Ayúdanos a entender necesidades secundarias (opcional)', survey_tip:'Cada respuesta construye una capa de conocimiento comunitario para los rescatistas. Salta si no puedes responder con seguridad.', survey_q_roads:'🛣️ ¿Hay carreteras bloqueadas cerca?', survey_q_services:'⚡ ¿Qué servicios están fallando?', survey_q_help:'🚑 ¿Ha llegado ayuda profesional?', survey_q_injuries:'🩹 ¿Hay heridos visibles?', survey_yes:'Sí', survey_no:'No', survey_unknown:'No sé', survey_water:'Agua', survey_power:'Electricidad', survey_internet:'Internet', survey_gas:'Gas', survey_none:'Ninguno falla', survey_help_yes:'Sí', survey_help_no:'Aún no', survey_inj_many:'Sí, muchos', survey_inj_few:'Sí, pocos', survey_inj_material:'Solo daño material', survey_submit:'Enviar encuesta →', survey_skip:'Saltar', priority_rich_label:'🧠 Zonas Prioritarias — IA Explicable' },
+  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité', event_select_label:'Sélection d evenement', event_select_q:'Quel événement signalez-vous?', event_select_tip:'FRIDA a détecté des événements actifs à proximité. Sélectionnez celui que vous vivez ou créez-en un nouveau.', event_new:'C est un événement différent — en créer un nouveau', all_events:'Tous les Événements', clusters_label:'🎯 Clusters de dommages — Triangulés par IA', survey_label:'Enquête Optionnelle', survey_q:'Aidez-nous à comprendre les besoins secondaires (optionnel)', survey_tip:'Chaque réponse construit une couche de connaissance communautaire. Sautez si vous ne pouvez pas répondre en sécurité.', survey_q_roads:'🛣️ Y a-t-il des routes bloquées à proximité?', survey_q_services:'⚡ Quels services fonctionnent mal?', survey_q_help:'🚑 Laide professionnelle est-elle arrivée?', survey_q_injuries:'🩹 Y a-t-il des blessés visibles?', survey_yes:'Oui', survey_no:'Non', survey_unknown:'Je ne sais pas', survey_water:'Eau', survey_power:'Électricité', survey_internet:'Internet', survey_gas:'Gaz', survey_none:'Aucun défaillant', survey_help_yes:'Oui', survey_help_no:'Pas encore', survey_inj_many:'Oui, beaucoup', survey_inj_few:'Oui, peu', survey_inj_material:'Dommages matériels uniquement', survey_submit:'Soumettre →', survey_skip:'Passer', priority_rich_label:'🧠 Zones prioritaires — IA Explicable' },
+  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك', event_select_label:'اختيار الحدث', event_select_q:'الى اي حدث تقوم بالابلاغ؟', event_select_tip:'اكتشفت FRIDA احداثا نشطة قريبة. اختر الحدث الذي تعيشه او انشئ حدثا جديدا.', event_new:'هذا حدث مختلف — انشاء جديد', all_events:'جميع الاحداث', clusters_label:'🎯 مجموعات الأضرار — مثلثة بالذكاء الاصطناعي', survey_label:'استبيان اختياري', survey_q:'ساعدنا في فهم الاحتياجات الثانوية (اختياري)', survey_tip:'كل إجابة تبني طبقة من المعرفة المجتمعية للمستجيبين الأوائل.', survey_q_roads:'🛣️ هل هناك طرق مغلقة قريبة؟', survey_q_services:'⚡ ما هي الخدمات المعطلة؟', survey_q_help:'🚑 هل وصلت المساعدة المهنية؟', survey_q_injuries:'🩹 هل هناك إصابات مرئية؟', survey_yes:'نعم', survey_no:'لا', survey_unknown:'لا أعرف', survey_water:'ماء', survey_power:'كهرباء', survey_internet:'إنترنت', survey_gas:'غاز', survey_none:'لا شيء معطل', survey_help_yes:'نعم', survey_help_no:'لم تصل بعد', survey_inj_many:'نعم، كثيرون', survey_inj_few:'نعم، قليلون', survey_inj_material:'أضرار مادية فقط', survey_submit:'إرسال →', survey_skip:'تخطي', priority_rich_label:'🧠 المناطق ذات الأولوية — ذكاء اصطناعي قابل للتفسير' },
+  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全', event_select_label:'事件选择', event_select_q:'您正在报告哪个事件？', event_select_tip:'FRIDA检测到附近的活动事件。选择您正在经历的事件或创建一个新事件。', event_new:'这是另一个事件 — 创建新事件', all_events:'所有事件', clusters_label:'🎯 损害集群 — AI三角定位', survey_label:'可选调查', survey_q:'帮助我们了解次要需求（可选）', survey_tip:'每个回答都为第一响应者构建了一层社区知识。', survey_q_roads:'🛣️ 附近有道路堵塞吗？', survey_q_services:'⚡ 哪些服务出现故障？', survey_q_help:'🚑 专业帮助是否已到达？', survey_q_injuries:'🩹 是否有可见的伤员？', survey_yes:'是', survey_no:'否', survey_unknown:'不知道', survey_water:'水', survey_power:'电力', survey_internet:'互联网', survey_gas:'燃气', survey_none:'无故障', survey_help_yes:'是', survey_help_no:'尚未', survey_inj_many:'是的，许多', survey_inj_few:'是的，少数', survey_inj_material:'仅物质损害', survey_submit:'提交 →', survey_skip:'跳过', priority_rich_label:'🧠 优先区域 — 可解释AI' },
+  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности', event_select_label:'Выбор события', event_select_q:'О каком событии вы сообщаете?', event_select_tip:'FRIDA обнаружила активные события поблизости. Выберите то которое вы переживаете или создайте новое.', event_new:'Это другое событие — создать новое', all_events:'Все события', clusters_label:'🎯 Кластеры ущерба — триангулированы ИИ', survey_label:'Дополнительный опрос', survey_q:'Помогите понять вторичные потребности (необязательно)', survey_tip:'Каждый ответ создает слой знаний сообщества для спасателей.', survey_q_roads:'🛣️ Есть ли заблокированные дороги поблизости?', survey_q_services:'⚡ Какие службы не работают?', survey_q_help:'🚑 Прибыла ли профессиональная помощь?', survey_q_injuries:'🩹 Есть ли видимые травмы?', survey_yes:'Да', survey_no:'Нет', survey_unknown:'Не знаю', survey_water:'Вода', survey_power:'Электричество', survey_internet:'Интернет', survey_gas:'Газ', survey_none:'Все работает', survey_help_yes:'Да', survey_help_no:'Еще нет', survey_inj_many:'Да, много', survey_inj_few:'Да, мало', survey_inj_material:'Только материальный ущерб', survey_submit:'Отправить →', survey_skip:'Пропустить', priority_rich_label:'🧠 Приоритетные зоны — Объяснимый ИИ' }
 };
 
 // Merge extra keys into i18n
@@ -3214,6 +3569,9 @@ function filterByEvent(eventId) {
   // ✨ Density Triangulation: recalcular clusters para el evento filtrado
   if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
   
+  // ✨ Punto 5: recalcular Priority Ranking con el filtro nuevo
+  if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
+  
   console.log('FRIDA: Dashboard filtered to', filteredReports.length, 'reports', 
               state.dashboardEventId ? '(event: ' + state.dashboardEventId + ')' : '(all events)');
 }
@@ -3225,6 +3583,7 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshAnalyticsUI();
     refreshEventsTabs();  // ✨ Layer 10
     refreshDamageClusters();  // ✨ Punto 2: Density Triangulation
+    refreshPriorityZones();   // ✨ Punto 5: Priority Ranking
   }, 700);
 });
 
@@ -3588,6 +3947,82 @@ window.handlePhoto = function(input) {
  * con 4 preguntas. Si responde, esos datos aparecen en el mapa como capas
  * de marcadores coloreados, y en el dashboard como cards con conteos.
  * UNDP puede usar esta info para decisiones secundarias (rutas, salud, etc).
+ * 
+ * ====================================================================
+ * SESIÓN 16 MAYO 2026 — PUNTO 5 DE 10: PRIORITY RANKING VISUALIZADO (Layer 8)
+ * ====================================================================
+ * 
+ * Implementación del Layer 8 (parte de AI Powered Analysis): algoritmo
+ * determinístico explicable que rankea zonas por prioridad humanitaria
+ * combinando datos de Density Triangulation + Temporal Validation +
+ * Citizen Surveys GIS.
+ * 
+ * ALGORITMO (5 FACTORES PONDERADOS):
+ * - Damage Severity (30%): suma ponderada complete*3 + partial*2 + minimal*1
+ * - Report Density (20%): cantidad de reportes en la zona
+ * - Injuries Reported (25%): heridos según encuestas GIS cercanas
+ * - Access Blocked (15%): carreteras bloqueadas + ayuda no llegada
+ * - Credibility (10%): promedio de effectiveCredibility post-validación
+ * 
+ * Score total 0-100 → 4 niveles:
+ * - 🚨 CRITICAL (>=70)
+ * - ⚠️ HIGH (50-69)
+ * - ℹ️ MEDIUM (30-49)
+ * - ⚪ LOW (<30)
+ * 
+ * COMPONENTES:
+ * 
+ * 1. computePriorityScore(cluster): recibe cluster de Density Triangulation,
+ *    busca surveys GIS cercanas (radio 600m), calcula los 5 factores,
+ *    devuelve objeto completo con breakdown explicable y recomendación.
+ * 
+ * 2. findSurveysNearCluster(cluster): busca surveys dentro del radio
+ *    para enriquecer score con info de heridos, acceso, servicios.
+ * 
+ * 3. detectPriorityZones(eventId): orquesta detectDamageClusters →
+ *    computePriorityScore → sort por score desc → re-rank.
+ * 
+ * 4. RECOMENDACIONES ACCIONABLES (decision tree):
+ *    - "Send rescue team" si hay heridos + accesos comprometidos
+ *    - "Clear access route" si carreteras bloqueadas + ayuda no llegada
+ *    - "Search & rescue priority" si 3+ colapsos completos
+ *    - "Restore utilities" si hay reportes de servicios fallando
+ *    - "Damage assessment team" si 3+ daños estructurales
+ *    - "Monitor" para casos menores
+ * 
+ * 5. DASHBOARD: SECCIÓN "Priority Zones — Explainable AI"
+ *    - Cards ricas con: rank, emoji nivel, score grande (X/100),
+ *      barra de progreso visual, recomendación destacada,
+ *      breakdown grid de 5 factores con scores parciales,
+ *      footer con reports/surveys count y tiempo desde primer reporte.
+ *    - Solo se muestra si hay zonas detectadas (oculto por defecto).
+ * 
+ * 6. MAPA: EMOJI DE PRIORIDAD SOBRE CADA CLUSTER
+ *    - Emoji flotante (🚨/⚠️/ℹ️/⚪) con offset vertical para no tapar
+ *      el número de cluster del Density Triangulation.
+ *    - Tooltip al hover muestra rank, score y recomendación.
+ *    - priorityEmojiLayer global para limpieza al recalcular.
+ * 
+ * 7. INTEGRACIÓN
+ *    - refreshPriorityZones() llamado en: internalSubmitReport,
+ *      submitSurvey, loadReportsFromDB, filterByEvent, initMap,
+ *      DOMContentLoaded.
+ *    - Funciona en paralelo con fridaAnalytics antiguo (no conflicto).
+ * 
+ * 8. I18N: priority_rich_label traducido a EN/ES/FR/AR/ZH/RU
+ * 
+ * EXPLICABILIDAD:
+ * Cada zona muestra su breakdown completo: el evaluador UNDP puede ver
+ * exactamente por qué Zona A (80/100) es más prioritaria que Zona B (62/100).
+ * No es black-box: es algoritmo auditable, fundamental en humanitarismo.
+ * Esto se presenta como "Explainable AI" en la propuesta, diferenciándose
+ * de soluciones de ML opaco que requieren confianza ciega.
+ * 
+ * RESULTADO DEMOSTRABLE:
+ * Cuando hay clusters detectados, aparece en el dashboard una sección rica
+ * con cards rankeadas por score 0-100, cada una con su breakdown de 5
+ * factores y recomendación accionable. En el mapa, cada cluster tiene
+ * encima un emoji que indica su nivel de prioridad de un vistazo.
  * 
  * ====================================================================
  */
