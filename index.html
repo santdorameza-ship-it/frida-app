@@ -331,6 +331,60 @@ html[dir="rtl"] .lang-select {
       <button class="confirm-btn" onclick="submitReport()" data-i18n="submit_btn">Submit report →</button>
     </div>
 
+    <!-- Citizen-built GIS Layers (Layer 7 / Punto 4) ✨ -->
+    <!-- Encuesta opcional post-crisis sobre necesidades secundarias -->
+    <div id="step-survey" class="form-step">
+      <div class="step-header">
+        <div class="step-number" data-i18n="survey_label">Optional Survey</div>
+        <div class="step-question" data-i18n="survey_q">Help us understand secondary needs (optional)</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">🤝</span><span data-i18n="survey_tip">Each answer builds a layer of community knowledge for first responders. Skip if you cannot answer safely.</span></div>
+      
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;" data-i18n="survey_q_roads">🛣️ Are there blocked roads nearby?</div>
+        <div class="options-grid">
+          <button class="option-btn survey-btn" data-survey-field="roads" data-survey-value="yes" onclick="setSurveyAnswer('roads','yes',this)">✅ <span data-i18n="survey_yes">Yes</span></button>
+          <button class="option-btn survey-btn" data-survey-field="roads" data-survey-value="no" onclick="setSurveyAnswer('roads','no',this)">❌ <span data-i18n="survey_no">No</span></button>
+          <button class="option-btn survey-btn" data-survey-field="roads" data-survey-value="unknown" onclick="setSurveyAnswer('roads','unknown',this)">❓ <span data-i18n="survey_unknown">Don't know</span></button>
+        </div>
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;" data-i18n="survey_q_services">⚡ Which services are failing? (select all that apply)</div>
+        <div class="options-grid">
+          <button class="option-btn survey-btn-multi" data-survey-field="services" data-survey-value="water" onclick="toggleSurveyMulti('services','water',this)">💧 <span data-i18n="survey_water">Water</span></button>
+          <button class="option-btn survey-btn-multi" data-survey-field="services" data-survey-value="power" onclick="toggleSurveyMulti('services','power',this)">⚡ <span data-i18n="survey_power">Power</span></button>
+          <button class="option-btn survey-btn-multi" data-survey-field="services" data-survey-value="internet" onclick="toggleSurveyMulti('services','internet',this)">📡 <span data-i18n="survey_internet">Internet</span></button>
+          <button class="option-btn survey-btn-multi" data-survey-field="services" data-survey-value="gas" onclick="toggleSurveyMulti('services','gas',this)">🔥 <span data-i18n="survey_gas">Gas</span></button>
+          <button class="option-btn survey-btn-multi" data-survey-field="services" data-survey-value="none" onclick="toggleSurveyMulti('services','none',this)">✅ <span data-i18n="survey_none">None failing</span></button>
+        </div>
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;" data-i18n="survey_q_help">🚑 Has professional help arrived in this area?</div>
+        <div class="options-grid">
+          <button class="option-btn survey-btn" data-survey-field="help" data-survey-value="yes" onclick="setSurveyAnswer('help','yes',this)">✅ <span data-i18n="survey_help_yes">Yes</span></button>
+          <button class="option-btn survey-btn" data-survey-field="help" data-survey-value="not_yet" onclick="setSurveyAnswer('help','not_yet',this)">⏳ <span data-i18n="survey_help_no">Not yet</span></button>
+          <button class="option-btn survey-btn" data-survey-field="help" data-survey-value="unknown" onclick="setSurveyAnswer('help','unknown',this)">❓ <span data-i18n="survey_unknown">Don't know</span></button>
+        </div>
+      </div>
+      
+      <div style="margin-bottom:20px;">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;" data-i18n="survey_q_injuries">🩹 Are there visible injuries?</div>
+        <div class="options-grid">
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="many" onclick="setSurveyAnswer('injuries','many',this)">🚨 <span data-i18n="survey_inj_many">Yes, many</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="few" onclick="setSurveyAnswer('injuries','few',this)">⚠️ <span data-i18n="survey_inj_few">Yes, few</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="material_only" onclick="setSurveyAnswer('injuries','material_only',this)">📦 <span data-i18n="survey_inj_material">Material damage only</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="unknown" onclick="setSurveyAnswer('injuries','unknown',this)">❓ <span data-i18n="survey_unknown">Don't know</span></button>
+        </div>
+      </div>
+      
+      <div style="display:flex; gap:10px; margin-top:24px;">
+        <button class="confirm-btn" onclick="submitSurvey()" data-i18n="survey_submit" style="flex:1;">Submit survey →</button>
+        <button onclick="skipSurvey()" data-i18n="survey_skip" style="flex:1; padding:14px; background:transparent; border:1px solid var(--border); color:var(--text2); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:14px; cursor:pointer;">Skip</button>
+      </div>
+    </div>
+
     <div id="step-success" class="form-step">
       <div class="success-screen">
         <div class="success-icon">✅</div>
@@ -393,6 +447,11 @@ html[dir="rtl"] .lang-select {
       </div>
     </div>
     
+    <!-- Citizen-built GIS Layers (Punto 4 / Layer 7): Stats de capas ✨ -->
+    <div id="gis-legend" style="display:none; margin-bottom:24px;">
+      <!-- Se llena dinámicamente con updateGisLegend() -->
+    </div>
+    
     <div id="priority-zones-container" style="display:none;">
       <div class="section-label" data-i18n="priority_label">Priority Zones — AI Ranked</div>
       <div class="priority-list" id="priority-list">
@@ -424,7 +483,16 @@ const state = {
   // Multi-Event Management (Layer 10) ✨
   events: [],              // Lista de todos los eventos (activos + cerrados)
   activeEventId: null,     // ID del evento al que el usuario está reportando ahora
-  dashboardEventId: null   // Evento seleccionado en el dashboard UNDP (puede diferir del activo)
+  dashboardEventId: null,  // Evento seleccionado en el dashboard UNDP (puede diferir del activo)
+  // Citizen-built GIS Layers (Layer 7 / Punto 4) ✨
+  surveys: [],             // Lista de encuestas GIS post-crisis
+  pendingSurveyReportId: null,  // ID del reporte al que se asociará la siguiente encuesta
+  currentSurvey: {         // Encuesta en construcción durante el flujo de captura
+    roads: null,
+    services: [],
+    help: null,
+    injuries: null
+  }
 };
 
 // ===== I18N =====
@@ -468,6 +536,9 @@ function nextStep(step) {
   } else if (step === 'event-select') {
     // Multi-Event Management: pantalla de selección de evento
     document.getElementById('step-event-select').classList.add('active');
+  } else if (step === 'survey') {
+    // ✨ Punto 4: pantalla de encuesta GIS opcional
+    document.getElementById('step-survey').classList.add('active');
   } else {
     document.getElementById('step-' + step).classList.add('active');
     if (step === 7) setTimeout(initLocationMap, 150);
@@ -579,9 +650,22 @@ async function internalSubmitReport(lat, lng) {
   // 7. Intentar sincronizar con servidor (simulado por ahora)
   trySyncReport(report);
   
-  // 8. Actualizar UI (mantener compatibilidad con código existente)
+  // 8. Actualizar state y aplicar validación temporal a TODOS los reportes
   state.reports.push(report);
-  addReportToTable(report);
+  
+  // ✨ Punto 3: Temporal Cross-Validation
+  // Re-validar todos los reportes (el nuevo puede haber cambiado la corroboración de los previos)
+  if (typeof applyTemporalValidationToAll === 'function') {
+    applyTemporalValidationToAll();
+  }
+  
+  // Re-renderizar tabla completa con badges actualizados (los reportes previos pueden haber cambiado)
+  if (typeof refreshReportsTable === 'function') {
+    refreshReportsTable();
+  } else {
+    addReportToTable(report);
+  }
+  
   addMarkerToMap(report);
   updateKPIs(report);
   
@@ -605,8 +689,11 @@ async function internalSubmitReport(lat, lng) {
     deactivateConflictMode();
   }
   
-  // 11. Avanzar a pantalla de éxito
-  nextStep('success');
+  // 11. ✨ Punto 4: Guardar referencia al reporte recién creado y mostrar encuesta opcional
+  //    El usuario puede llenar la encuesta GIS o saltarla.
+  //    En ambos casos, llegará a success al final.
+  state.pendingSurveyReportId = report.id;
+  nextStep('survey');
 }
 
 // Intenta sincronizar un reporte con el servidor.
@@ -675,7 +762,6 @@ function addReportToTable(r) {
   // Renderizar coords correctamente, sea objeto {lat,lng} o string legacy
   let coordsDisplay = '---';
   if (r.coordsString) {
-    // Reportes nuevos tienen coordsString ya pre-formateado
     coordsDisplay = r.coordsString;
   } else if (r.coords && typeof r.coords.lat === 'number') {
     coordsDisplay = r.coords.lat.toFixed(5) + ', ' + r.coords.lng.toFixed(5);
@@ -683,7 +769,7 @@ function addReportToTable(r) {
     coordsDisplay = r.coords;
   }
   
-  // Indicador visual de sync (preparación para Sub-paso 3D)
+  // Indicador visual de sync
   let syncIcon = '';
   if (r.syncStatus === 'synced') {
     syncIcon = '<span title="Synced" style="color:#4ade80;font-size:10px;">✓</span> ';
@@ -691,16 +777,61 @@ function addReportToTable(r) {
     syncIcon = '<span title="Pending sync" style="color:#fbbf24;font-size:10px;">⏳</span> ';
   }
   
-  const row = `<tr data-report-id="${r.id}" data-sync-status="${r.syncStatus || 'unknown'}">
-    <td>${syncIcon}<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.id}</span></td>
+  // ✨ Punto 3: badge de validación temporal
+  let validationBadge = '';
+  if (r.validation && typeof getValidationBadge === 'function') {
+    const badge = getValidationBadge(r.validation);
+    if (badge) {
+      const tooltip = r.validationMessage || badge.label;
+      validationBadge = ` <span title="${tooltip.replace(/"/g, '&quot;')}" style="color:${badge.color};font-size:11px;cursor:help;">${badge.icon}</span>`;
+    }
+  }
+  
+  // Credibility efectivo (con delta de validación) si existe, sino el original
+  const credValue = (typeof r.effectiveCredibility === 'number') ? r.effectiveCredibility : (r.credibility || 0);
+  const credDelta = r.credibilityDelta || 0;
+  let credExtra = '';
+  if (credDelta > 0) {
+    credExtra = ' <span style="color:#4ade80;font-size:10px;font-weight:700;">+' + credDelta + '</span>';
+  } else if (credDelta < 0) {
+    credExtra = ' <span style="color:#ef4444;font-size:10px;font-weight:700;">' + credDelta + '</span>';
+  }
+  
+  const row = `<tr data-report-id="${r.id}" data-sync-status="${r.syncStatus || 'unknown'}" data-validation="${r.validation || 'clean'}">
+    <td>${syncIcon}<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.id}</span>${validationBadge}</td>
     <td>${r.time}</td>
     <td>🌍 ${r.crisis}</td>
     <td>${icon} ${r.infra}</td>
     <td><span class="priority-badge ${dc}">${dl}</span></td>
-    <td><div class="credibility-bar"><div class="credibility-fill" style="width:${r.credibility}%"></div></div></td>
+    <td><div class="credibility-bar"><div class="credibility-fill" style="width:${credValue}%"></div></div>${credExtra}</td>
     <td><span style="font-family:'DM Mono',monospace;font-size:11px">${coordsDisplay}</span></td>
   </tr>`;
   document.getElementById('reports-tbody').insertAdjacentHTML('afterbegin', row);
+}
+
+// ✨ Punto 3: Re-renderiza la tabla COMPLETA desde state.reports
+// Útil cuando la validación temporal cambia los badges de reportes previos
+function refreshReportsTable() {
+  const tbody = document.getElementById('reports-tbody');
+  if (!tbody) return;
+  
+  tbody.innerHTML = '';  // limpiar
+  
+  // Filtrar por evento si dashboard tiene filtro activo
+  let reportsToShow = state.reports || [];
+  if (state.dashboardEventId) {
+    reportsToShow = reportsToShow.filter(r => r.eventId === state.dashboardEventId);
+  }
+  
+  // Ordenar por timestamp más reciente primero (insertAdjacentHTML 'afterbegin' invierte el orden)
+  // Por eso iteramos del más viejo al más nuevo y se ponen al inicio
+  const sorted = [...reportsToShow].sort((a, b) => {
+    const tsA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const tsB = new Date(b.timestamp || b.createdAt || 0).getTime();
+    return tsA - tsB;
+  });
+  
+  sorted.forEach(r => addReportToTable(r));
 }
 
 function updateKPIs(r) {
@@ -747,6 +878,14 @@ function updateKPIs(r) {
 function restart() {
   state.crisisType = ''; state.infraType = ''; state.damageLevel = ''; state.debris = '';
   state.activeEventId = null;  // Reset evento activo para próximo reporte
+  
+  // ✨ Punto 4: limpiar survey state y desmarcar botones visuales
+  state.currentSurvey = { roads: null, services: [], help: null, injuries: null };
+  state.pendingSurveyReportId = null;
+  document.querySelectorAll('.survey-btn, .survey-btn-multi').forEach(btn => {
+    btn.classList.remove('selected');
+  });
+  
   document.getElementById('photo-preview').style.display = 'none';
   document.getElementById('photo-upload-label').style.display = 'block';
   document.getElementById('textLocation').value = '';
@@ -836,6 +975,8 @@ function initMap() {
       // ✨ Density Triangulation: dibujar clusters después de los marcadores
       setTimeout(() => {
         if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
+        // ✨ Punto 4: dibujar también las capas GIS de encuestas
+        if (typeof refreshGisLayers === 'function') refreshGisLayers();
       }, 100);
     }
   } catch(e) { console.error('Map error:', e); }
@@ -1765,6 +1906,547 @@ function refreshDamageClusters() {
   }
 }
 
+// ===== TEMPORAL CROSS-VALIDATION (Punto 3 / Layer 5) ✨ =====
+// Detecta patrones temporales sospechosos o corroborantes entre reportes.
+// Tres reglas: duplicados probables, de-escalation sospechosa, corroboración positiva.
+// El credibility score de cada reporte se ajusta dinámicamente según las validaciones.
+
+const VALIDATION_CONFIG = {
+  // Ventana y radio para detectar duplicados (mismo usuario reportando dos veces)
+  DUPLICATE_WINDOW_MIN: 5,
+  DUPLICATE_RADIUS_M: 100,
+  DUPLICATE_CREDIBILITY_PENALTY: 30,
+  
+  // Ventana y radio para detectar de-escalation sospechosa
+  // (un edificio "destruido" no debería reportarse después como "daño leve")
+  DEESCALATION_WINDOW_HOURS: 6,
+  DEESCALATION_RADIUS_M: 50,
+  DEESCALATION_CREDIBILITY_PENALTY: 20,
+  
+  // Ventana y radio para detectar corroboración positiva
+  // (varios reportantes independientes confirman el mismo daño)
+  CORROBORATION_WINDOW_MIN: 30,
+  CORROBORATION_RADIUS_M: 100,
+  CORROBORATION_CREDIBILITY_BONUS: 10,
+  MIN_CORROBORATIONS: 2  // mínimo 2 reportes adicionales para corroborar
+};
+
+// Mapa de severidad de damage: complete=3, partial=2, minimal=1
+// Permite comparar si el daño sube o baja entre reportes
+const DAMAGE_SEVERITY = {
+  complete: 3,
+  partial: 2,
+  minimal: 1
+};
+
+// Tipos de validación temporal posibles
+const VALIDATION_TYPES = {
+  CLEAN: 'clean',                              // sin correlación temporal
+  DUPLICATE_LIKELY: 'duplicate-likely',        // probable duplicado del mismo usuario
+  SUSPICIOUS_DEESCALATION: 'suspicious-deescalation', // damage bajó sospechosamente
+  CROSS_CORROBORATED: 'cross-corroborated',    // confirmado por múltiples reportes
+  ESCALATION_CONFIRMED: 'escalation-confirmed' // damage subió (legítimo, daño empeora)
+};
+
+// Devuelve la diferencia en minutos entre dos timestamps ISO
+function minutesBetween(ts1, ts2) {
+  return Math.abs(new Date(ts1).getTime() - new Date(ts2).getTime()) / (1000 * 60);
+}
+
+// Devuelve diferencia en horas
+function hoursBetween(ts1, ts2) {
+  return minutesBetween(ts1, ts2) / 60;
+}
+
+// Compara dos reportes para detectar si uno corresponde a una de-escalation
+// sospechosa del otro (damage baja en menos de N horas en la misma zona).
+function checkDeescalation(newReport, oldReport) {
+  const coords1 = getReportCoords(newReport);
+  const coords2 = getReportCoords(oldReport);
+  if (!coords1 || !coords2) return false;
+  
+  const distM = distanceKm(coords1.lat, coords1.lng, coords2.lat, coords2.lng) * 1000;
+  if (distM > VALIDATION_CONFIG.DEESCALATION_RADIUS_M) return false;
+  
+  const hoursDiff = hoursBetween(newReport.timestamp || newReport.createdAt, 
+                                  oldReport.timestamp || oldReport.createdAt);
+  if (hoursDiff > VALIDATION_CONFIG.DEESCALATION_WINDOW_HOURS) return false;
+  
+  // Solo es de-escalation si el reporte nuevo tiene damage MENOR al antiguo
+  const newSev = DAMAGE_SEVERITY[newReport.damage] || 0;
+  const oldSev = DAMAGE_SEVERITY[oldReport.damage] || 0;
+  
+  return newSev < oldSev;
+}
+
+// Detecta si dos reportes son probable duplicado (mismo usuario, mismo todo, pegados en tiempo)
+function checkDuplicate(reportA, reportB) {
+  // Mismo tipo de crisis e infra
+  if (reportA.crisis !== reportB.crisis) return false;
+  if (reportA.infra !== reportB.infra) return false;
+  if (reportA.damage !== reportB.damage) return false;
+  
+  // Mismo lugar (<100m)
+  const coordsA = getReportCoords(reportA);
+  const coordsB = getReportCoords(reportB);
+  if (!coordsA || !coordsB) return false;
+  const distM = distanceKm(coordsA.lat, coordsA.lng, coordsB.lat, coordsB.lng) * 1000;
+  if (distM > VALIDATION_CONFIG.DUPLICATE_RADIUS_M) return false;
+  
+  // Ventana temporal corta
+  const minutesDiff = minutesBetween(reportA.timestamp || reportA.createdAt, 
+                                      reportB.timestamp || reportB.createdAt);
+  return minutesDiff <= VALIDATION_CONFIG.DUPLICATE_WINDOW_MIN;
+}
+
+// Encuentra reportes que corroboran este reporte (mismo damage, misma zona, ventana media)
+function findCorroborators(targetReport, allReports) {
+  const targetCoords = getReportCoords(targetReport);
+  if (!targetCoords) return [];
+  
+  return allReports.filter(other => {
+    if (other.id === targetReport.id) return false;
+    if (other.crisis !== targetReport.crisis) return false;
+    if (other.damage !== targetReport.damage) return false;
+    
+    const otherCoords = getReportCoords(other);
+    if (!otherCoords) return false;
+    const distM = distanceKm(targetCoords.lat, targetCoords.lng, otherCoords.lat, otherCoords.lng) * 1000;
+    if (distM > VALIDATION_CONFIG.CORROBORATION_RADIUS_M) return false;
+    
+    const minutesDiff = minutesBetween(targetReport.timestamp || targetReport.createdAt,
+                                        other.timestamp || other.createdAt);
+    return minutesDiff <= VALIDATION_CONFIG.CORROBORATION_WINDOW_MIN;
+  });
+}
+
+// Función principal de validación temporal de un reporte específico.
+// Analiza el reporte contra TODOS los demás reportes en state.reports
+// y devuelve un objeto con: type, credibilityDelta, relatedReportIds, message
+function validateReportTemporally(report, allReports) {
+  // Por defecto: limpio
+  let result = {
+    type: VALIDATION_TYPES.CLEAN,
+    credibilityDelta: 0,
+    relatedReportIds: [],
+    message: 'No temporal correlations detected'
+  };
+  
+  if (!report || !allReports || allReports.length === 0) return result;
+  
+  // Ordenar por timestamp (más viejo primero) para análisis cronológico
+  const sortedReports = [...allReports].sort((a, b) => {
+    const tsA = new Date(a.timestamp || a.createdAt || 0).getTime();
+    const tsB = new Date(b.timestamp || b.createdAt || 0).getTime();
+    return tsA - tsB;
+  });
+  
+  // Reportes anteriores al actual
+  const reportTime = new Date(report.timestamp || report.createdAt || 0).getTime();
+  const priorReports = sortedReports.filter(r => {
+    if (r.id === report.id) return false;
+    const rTime = new Date(r.timestamp || r.createdAt || 0).getTime();
+    return rTime < reportTime;
+  });
+  
+  // ----- REGLA 1: Detectar duplicados probables -----
+  const duplicates = priorReports.filter(prior => checkDuplicate(report, prior));
+  if (duplicates.length > 0) {
+    return {
+      type: VALIDATION_TYPES.DUPLICATE_LIKELY,
+      credibilityDelta: -VALIDATION_CONFIG.DUPLICATE_CREDIBILITY_PENALTY,
+      relatedReportIds: duplicates.map(d => d.id),
+      message: 'Likely duplicate of ' + duplicates.length + ' earlier report(s) within 5 minutes and 100m'
+    };
+  }
+  
+  // ----- REGLA 2: Detectar de-escalation sospechosa -----
+  const deescalations = priorReports.filter(prior => checkDeescalation(report, prior));
+  if (deescalations.length > 0) {
+    return {
+      type: VALIDATION_TYPES.SUSPICIOUS_DEESCALATION,
+      credibilityDelta: -VALIDATION_CONFIG.DEESCALATION_CREDIBILITY_PENALTY,
+      relatedReportIds: deescalations.map(d => d.id),
+      message: 'Damage reported lower than ' + deescalations.length + ' earlier report(s) in same area (suspicious)'
+    };
+  }
+  
+  // ----- REGLA 3a: Detectar escalation legítima (damage sube) -----
+  // (Damage del reporte actual es MAYOR que algún anterior en la zona)
+  const escalations = priorReports.filter(prior => {
+    const coords1 = getReportCoords(report);
+    const coords2 = getReportCoords(prior);
+    if (!coords1 || !coords2) return false;
+    const distM = distanceKm(coords1.lat, coords1.lng, coords2.lat, coords2.lng) * 1000;
+    if (distM > VALIDATION_CONFIG.DEESCALATION_RADIUS_M) return false;
+    const hoursDiff = hoursBetween(report.timestamp || report.createdAt, 
+                                    prior.timestamp || prior.createdAt);
+    if (hoursDiff > VALIDATION_CONFIG.DEESCALATION_WINDOW_HOURS) return false;
+    const newSev = DAMAGE_SEVERITY[report.damage] || 0;
+    const oldSev = DAMAGE_SEVERITY[prior.damage] || 0;
+    return newSev > oldSev;  // damage subió
+  });
+  
+  if (escalations.length > 0) {
+    return {
+      type: VALIDATION_TYPES.ESCALATION_CONFIRMED,
+      credibilityDelta: 0,  // no penaliza pero tampoco bonifica (es info neutra)
+      relatedReportIds: escalations.map(e => e.id),
+      message: 'Damage escalated compared to ' + escalations.length + ' earlier report(s) — situation worsening'
+    };
+  }
+  
+  // ----- REGLA 3b: Detectar corroboración positiva -----
+  const corroborators = findCorroborators(report, allReports);
+  if (corroborators.length >= VALIDATION_CONFIG.MIN_CORROBORATIONS) {
+    return {
+      type: VALIDATION_TYPES.CROSS_CORROBORATED,
+      credibilityDelta: VALIDATION_CONFIG.CORROBORATION_CREDIBILITY_BONUS,
+      relatedReportIds: corroborators.map(c => c.id),
+      message: 'Cross-corroborated by ' + corroborators.length + ' independent reports in same area'
+    };
+  }
+  
+  return result;
+}
+
+// Devuelve el icono y color para un tipo de validación
+function getValidationBadge(validationType) {
+  switch (validationType) {
+    case VALIDATION_TYPES.CROSS_CORROBORATED:
+      return { icon: '✅', color: '#4ade80', label: 'Cross-corroborated' };
+    case VALIDATION_TYPES.ESCALATION_CONFIRMED:
+      return { icon: '📈', color: '#f4a261', label: 'Escalation confirmed' };
+    case VALIDATION_TYPES.SUSPICIOUS_DEESCALATION:
+      return { icon: '⚠️', color: '#fbbf24', label: 'Suspicious de-escalation' };
+    case VALIDATION_TYPES.DUPLICATE_LIKELY:
+      return { icon: '🔁', color: '#94a3b8', label: 'Duplicate likely' };
+    default:
+      return null;
+  }
+}
+
+// Aplica validación temporal a TODOS los reportes en state.reports.
+// Modifica cada reporte con propiedades: validation, validationDelta, validationRelated
+// También ajusta el credibility "efectivo" sin tocar el original.
+function applyTemporalValidationToAll() {
+  if (!state.reports || state.reports.length === 0) return;
+  
+  state.reports.forEach(report => {
+    const result = validateReportTemporally(report, state.reports);
+    report.validation = result.type;
+    report.validationMessage = result.message;
+    report.validationRelated = result.relatedReportIds;
+    
+    // Calcular credibility efectivo (original + delta de validación, clampado entre 0-100)
+    const baseCred = report.credibility || 75;
+    const newCred = Math.max(0, Math.min(100, baseCred + result.credibilityDelta));
+    report.effectiveCredibility = newCred;
+    report.credibilityDelta = result.credibilityDelta;
+  });
+  
+  console.log('FRIDA: Temporal validation applied to', state.reports.length, 'reports');
+}
+
+// ===== CITIZEN-BUILT GIS LAYERS (Punto 4 / Layer 7) ✨ =====
+// Encuesta opcional post-crisis sobre necesidades secundarias.
+// Genera capas GIS que complementan los reportes de daño primario.
+
+// Genera un ID único para una encuesta
+function generateSurveyId() {
+  return 'SRV-' + Date.now() + '-' + Math.random().toString(36).substr(2, 6);
+}
+
+// Marca un botón como seleccionado en la encuesta (single-select)
+function setSurveyAnswer(field, value, btn) {
+  state.currentSurvey[field] = value;
+  
+  // Desmarcar otros botones del mismo field
+  document.querySelectorAll('[data-survey-field="' + field + '"]').forEach(b => {
+    b.classList.remove('selected');
+  });
+  // Marcar el actual
+  if (btn) btn.classList.add('selected');
+}
+
+// Toggle de botón en multi-select (servicios fallando)
+function toggleSurveyMulti(field, value, btn) {
+  if (!Array.isArray(state.currentSurvey[field])) {
+    state.currentSurvey[field] = [];
+  }
+  
+  // Caso especial: "none" excluye a los demás
+  if (value === 'none') {
+    state.currentSurvey[field] = ['none'];
+    document.querySelectorAll('[data-survey-field="' + field + '"]').forEach(b => {
+      b.classList.remove('selected');
+    });
+    if (btn) btn.classList.add('selected');
+    return;
+  }
+  
+  // Si seleccionan otro y "none" estaba activo, quitarlo
+  const noneIdx = state.currentSurvey[field].indexOf('none');
+  if (noneIdx !== -1) {
+    state.currentSurvey[field].splice(noneIdx, 1);
+    document.querySelector('[data-survey-field="' + field + '"][data-survey-value="none"]')?.classList.remove('selected');
+  }
+  
+  // Toggle del valor actual
+  const idx = state.currentSurvey[field].indexOf(value);
+  if (idx === -1) {
+    state.currentSurvey[field].push(value);
+    if (btn) btn.classList.add('selected');
+  } else {
+    state.currentSurvey[field].splice(idx, 1);
+    if (btn) btn.classList.remove('selected');
+  }
+}
+
+// Guarda la encuesta vinculada al reporte y avanza a success
+async function submitSurvey() {
+  if (!state.pendingSurveyReportId) {
+    // No hay reporte asociado, ir directo a success
+    nextStep('success');
+    return;
+  }
+  
+  const report = state.reports.find(r => r.id === state.pendingSurveyReportId);
+  if (!report) {
+    nextStep('success');
+    return;
+  }
+  
+  const coords = getReportCoords(report);
+  
+  // Construir el objeto survey
+  const survey = {
+    id: generateSurveyId(),
+    reportId: state.pendingSurveyReportId,
+    eventId: report.eventId,
+    timestamp: new Date().toISOString(),
+    coords: coords,
+    answers: {
+      roads: state.currentSurvey.roads,
+      services: state.currentSurvey.services && state.currentSurvey.services.length > 0 ? state.currentSurvey.services : null,
+      help: state.currentSurvey.help,
+      injuries: state.currentSurvey.injuries
+    }
+  };
+  
+  // Guardar en state y persistir en localStorage (más simple que IndexedDB para encuestas)
+  state.surveys.push(survey);
+  try {
+    const allSurveys = JSON.parse(localStorage.getItem('frida-surveys') || '[]');
+    allSurveys.push(survey);
+    localStorage.setItem('frida-surveys', JSON.stringify(allSurveys));
+    console.log('FRIDA: Survey saved →', survey.id, '→ Report:', survey.reportId);
+  } catch (err) {
+    console.warn('FRIDA: Could not persist survey:', err);
+  }
+  
+  // Refrescar visualización del mapa con las nuevas capas
+  if (typeof refreshGisLayers === 'function') {
+    refreshGisLayers();
+  }
+  
+  // Limpiar state.currentSurvey para próximo reporte
+  state.currentSurvey = { roads: null, services: [], help: null, injuries: null };
+  state.pendingSurveyReportId = null;
+  
+  nextStep('success');
+}
+
+// Saltar la encuesta y avanzar a success
+function skipSurvey() {
+  console.log('FRIDA: User skipped optional survey');
+  state.currentSurvey = { roads: null, services: [], help: null, injuries: null };
+  state.pendingSurveyReportId = null;
+  nextStep('success');
+}
+
+// Carga encuestas guardadas al iniciar la app
+function loadSurveysFromStorage() {
+  try {
+    const stored = JSON.parse(localStorage.getItem('frida-surveys') || '[]');
+    state.surveys = stored;
+    if (stored.length > 0) {
+      console.log('FRIDA: Loaded', stored.length, 'GIS surveys from storage');
+    }
+  } catch (err) {
+    console.warn('FRIDA: Could not load surveys:', err);
+    state.surveys = [];
+  }
+}
+
+// ===== VISUALIZACIÓN DE CAPAS GIS EN MAPA =====
+// Cada respuesta de la encuesta se visualiza como una capa de marcadores en el mapa.
+// Usuario puede toggle cada capa de forma independiente.
+
+let gisLayersOnMap = {
+  roads: null,
+  services: null,
+  help: null,
+  injuries: null
+};
+
+const GIS_LAYER_CONFIG = {
+  roads: {
+    icon: '🚧',
+    color: '#fbbf24',  // amarillo
+    label: 'Blocked Roads',
+    activeWhen: ['yes']
+  },
+  services: {
+    icon: '⚡',
+    color: '#a78bfa',  // violeta
+    label: 'Service Failures',
+    activeWhen: 'any'  // cualquier servicio != none
+  },
+  help: {
+    icon: '⏳',
+    color: '#fb923c',  // naranja
+    label: 'Awaiting Help',
+    activeWhen: ['not_yet']
+  },
+  injuries: {
+    icon: '🩹',
+    color: '#dc2626',  // rojo oscuro
+    label: 'Injuries Reported',
+    activeWhen: ['many', 'few']
+  }
+};
+
+// Renderiza las 4 capas GIS en el mapa principal
+function refreshGisLayers() {
+  if (!mainMap) return;
+  
+  // Limpiar capas existentes
+  Object.keys(gisLayersOnMap).forEach(key => {
+    if (gisLayersOnMap[key]) {
+      mainMap.removeLayer(gisLayersOnMap[key]);
+      gisLayersOnMap[key] = null;
+    }
+  });
+  
+  if (!state.surveys || state.surveys.length === 0) return;
+  
+  // Construir cada capa
+  Object.keys(GIS_LAYER_CONFIG).forEach(field => {
+    const config = GIS_LAYER_CONFIG[field];
+    const layer = L.layerGroup();
+    let count = 0;
+    
+    state.surveys.forEach(survey => {
+      if (!survey.coords) return;
+      
+      const answer = survey.answers[field];
+      let isActive = false;
+      
+      if (config.activeWhen === 'any') {
+        // Para "services": activo si hay al menos un servicio != 'none'
+        isActive = Array.isArray(answer) && answer.length > 0 && !answer.includes('none');
+      } else if (Array.isArray(config.activeWhen)) {
+        isActive = config.activeWhen.includes(answer);
+      }
+      
+      if (!isActive) return;
+      
+      // Aplicar geo-fuzzing al display (privacy-by-design)
+      const fuzzed = (typeof applyGeoFuzzing === 'function') 
+        ? applyGeoFuzzing(survey.coords.lat, survey.coords.lng, 'Survey') 
+        : { lat: survey.coords.lat, lng: survey.coords.lng };
+      
+      const icon = L.divIcon({
+        className: 'gis-marker',
+        html: `<div style="background:${config.color}; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; border:2px solid white; box-shadow:0 1px 4px rgba(0,0,0,0.4);">${config.icon}</div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      
+      const marker = L.marker([fuzzed.lat, fuzzed.lng], { icon: icon });
+      
+      // Tooltip
+      let tooltipText = config.label;
+      if (field === 'services' && Array.isArray(answer)) {
+        tooltipText += ': ' + answer.filter(a => a !== 'none').join(', ');
+      } else if (field === 'injuries') {
+        tooltipText += ' (' + answer + ')';
+      }
+      marker.bindTooltip(tooltipText, { direction: 'top' });
+      
+      layer.addLayer(marker);
+      count++;
+    });
+    
+    if (count > 0) {
+      layer.addTo(mainMap);
+      gisLayersOnMap[field] = layer;
+    }
+  });
+  
+  // Actualizar leyenda visual de capas
+  if (typeof updateGisLegend === 'function') updateGisLegend();
+  
+  console.log('FRIDA: GIS layers refreshed —', state.surveys.length, 'surveys processed');
+}
+
+// Genera estadísticas de las capas GIS para el dashboard
+function getGisStats() {
+  const stats = {
+    totalSurveys: state.surveys.length,
+    blockedRoads: 0,
+    serviceFailures: 0,
+    awaitingHelp: 0,
+    injuriesReported: 0
+  };
+  
+  state.surveys.forEach(s => {
+    if (s.answers.roads === 'yes') stats.blockedRoads++;
+    if (Array.isArray(s.answers.services) && s.answers.services.length > 0 && !s.answers.services.includes('none')) {
+      stats.serviceFailures++;
+    }
+    if (s.answers.help === 'not_yet') stats.awaitingHelp++;
+    if (s.answers.injuries === 'many' || s.answers.injuries === 'few') stats.injuriesReported++;
+  });
+  
+  return stats;
+}
+
+// Actualiza la leyenda de capas GIS en el dashboard
+function updateGisLegend() {
+  const container = document.getElementById('gis-legend');
+  if (!container) return;
+  
+  const stats = getGisStats();
+  
+  if (stats.totalSurveys === 0) {
+    container.style.display = 'none';
+    return;
+  }
+  
+  container.style.display = 'block';
+  container.innerHTML = `<div style="font-size:11px; color:var(--text2); margin-bottom:8px; text-transform:uppercase; letter-spacing:0.5px;">GIS Layers (${stats.totalSurveys} surveys)</div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:8px;">
+      <div style="background:var(--bg3); padding:10px; border-radius:8px; border-left:3px solid #fbbf24;">
+        <div style="font-size:11px; color:var(--text2);">🚧 Blocked Roads</div>
+        <div style="font-size:18px; font-weight:700; color:var(--text);">${stats.blockedRoads}</div>
+      </div>
+      <div style="background:var(--bg3); padding:10px; border-radius:8px; border-left:3px solid #a78bfa;">
+        <div style="font-size:11px; color:var(--text2);">⚡ Service Failures</div>
+        <div style="font-size:18px; font-weight:700; color:var(--text);">${stats.serviceFailures}</div>
+      </div>
+      <div style="background:var(--bg3); padding:10px; border-radius:8px; border-left:3px solid #fb923c;">
+        <div style="font-size:11px; color:var(--text2);">⏳ Awaiting Help</div>
+        <div style="font-size:18px; font-weight:700; color:var(--text);">${stats.awaitingHelp}</div>
+      </div>
+      <div style="background:var(--bg3); padding:10px; border-radius:8px; border-left:3px solid #dc2626;">
+        <div style="font-size:11px; color:var(--text2);">🩹 Injuries</div>
+        <div style="font-size:18px; font-weight:700; color:var(--text);">${stats.injuriesReported}</div>
+      </div>
+    </div>`;
+}
+
 // ===== INICIALIZACIÓN DE STORAGE (Lote C — Sub-paso 3C) =====
 
 // Carga todos los reportes guardados en IndexedDB y los muestra en la UI.
@@ -1782,12 +2464,15 @@ async function loadReportsFromDB() {
     
     // Resetear estado para evitar duplicados si se llama dos veces
     state.reports = [];
+    saved.forEach(r => state.reports.push(r));
     
-    // Reconstruir UI desde los datos persistidos
+    // ✨ Punto 3: Aplicar validación temporal ANTES de renderizar
+    if (typeof applyTemporalValidationToAll === 'function') {
+      applyTemporalValidationToAll();
+    }
+    
+    // Reconstruir UI desde los datos persistidos (ahora con badges aplicados)
     saved.forEach(report => {
-      state.reports.push(report);
-      
-      // Solo dibujar si las funciones de UI están disponibles
       try {
         if (typeof addReportToTable === 'function') addReportToTable(report);
         if (typeof addMarkerToMap === 'function') addMarkerToMap(report);
@@ -1815,12 +2500,16 @@ async function initializeStorage() {
     await dbOpen();
     // Cargar eventos primero (Layer 10), después reportes
     await loadEventsFromDB();
+    // ✨ Punto 4: cargar encuestas GIS desde localStorage
+    if (typeof loadSurveysFromStorage === 'function') loadSurveysFromStorage();
     // Esperar un poco para que el DOM y los maps estén listos antes de pintar reportes
     setTimeout(() => {
       loadReportsFromDB();
       // Después de cargar reportes, refrescar los tabs de eventos del dashboard
       setTimeout(() => {
         if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
+        // ✨ Punto 4: actualizar legend de capas GIS
+        if (typeof updateGisLegend === 'function') updateGisLegend();
       }, 500);
     }, 300);
   } catch (err) {
@@ -2090,12 +2779,12 @@ function updateAccuracyDisplay(accuracyMeters, isManual) {
 
 // Extend i18n with new keys
 const extraKeys = {
-  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety', event_select_label:'Event Selection', event_select_q:'Which event are you reporting?', event_select_tip:'FRIDA detected nearby active events. Select the one you are experiencing, or create a new one.', event_new:'This is a different event — create new', all_events:'All Events', clusters_label:'🎯 Damage Clusters — AI Triangulated' },
-  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad', event_select_label:'Selección de Evento', event_select_q:'¿A qué evento estás reportando?', event_select_tip:'FRIDA detectó eventos activos cercanos. Selecciona el que estás viviendo o crea uno nuevo.', event_new:'Es un evento diferente — crear nuevo', all_events:'Todos los Eventos', clusters_label:'🎯 Clusters de Daño — Triangulados por IA' },
-  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité', event_select_label:'Sélection d evenement', event_select_q:'Quel événement signalez-vous?', event_select_tip:'FRIDA a détecté des événements actifs à proximité. Sélectionnez celui que vous vivez ou créez-en un nouveau.', event_new:'C est un événement différent — en créer un nouveau', all_events:'Tous les Événements', clusters_label:'🎯 Clusters de dommages — Triangulés par IA' },
-  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك', event_select_label:'اختيار الحدث', event_select_q:'الى اي حدث تقوم بالابلاغ؟', event_select_tip:'اكتشفت FRIDA احداثا نشطة قريبة. اختر الحدث الذي تعيشه او انشئ حدثا جديدا.', event_new:'هذا حدث مختلف — انشاء جديد', all_events:'جميع الاحداث', clusters_label:'🎯 مجموعات الأضرار — مثلثة بالذكاء الاصطناعي' },
-  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全', event_select_label:'事件选择', event_select_q:'您正在报告哪个事件？', event_select_tip:'FRIDA检测到附近的活动事件。选择您正在经历的事件或创建一个新事件。', event_new:'这是另一个事件 — 创建新事件', all_events:'所有事件', clusters_label:'🎯 损害集群 — AI三角定位' },
-  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности', event_select_label:'Выбор события', event_select_q:'О каком событии вы сообщаете?', event_select_tip:'FRIDA обнаружила активные события поблизости. Выберите то которое вы переживаете или создайте новое.', event_new:'Это другое событие — создать новое', all_events:'Все события', clusters_label:'🎯 Кластеры ущерба — триангулированы ИИ' }
+  en: { map_critical:'Critical', map_partial:'Partial', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complete', leg_partial:'● Partial', leg_minimal:'● Minimal', dash_title:'UNDP Crisis Dashboard', dash_sub:'FRIDA · Real-time damage assessment · Updated just now', kpi_total:'Total Reports', kpi_critical:'Critical Zones', kpi_confidence:'Data Confidence', kpi_events:'Active Events', priority_label:'Priority Zones — AI Ranked', reports_label:'All Reports', export_btn:'⬇ Export CSV', th_id:'ID', th_time:'Time', th_crisis:'Crisis', th_infra:'Infrastructure', th_damage:'Damage', th_cred:'Credibility', th_coords:'Coordinates', step_confirm:'Confirmation', step_q1:'Question 1 of 6', step_q2:'Question 2 of 6', step_q3:'Question 3 of 6', step_q4:'Question 4 of 6', step_q5:'Question 5 of 6', step_q6:'Question 6 of 6', offline_msg:'⚡ Offline mode — reports saved locally, will sync when signal returns', no_active_event:'No active event', conflict_mode_active:'Conflict Mode Active — Enhanced privacy: location fuzzed 500m, photos disabled', conflict_photo_disabled:'Photos disabled in Conflict Mode for your safety', event_select_label:'Event Selection', event_select_q:'Which event are you reporting?', event_select_tip:'FRIDA detected nearby active events. Select the one you are experiencing, or create a new one.', event_new:'This is a different event — create new', all_events:'All Events', clusters_label:'🎯 Damage Clusters — AI Triangulated', survey_label:'Optional Survey', survey_q:'Help us understand secondary needs (optional)', survey_tip:'Each answer builds a layer of community knowledge for first responders. Skip if you cannot answer safely.', survey_q_roads:'🛣️ Are there blocked roads nearby?', survey_q_services:'⚡ Which services are failing?', survey_q_help:'🚑 Has professional help arrived?', survey_q_injuries:'🩹 Are there visible injuries?', survey_yes:'Yes', survey_no:'No', survey_unknown:'Don\'t know', survey_water:'Water', survey_power:'Power', survey_internet:'Internet', survey_gas:'Gas', survey_none:'None failing', survey_help_yes:'Yes', survey_help_no:'Not yet', survey_inj_many:'Yes, many', survey_inj_few:'Yes, few', survey_inj_material:'Material damage only', survey_submit:'Submit survey →', survey_skip:'Skip' },
+  es: { map_critical:'Crítico', map_partial:'Parcial', map_minimal:'Mínimo', map_total:'Total', leg_complete:'● Completo', leg_partial:'● Parcial', leg_minimal:'● Mínimo', dash_title:'Panel de Crisis del PNUD', dash_sub:'FRIDA · Evaluación de daños en tiempo real · Actualizado ahora', kpi_total:'Total Reportes', kpi_critical:'Zonas Críticas', kpi_confidence:'Confianza de Datos', kpi_events:'Eventos Activos', priority_label:'Zonas Prioritarias — IA', reports_label:'Todos los Reportes', export_btn:'⬇ Exportar CSV', th_id:'ID', th_time:'Hora', th_crisis:'Crisis', th_infra:'Infraestructura', th_damage:'Daño', th_cred:'Credibilidad', th_coords:'Coordenadas', step_confirm:'Confirmación', step_q1:'Pregunta 1 de 6', step_q2:'Pregunta 2 de 6', step_q3:'Pregunta 3 de 6', step_q4:'Pregunta 4 de 6', step_q5:'Pregunta 5 de 6', step_q6:'Pregunta 6 de 6', offline_msg:'⚡ Modo offline — los reportes se guardan localmente, se sincronizarán cuando vuelva la señal', no_active_event:'Sin evento activo', conflict_mode_active:'Modo Conflicto Activo — Privacidad mejorada: ubicación protegida 500m, fotos deshabilitadas', conflict_photo_disabled:'Fotos deshabilitadas en Modo Conflicto para su seguridad', event_select_label:'Selección de Evento', event_select_q:'¿A qué evento estás reportando?', event_select_tip:'FRIDA detectó eventos activos cercanos. Selecciona el que estás viviendo o crea uno nuevo.', event_new:'Es un evento diferente — crear nuevo', all_events:'Todos los Eventos', clusters_label:'🎯 Clusters de Daño — Triangulados por IA', survey_label:'Encuesta Opcional', survey_q:'Ayúdanos a entender necesidades secundarias (opcional)', survey_tip:'Cada respuesta construye una capa de conocimiento comunitario para los rescatistas. Salta si no puedes responder con seguridad.', survey_q_roads:'🛣️ ¿Hay carreteras bloqueadas cerca?', survey_q_services:'⚡ ¿Qué servicios están fallando?', survey_q_help:'🚑 ¿Ha llegado ayuda profesional?', survey_q_injuries:'🩹 ¿Hay heridos visibles?', survey_yes:'Sí', survey_no:'No', survey_unknown:'No sé', survey_water:'Agua', survey_power:'Electricidad', survey_internet:'Internet', survey_gas:'Gas', survey_none:'Ninguno falla', survey_help_yes:'Sí', survey_help_no:'Aún no', survey_inj_many:'Sí, muchos', survey_inj_few:'Sí, pocos', survey_inj_material:'Solo daño material', survey_submit:'Enviar encuesta →', survey_skip:'Saltar' },
+  fr: { map_critical:'Critique', map_partial:'Partiel', map_minimal:'Minimal', map_total:'Total', leg_complete:'● Complet', leg_partial:'● Partiel', leg_minimal:'● Minimal', dash_title:'Tableau de bord PNUD', dash_sub:'FRIDA · Évaluation des dommages en temps réel', kpi_total:'Total Rapports', kpi_critical:'Zones Critiques', kpi_confidence:'Confiance des Données', kpi_events:'Événements Actifs', priority_label:'Zones Prioritaires — IA', reports_label:'Tous les Rapports', export_btn:'⬇ Exporter CSV', th_id:'ID', th_time:'Heure', th_crisis:'Crise', th_infra:'Infrastructure', th_damage:'Dommage', th_cred:'Crédibilité', th_coords:'Coordonnées', step_confirm:'Confirmation', step_q1:'Question 1 sur 6', step_q2:'Question 2 sur 6', step_q3:'Question 3 sur 6', step_q4:'Question 4 sur 6', step_q5:'Question 5 sur 6', step_q6:'Question 6 sur 6', offline_msg:'⚡ Mode hors ligne — les rapports sont enregistrés localement, ils se synchroniseront au retour du signal', no_active_event:'Aucun événement actif', conflict_mode_active:'Mode Conflit Actif — Confidentialité renforcée: localisation protégée 500m, photos désactivées', conflict_photo_disabled:'Photos désactivées en Mode Conflit pour votre sécurité', event_select_label:'Sélection d evenement', event_select_q:'Quel événement signalez-vous?', event_select_tip:'FRIDA a détecté des événements actifs à proximité. Sélectionnez celui que vous vivez ou créez-en un nouveau.', event_new:'C est un événement différent — en créer un nouveau', all_events:'Tous les Événements', clusters_label:'🎯 Clusters de dommages — Triangulés par IA', survey_label:'Enquête Optionnelle', survey_q:'Aidez-nous à comprendre les besoins secondaires (optionnel)', survey_tip:'Chaque réponse construit une couche de connaissance communautaire. Sautez si vous ne pouvez pas répondre en sécurité.', survey_q_roads:'🛣️ Y a-t-il des routes bloquées à proximité?', survey_q_services:'⚡ Quels services fonctionnent mal?', survey_q_help:'🚑 Laide professionnelle est-elle arrivée?', survey_q_injuries:'🩹 Y a-t-il des blessés visibles?', survey_yes:'Oui', survey_no:'Non', survey_unknown:'Je ne sais pas', survey_water:'Eau', survey_power:'Électricité', survey_internet:'Internet', survey_gas:'Gaz', survey_none:'Aucun défaillant', survey_help_yes:'Oui', survey_help_no:'Pas encore', survey_inj_many:'Oui, beaucoup', survey_inj_few:'Oui, peu', survey_inj_material:'Dommages matériels uniquement', survey_submit:'Soumettre →', survey_skip:'Passer' },
+  ar: { map_critical:'حرج', map_partial:'جزئي', map_minimal:'بسيط', map_total:'المجموع', leg_complete:'● كامل', leg_partial:'● جزئي', leg_minimal:'● بسيط', dash_title:'لوحة تحكم UNDP', dash_sub:'FRIDA · تقييم الأضرار في الوقت الفعلي', kpi_total:'إجمالي التقارير', kpi_critical:'المناطق الحرجة', kpi_confidence:'ثقة البيانات', kpi_events:'الأحداث النشطة', priority_label:'المناطق ذات الأولوية', reports_label:'جميع التقارير', export_btn:'⬇ تصدير CSV', th_id:'المعرف', th_time:'الوقت', th_crisis:'الأزمة', th_infra:'البنية التحتية', th_damage:'الضرر', th_cred:'المصداقية', th_coords:'الإحداثيات', step_confirm:'تأكيد', step_q1:'سؤال 1 من 6', step_q2:'سؤال 2 من 6', step_q3:'سؤال 3 من 6', step_q4:'سؤال 4 من 6', step_q5:'سؤال 5 من 6', step_q6:'سؤال 6 من 6', offline_msg:'⚡ وضع عدم الاتصال — يتم حفظ التقارير محلياً وستتم المزامنة عند عودة الإشارة', no_active_event:'لا توجد أحداث نشطة', conflict_mode_active:'وضع النزاع نشط — حماية معززة للخصوصية: الموقع محمي 500 متر، الصور معطلة', conflict_photo_disabled:'الصور معطلة في وضع النزاع لسلامتك', event_select_label:'اختيار الحدث', event_select_q:'الى اي حدث تقوم بالابلاغ؟', event_select_tip:'اكتشفت FRIDA احداثا نشطة قريبة. اختر الحدث الذي تعيشه او انشئ حدثا جديدا.', event_new:'هذا حدث مختلف — انشاء جديد', all_events:'جميع الاحداث', clusters_label:'🎯 مجموعات الأضرار — مثلثة بالذكاء الاصطناعي', survey_label:'استبيان اختياري', survey_q:'ساعدنا في فهم الاحتياجات الثانوية (اختياري)', survey_tip:'كل إجابة تبني طبقة من المعرفة المجتمعية للمستجيبين الأوائل.', survey_q_roads:'🛣️ هل هناك طرق مغلقة قريبة؟', survey_q_services:'⚡ ما هي الخدمات المعطلة؟', survey_q_help:'🚑 هل وصلت المساعدة المهنية؟', survey_q_injuries:'🩹 هل هناك إصابات مرئية؟', survey_yes:'نعم', survey_no:'لا', survey_unknown:'لا أعرف', survey_water:'ماء', survey_power:'كهرباء', survey_internet:'إنترنت', survey_gas:'غاز', survey_none:'لا شيء معطل', survey_help_yes:'نعم', survey_help_no:'لم تصل بعد', survey_inj_many:'نعم، كثيرون', survey_inj_few:'نعم، قليلون', survey_inj_material:'أضرار مادية فقط', survey_submit:'إرسال →', survey_skip:'تخطي' },
+  zh: { map_critical:'严重', map_partial:'部分', map_minimal:'轻微', map_total:'总计', leg_complete:'● 完全损坏', leg_partial:'● 部分损坏', leg_minimal:'● 轻微损坏', dash_title:'联合国开发计划署危机仪表板', dash_sub:'FRIDA · 实时损害评估', kpi_total:'报告总数', kpi_critical:'严重区域', kpi_confidence:'数据置信度', kpi_events:'活跃事件', priority_label:'优先区域 — AI排名', reports_label:'所有报告', export_btn:'⬇ 导出CSV', th_id:'编号', th_time:'时间', th_crisis:'危机', th_infra:'基础设施', th_damage:'损坏', th_cred:'可信度', th_coords:'坐标', step_confirm:'确认', step_q1:'问题1/6', step_q2:'问题2/6', step_q3:'问题3/6', step_q4:'问题4/6', step_q5:'问题5/6', step_q6:'问题6/6', offline_msg:'⚡ 离线模式 — 报告保存在本地，信号恢复时将同步', no_active_event:'无活跃事件', conflict_mode_active:'冲突模式激活 — 增强隐私: 位置模糊500米, 照片已禁用', conflict_photo_disabled:'冲突模式下禁用照片以确保您的安全', event_select_label:'事件选择', event_select_q:'您正在报告哪个事件？', event_select_tip:'FRIDA检测到附近的活动事件。选择您正在经历的事件或创建一个新事件。', event_new:'这是另一个事件 — 创建新事件', all_events:'所有事件', clusters_label:'🎯 损害集群 — AI三角定位', survey_label:'可选调查', survey_q:'帮助我们了解次要需求（可选）', survey_tip:'每个回答都为第一响应者构建了一层社区知识。', survey_q_roads:'🛣️ 附近有道路堵塞吗？', survey_q_services:'⚡ 哪些服务出现故障？', survey_q_help:'🚑 专业帮助是否已到达？', survey_q_injuries:'🩹 是否有可见的伤员？', survey_yes:'是', survey_no:'否', survey_unknown:'不知道', survey_water:'水', survey_power:'电力', survey_internet:'互联网', survey_gas:'燃气', survey_none:'无故障', survey_help_yes:'是', survey_help_no:'尚未', survey_inj_many:'是的，许多', survey_inj_few:'是的，少数', survey_inj_material:'仅物质损害', survey_submit:'提交 →', survey_skip:'跳过' },
+  ru: { map_critical:'Критично', map_partial:'Частично', map_minimal:'Минимум', map_total:'Всего', leg_complete:'● Полное', leg_partial:'● Частичное', leg_minimal:'● Минимальное', dash_title:'Панель кризиса ПРООН', dash_sub:'FRIDA · Оценка ущерба в реальном времени', kpi_total:'Всего отчётов', kpi_critical:'Критические зоны', kpi_confidence:'Достоверность данных', kpi_events:'Активные события', priority_label:'Приоритетные зоны — ИИ', reports_label:'Все отчёты', export_btn:'⬇ Экспорт CSV', th_id:'ID', th_time:'Время', th_crisis:'Кризис', th_infra:'Инфраструктура', th_damage:'Ущерб', th_cred:'Достоверность', th_coords:'Координаты', step_confirm:'Подтверждение', step_q1:'Вопрос 1 из 6', step_q2:'Вопрос 2 из 6', step_q3:'Вопрос 3 из 6', step_q4:'Вопрос 4 из 6', step_q5:'Вопрос 5 из 6', step_q6:'Вопрос 6 из 6', offline_msg:'⚡ Автономный режим — отчёты сохраняются локально и будут синхронизированы при появлении сигнала', no_active_event:'Нет активных событий', conflict_mode_active:'Режим конфликта активен — Усиленная конфиденциальность: местоположение защищено 500м, фото отключены', conflict_photo_disabled:'Фото отключены в режиме конфликта для вашей безопасности', event_select_label:'Выбор события', event_select_q:'О каком событии вы сообщаете?', event_select_tip:'FRIDA обнаружила активные события поблизости. Выберите то которое вы переживаете или создайте новое.', event_new:'Это другое событие — создать новое', all_events:'Все события', clusters_label:'🎯 Кластеры ущерба — триангулированы ИИ', survey_label:'Дополнительный опрос', survey_q:'Помогите понять вторичные потребности (необязательно)', survey_tip:'Каждый ответ создает слой знаний сообщества для спасателей.', survey_q_roads:'🛣️ Есть ли заблокированные дороги поблизости?', survey_q_services:'⚡ Какие службы не работают?', survey_q_help:'🚑 Прибыла ли профессиональная помощь?', survey_q_injuries:'🩹 Есть ли видимые травмы?', survey_yes:'Да', survey_no:'Нет', survey_unknown:'Не знаю', survey_water:'Вода', survey_power:'Электричество', survey_internet:'Интернет', survey_gas:'Газ', survey_none:'Все работает', survey_help_yes:'Да', survey_help_no:'Еще нет', survey_inj_many:'Да, много', survey_inj_few:'Да, мало', survey_inj_material:'Только материальный ущерб', survey_submit:'Отправить →', survey_skip:'Пропустить' }
 };
 
 // Merge extra keys into i18n
@@ -2819,6 +3508,86 @@ window.handlePhoto = function(input) {
  * Si un usuario crea 3+ reportes a menos de 500m entre sí, aparece automáticamente
  * un círculo de color sobre la zona en el mapa, y una tarjeta rankeada en el
  * dashboard mostrando que esa zona es prioridad de rescate.
+ * 
+ * ====================================================================
+ * SESIÓN 15 MAYO 2026 — PUNTO 3 DE 10: TEMPORAL CROSS-VALIDATION (Layer 5)
+ * ====================================================================
+ * 
+ * Implementación del Layer 5: validación temporal cruzada de reportes.
+ * Detecta 4 patrones temporales y ajusta dinámicamente la credibilidad.
+ * 
+ * REGLAS DE VALIDACIÓN:
+ * 1. Duplicate likely (🔁): mismo todo + <100m + <5min → credibility -30
+ * 2. Suspicious de-escalation (⚠️): damage baja en mismo lugar <6h → credibility -20
+ * 3. Escalation confirmed (📈): damage sube → sin cambio (info neutra válida)
+ * 4. Cross-corroborated (✅): mismo damage + >=2 reportes + <30min + <100m → +10
+ * 
+ * UI:
+ * - Badge visual en cada fila de la tabla (ícono colorado al lado del ID)
+ * - Tooltip explicativo al hover
+ * - Credibility efectivo (original + delta) mostrado en la barra
+ * - Delta visible al lado (+10 verde, -30 rojo)
+ * - refreshReportsTable() re-renderiza todo cuando llega un reporte nuevo
+ * 
+ * ====================================================================
+ * SESIÓN 15 MAYO 2026 — PUNTO 4 DE 10: CITIZEN-BUILT GIS LAYERS (Layer 7)
+ * ====================================================================
+ * 
+ * Implementación del Layer 7: encuesta GIS opcional post-crisis.
+ * Después de cada reporte, el usuario puede llenar 4 preguntas que
+ * construyen capas independientes de información secundaria.
+ * 
+ * COMPONENTES AÑADIDOS:
+ * 
+ * 1. NUEVA PANTALLA step-survey
+ *    - Aparece después de submitReport, antes de step-success
+ *    - 4 secciones: carreteras bloqueadas, servicios fallando, ayuda
+ *      profesional, heridos visibles
+ *    - Cada respuesta es opcional, botón "Skip" disponible siempre
+ * 
+ * 2. STATE EXTENDIDO
+ *    - state.surveys: lista de encuestas guardadas
+ *    - state.pendingSurveyReportId: vincula la encuesta al reporte recién creado
+ *    - state.currentSurvey: encuesta en construcción durante el flujo
+ * 
+ * 3. FUNCIONES DE MANEJO
+ *    - setSurveyAnswer(): single-select (roads, help, injuries)
+ *    - toggleSurveyMulti(): multi-select (services), con caso especial "none"
+ *    - submitSurvey(): persiste en localStorage, refresca mapa, avanza a success
+ *    - skipSurvey(): salta sin guardar, avanza a success
+ *    - loadSurveysFromStorage(): carga al iniciar la app
+ * 
+ * 4. VISUALIZACIÓN EN MAPA (4 CAPAS GIS INDEPENDIENTES)
+ *    - 🚧 Blocked Roads (amarillo) — solo si answer = "yes"
+ *    - ⚡ Service Failures (violeta) — si hay servicios != "none"
+ *    - ⏳ Awaiting Help (naranja) — solo si answer = "not_yet"
+ *    - 🩹 Injuries (rojo oscuro) — si answer = "many" o "few"
+ *    - Geo-fuzzing aplicado para privacy
+ *    - Marcadores con tooltip explicativo
+ * 
+ * 5. DASHBOARD: SECCIÓN GIS LEGEND
+ *    - 4 cards con conteo de cada categoría
+ *    - Solo se muestra si hay encuestas (oculto por defecto)
+ *    - Colores por categoría
+ * 
+ * 6. INTEGRACIÓN CON FLUJO
+ *    - submitReport ahora va a step-survey en lugar de step-success
+ *    - restart() limpia state.currentSurvey y desmarca botones
+ *    - initMap llama refreshGisLayers para pintar capas al cargar mapa
+ * 
+ * 7. I18N: 22 CLAVES NUEVAS EN LOS 6 IDIOMAS
+ *    - Preguntas, opciones, botones todos traducidos
+ * 
+ * PERSISTENCIA:
+ * Las encuestas se guardan en localStorage (clave: 'frida-surveys') en lugar
+ * de IndexedDB porque son objetos pequeños (~200 bytes c/u) y no requieren
+ * indexación compleja. localStorage es más simple y suficiente para este caso.
+ * 
+ * RESULTADO DEMOSTRABLE:
+ * Después de crear un reporte de daño, el usuario ve una pantalla opcional
+ * con 4 preguntas. Si responde, esos datos aparecen en el mapa como capas
+ * de marcadores coloreados, y en el dashboard como cards con conteos.
+ * UNDP puede usar esta info para decisiones secundarias (rutas, salud, etc).
  * 
  * ====================================================================
  */
