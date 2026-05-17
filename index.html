@@ -1000,7 +1000,7 @@ function addReportToTable(r) {
     <td>${syncIcon}<span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2)">${r.id}</span>${validationBadge}</td>
     <td>${r.time}</td>
     <td>🌍 ${r.crisis}</td>
-    <td>${icon} ${r.infra}</td>
+    <td>${icon} ${tInfra(r.infra)}</td>
     <td><span class="priority-badge ${dc}">${dl}</span></td>
     <td><div class="credibility-bar"><div class="credibility-fill" style="width:${credValue}%"></div></div>${credExtra}</td>
     <td><span style="font-family:'DM Mono',monospace;font-size:11px">${coordsDisplay}</span></td>
@@ -2384,7 +2384,7 @@ function drawClustersOnMap(clusters) {
       <div><b>${cluster.reportCount}</b> ${t('dyn_reports').toLowerCase()} · ${t('dyn_radius').toLowerCase()} <b>${cluster.radiusM}m</b></div>
       <div>🔴 ${cluster.completeCount} ${t('dyn_complete')} · 🟠 ${cluster.partialCount} ${t('dyn_partial')} · 🟢 ${cluster.minimalCount} ${t('dyn_minimal')}</div>
       <div>${t('dyn_credibility')}: <b>${cluster.avgCredibility}%</b></div>
-      <div>${t('dyn_main_infra')}: <b>${cluster.dominantInfra}</b></div>
+      <div>${t('dyn_main_infra')}: <b>${tInfra(cluster.dominantInfra)}</b></div>
     </div>`;
     
     circle.bindTooltip(tooltipHtml, { sticky: true, direction: 'top' });
@@ -2445,7 +2445,7 @@ function renderClustersDashboard(clusters) {
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
         <div>
           <div style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">${t('dyn_cluster')} #${c.rank}</div>
-          <div style="font-size:16px; font-weight:700; color:var(--text); margin-top:2px;">🎯 ${c.dominantInfra}</div>
+          <div style="font-size:16px; font-weight:700; color:var(--text); margin-top:2px;">🎯 ${tInfra(c.dominantInfra)}</div>
         </div>
         <div style="background:${c.severityColor}; color:white; padding:4px 10px; border-radius:6px; font-size:11px; font-weight:600;">${sevLabel}</div>
       </div>
@@ -2964,12 +2964,13 @@ function refreshGisLayers() {
       
       const marker = L.marker([fuzzed.lat, fuzzed.lng], { icon: icon });
       
-      // Tooltip
-      let tooltipText = config.label;
+      // Tooltip — ✨ BLOQUE 2.5: traducir label + valores de servicios/heridos
+      let tooltipText = tGisLabel(field);
       if (field === 'services' && Array.isArray(answer)) {
-        tooltipText += ': ' + answer.filter(a => a !== 'none').join(', ');
+        const services = answer.filter(a => a !== 'none').map(s => tService(s));
+        if (services.length) tooltipText += ': ' + services.join(', ');
       } else if (field === 'injuries') {
-        tooltipText += ' (' + answer + ')';
+        tooltipText += ' (' + tInjury(answer) + ')';
       }
       marker.bindTooltip(tooltipText, { direction: 'top' });
       
@@ -3688,7 +3689,7 @@ function renderPriorityZonesDashboard(zones) {
         <div style="display:flex; align-items:center; gap:12px;">
           <div style="background:${z.levelColor}; color:white; width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px;">${z.levelEmoji}</div>
           <div>
-            <div style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">${t('dyn_priority')} #${z.priorityRank} · ${z.dominantInfra}</div>
+            <div style="font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px;">${t('dyn_priority')} #${z.priorityRank} · ${tInfra(z.dominantInfra)}</div>
             <div style="font-size:18px; font-weight:700; color:var(--text); margin-top:2px;">${z.totalScore}<span style="font-size:13px; color:var(--text2); font-weight:400;">/100</span></div>
           </div>
         </div>
@@ -4742,6 +4743,143 @@ function t(key) {
   return dict[key] || fallback || key;
 }
 
+// ===== BLOQUE 2.5: TRADUCCIÓN DE VALORES DE DATOS ✨ =====
+// Los strings de tipo de infra (Residential, Commercial...), servicios (water,
+// power...) y respuestas (many, few...) se guardan EN INGLÉS en la BD para
+// estandarización UNDP (CSV, GeoJSON), pero se DISPLAYAN traducidos en la UI.
+// Estos helpers convierten valor-raw → label-traducido.
+
+const bloque25Keys = {
+  en: {
+    // Infrastructure types (state.infraType values)
+    infra_v_residential:'Residential', infra_v_commercial:'Commercial', infra_v_government:'Government building',
+    infra_v_utilities:'Utilities', infra_v_transport:'Transport', infra_v_community:'Community',
+    infra_v_publicspace:'Public space', infra_v_other:'Other',
+    // GIS Layer labels (tooltips de markers)
+    gis_label_roads:'Blocked Roads', gis_label_services:'Service Failures',
+    gis_label_help:'Awaiting Help', gis_label_injuries:'Injuries Reported',
+    // Service answer values
+    serv_v_water:'Water', serv_v_power:'Power', serv_v_internet:'Internet', serv_v_gas:'Gas',
+    serv_v_none:'No services failing',
+    // Injuries answer values
+    inj_v_many:'many', inj_v_few:'few', inj_v_material:'material damage only'
+  },
+  es: {
+    infra_v_residential:'Residencial', infra_v_commercial:'Comercial', infra_v_government:'Edificio gubernamental',
+    infra_v_utilities:'Servicios', infra_v_transport:'Transporte', infra_v_community:'Comunitaria',
+    infra_v_publicspace:'Espacio público', infra_v_other:'Otro',
+    gis_label_roads:'Carreteras Bloqueadas', gis_label_services:'Fallas de Servicio',
+    gis_label_help:'Esperando Ayuda', gis_label_injuries:'Heridos Reportados',
+    serv_v_water:'Agua', serv_v_power:'Electricidad', serv_v_internet:'Internet', serv_v_gas:'Gas',
+    serv_v_none:'Sin fallas de servicios',
+    inj_v_many:'muchos', inj_v_few:'pocos', inj_v_material:'solo daño material'
+  },
+  fr: {
+    infra_v_residential:'Résidentiel', infra_v_commercial:'Commercial', infra_v_government:'Bâtiment gouvernemental',
+    infra_v_utilities:'Services publics', infra_v_transport:'Transport', infra_v_community:'Communautaire',
+    infra_v_publicspace:'Espace public', infra_v_other:'Autre',
+    gis_label_roads:'Routes Bloquées', gis_label_services:'Pannes de Service',
+    gis_label_help:'En attente daide', gis_label_injuries:'Blessés Signalés',
+    serv_v_water:'Eau', serv_v_power:'Électricité', serv_v_internet:'Internet', serv_v_gas:'Gaz',
+    serv_v_none:'Aucun service défaillant',
+    inj_v_many:'beaucoup', inj_v_few:'peu', inj_v_material:'dommages matériels uniquement'
+  },
+  ar: {
+    infra_v_residential:'سكني', infra_v_commercial:'تجاري', infra_v_government:'مبنى حكومي',
+    infra_v_utilities:'مرافق', infra_v_transport:'نقل', infra_v_community:'مجتمعي',
+    infra_v_publicspace:'مساحة عامة', infra_v_other:'آخر',
+    gis_label_roads:'طرق مغلقة', gis_label_services:'أعطال الخدمة',
+    gis_label_help:'في انتظار المساعدة', gis_label_injuries:'إصابات مُبلغ عنها',
+    serv_v_water:'ماء', serv_v_power:'كهرباء', serv_v_internet:'إنترنت', serv_v_gas:'غاز',
+    serv_v_none:'لا توجد أعطال خدمة',
+    inj_v_many:'كثيرون', inj_v_few:'قليلون', inj_v_material:'أضرار مادية فقط'
+  },
+  zh: {
+    infra_v_residential:'住宅', infra_v_commercial:'商业', infra_v_government:'政府建筑',
+    infra_v_utilities:'公用事业', infra_v_transport:'交通', infra_v_community:'社区',
+    infra_v_publicspace:'公共空间', infra_v_other:'其他',
+    gis_label_roads:'道路堵塞', gis_label_services:'服务故障',
+    gis_label_help:'等待救援', gis_label_injuries:'伤员报告',
+    serv_v_water:'水', serv_v_power:'电力', serv_v_internet:'互联网', serv_v_gas:'燃气',
+    serv_v_none:'无服务故障',
+    inj_v_many:'许多', inj_v_few:'少数', inj_v_material:'仅物质损害'
+  },
+  ru: {
+    infra_v_residential:'Жилой', infra_v_commercial:'Коммерческий', infra_v_government:'Государственное здание',
+    infra_v_utilities:'Коммунальные', infra_v_transport:'Транспорт', infra_v_community:'Общественный',
+    infra_v_publicspace:'Общественное пространство', infra_v_other:'Другое',
+    gis_label_roads:'Заблокированные дороги', gis_label_services:'Сбои услуг',
+    gis_label_help:'Ожидание помощи', gis_label_injuries:'Раненые',
+    serv_v_water:'Вода', serv_v_power:'Электричество', serv_v_internet:'Интернет', serv_v_gas:'Газ',
+    serv_v_none:'Нет сбоев услуг',
+    inj_v_many:'много', inj_v_few:'мало', inj_v_material:'только материальный ущерб'
+  }
+};
+Object.keys(bloque25Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], bloque25Keys[lang]);
+  else i18n[lang] = bloque25Keys[lang];
+});
+
+// Mapeo de valores raw → keys de traducción
+const INFRA_VALUE_MAP = {
+  'Residential': 'infra_v_residential',
+  'Commercial': 'infra_v_commercial',
+  'Government': 'infra_v_government',
+  'Utilities': 'infra_v_utilities',
+  'Transport': 'infra_v_transport',
+  'Community': 'infra_v_community',
+  'Public space': 'infra_v_publicspace',
+  'Other': 'infra_v_other'
+};
+
+const SERVICE_VALUE_MAP = {
+  'water': 'serv_v_water',
+  'power': 'serv_v_power',
+  'internet': 'serv_v_internet',
+  'gas': 'serv_v_gas',
+  'none': 'serv_v_none'
+};
+
+const INJURY_VALUE_MAP = {
+  'many': 'inj_v_many',
+  'few': 'inj_v_few',
+  'material': 'inj_v_material',
+  'material_only': 'inj_v_material'
+};
+
+const GIS_LABEL_MAP = {
+  roads: 'gis_label_roads',
+  services: 'gis_label_services',
+  help: 'gis_label_help',
+  injuries: 'gis_label_injuries'
+};
+
+// Helpers de traducción de valores
+function tInfra(value) {
+  if (!value) return '';
+  const key = INFRA_VALUE_MAP[value];
+  return key ? t(key) : value;  // fallback: el valor raw si no hay mapeo
+}
+
+function tService(value) {
+  if (!value) return '';
+  const key = SERVICE_VALUE_MAP[value];
+  return key ? t(key) : value;
+}
+
+function tInjury(value) {
+  if (!value) return '';
+  const key = INJURY_VALUE_MAP[value];
+  return key ? t(key) : value;
+}
+
+function tGisLabel(field) {
+  if (!field) return '';
+  const key = GIS_LABEL_MAP[field];
+  return key ? t(key) : field;
+}
+
+
 // El re-render del idioma se hace al final, después de definir SUPPORTED_LANGS y setLanguage
 
 // ===== LANGUAGE SYSTEM (Mejora #1: auto-detect + persist + placeholder) =====
@@ -4807,6 +4945,7 @@ function setLanguage(lang) {
     if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
     if (typeof refreshSatelliteValidations === 'function') refreshSatelliteValidations();
     if (typeof updateGisLegend === 'function') updateGisLegend();
+    if (typeof refreshGisLayers === 'function') refreshGisLayers();  // ✨ Bloque 2.5: re-render markers GIS
     if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
     
     // Re-poblar la tabla de reportes (badges Complete/Partial/Minimal + tooltips Synced/Pending)
@@ -6062,6 +6201,57 @@ window.addEventListener('DOMContentLoaded', () => {
  *   - 20 reglas CSS RTL
  *   - 5 dashboards re-rendereados en cambio de idioma
  *   - 0 strings críticos hardcoded en JS (verificado por smoke test)
+ * 
+ * ====================================================================
+ * 🚀 TIER 2 — BLOQUE 2.5: TRADUCCIÓN DE VALORES DE DATOS (v21)
+ * ====================================================================
+ * 
+ * PROBLEMA REPORTADO POR USUARIO:
+ *   1. "Residential" no se traducía en tabla de reportes y en cluster
+ *      cards aunque el idioma fuera árabe/chino/etc.
+ *   2. Markers de GIS en el mapa (services, roads, help, injuries)
+ *      mostraban tooltips en inglés siempre.
+ * 
+ * CAUSA RAÍZ:
+ *   Los valores de campos (state.infraType = 'Residential') se guardan
+ *   EN INGLÉS por estándar internacional UNDP (campos en CSV/GeoJSON
+ *   deben ser consistentes). El bug era que la UI mostraba el valor
+ *   RAW de la BD en lugar del LABEL traducido.
+ * 
+ * SOLUCIÓN — HELPERS DE TRADUCCIÓN DE VALORES:
+ *   Nueva capa de helpers que mapean valor-raw → key-i18n → label-traducido:
+ *   - tInfra('Residential') → "Residencial" / "سكني" / "住宅"
+ *   - tService('water') → "Agua" / "ماء" / "水"
+ *   - tInjury('many') → "muchos" / "كثيرون" / "许多"
+ *   - tGisLabel('roads') → "Carreteras Bloqueadas" / "طرق مغلقة"
+ *   
+ *   Mapeo via constantes: INFRA_VALUE_MAP, SERVICE_VALUE_MAP,
+ *   INJURY_VALUE_MAP, GIS_LABEL_MAP.
+ *   
+ *   Fallback: si no hay mapeo, devuelve el valor raw (no rompe).
+ * 
+ * ÁREAS APLICADAS:
+ *   - Tabla "All Reports" del dashboard: ${tInfra(r.infra)}
+ *   - Cluster cards: ${tInfra(c.dominantInfra)}
+ *   - Cluster tooltips en mapa: ${tInfra(cluster.dominantInfra)}
+ *   - Priority Zone cards: ${tInfra(z.dominantInfra)}
+ *   - GIS markers en mapa: tGisLabel(field) + tService/tInjury en values
+ * 
+ * RE-RENDER COMPLETO:
+ *   setLanguage() ahora también llama a refreshGisLayers() para que
+ *   los markers del mapa cambien idioma instantáneamente sin recargar.
+ * 
+ * REGLA DE DISEÑO i18n FINAL:
+ *   DATOS (BD, CSV, GeoJSON): inglés estándar UNDP (Residential, water, many)
+ *   DISPLAY (UI visible): traducido al idioma activo
+ *   → Permite que un evaluador árabe vea la app en árabe pero su CSV
+ *     export sea procesable por el pipeline UNDP estándar.
+ * 
+ * MÉTRICAS:
+ *   - 19 keys × 6 idiomas = 114 traducciones adicionales
+ *   - 4 helpers de traducción de valor (tInfra, tService, tInjury, tGisLabel)
+ *   - 7 áreas adicionales internacionalizadas
+ *   - Total Bloque 2 acumulado: 59 keys × 6 = 354 traducciones
  * 
  * ====================================================================
  */
