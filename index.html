@@ -349,8 +349,11 @@ html[dir="rtl"] .lang-select {
         </div>
       </div>
       
-      <button class="confirm-btn" onclick="nextStep(6)" data-i18n="confirm_photo">Confirm photo →</button>
-      <span class="skip-link" onclick="nextStep(6)" data-i18n="skip_photo">Skip if not safe to photograph</span>
+      <!-- ✨ BLOQUE 1 / FIX 1.2: botón Next BLOQUEADO hasta que el usuario tome una decisión -->
+      <!-- Habilitado por: confirmAiClassification() | correctAiClassification() | skipPhotoStep() -->
+      <button id="photo-next-btn" class="confirm-btn" onclick="proceedFromPhoto()" disabled data-i18n="photo_next_btn">Next →</button>
+      <div id="photo-next-hint" style="font-size:11px; color:var(--text2); text-align:center; margin-top:8px;" data-i18n="photo_next_hint">Take a photo or skip below</div>
+      <button class="skip-link" style="display:block; margin:10px auto 0; background:transparent; border:none; cursor:pointer; color:var(--text2); text-decoration:underline; font-family:'DM Sans',sans-serif; font-size:13px;" onclick="skipPhotoStep()" data-i18n="skip_photo">Skip if not safe to photograph</button>
     </div>
 
     <div id="step-6" class="form-step">
@@ -371,12 +374,24 @@ html[dir="rtl"] .lang-select {
         <div class="step-question" data-i18n="q6">Confirm your location</div>
       </div>
       <div class="survival-tip"><span class="tip-icon">📍</span><span data-i18n="tip6">GPS works without internet. Your location is captured automatically.</span></div>
-      <div id="location-map" style="height:180px;border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>
-      <div style="margin-bottom:14px;">
-        <div style="font-size:11px;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px;" data-i18n="or_describe">Or describe your location</div>
-        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+      
+      <!-- ✨ BLOQUE 1 / FIX 1.1: Status visible del GPS (los IDs ya los esperaba showLocationStatus pero no existían) -->
+      <div id="gps-status-wrapper" style="display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg3); border:1px solid var(--border); border-radius:10px; margin-bottom:12px; font-size:12px;">
+        <span id="gps-status" style="color:var(--text2);">📡 Initializing GPS...</span>
+        <span id="gps-accuracy" style="color:var(--text2); font-family:'DM Mono',monospace; font-size:11px;"></span>
       </div>
-      <button class="confirm-btn" onclick="submitReport()" data-i18n="submit_btn">Submit report →</button>
+      
+      <div id="location-map" style="height:180px;border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>
+      
+      <!-- ✨ BLOQUE 1 / FIX 1.3: Texto plano adaptativo. Visible siempre, pero etiquetado según GPS -->
+      <div style="margin-bottom:14px;">
+        <div id="text-location-label" style="font-size:11px;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px;" data-i18n="or_describe">Or describe your location</div>
+        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" oninput="onTextLocationInput()" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+      </div>
+      
+      <!-- ✨ BLOQUE 1 / FIX 1.1: botón submit BLOQUEADO hasta tener ubicación válida (GPS o texto) -->
+      <button id="submit-btn" class="confirm-btn" onclick="submitReport()" disabled data-i18n="submit_btn">Submit report →</button>
+      <div id="submit-hint" style="font-size:11px; color:var(--text2); text-align:center; margin-top:8px;" data-i18n="submit_hint">Waiting for GPS lock or location description</div>
     </div>
 
     <!-- Citizen-built GIS Layers (Layer 7 / Punto 4) ✨ -->
@@ -566,7 +581,11 @@ const state = {
     services: [],
     help: null,
     injuries: null
-  }
+  },
+  // ✨ BLOQUE 1 / FIX 1.1 + 1.2 + 1.3: estado de validación de pasos críticos
+  gpsLocked: false,        // true cuando GPS devolvió accuracy aceptable
+  photoSkipped: false,     // true si usuario optó por saltar foto explícitamente
+  locationMethod: null     // 'gps' | 'text' | 'both' — se llena al submit
 };
 
 // ===== I18N =====
@@ -615,7 +634,19 @@ function nextStep(step) {
     document.getElementById('step-survey').classList.add('active');
   } else {
     document.getElementById('step-' + step).classList.add('active');
-    if (step === 7) setTimeout(initLocationMap, 150);
+    if (step === 7) {
+      setTimeout(initLocationMap, 150);
+      // ✨ BLOQUE 1 / FIX 1.1: revalidar submit (deshabilitado al entrar)
+      setTimeout(() => {
+        if (typeof revalidateSubmitButton === 'function') revalidateSubmitButton();
+      }, 100);
+    }
+    // ✨ BLOQUE 1 / FIX 1.2: al entrar al step foto, asegurar botón deshabilitado
+    if (step === 5) {
+      setTimeout(() => {
+        if (typeof disablePhotoNextButton === 'function') disablePhotoNextButton();
+      }, 50);
+    }
   }
   window.scrollTo(0, 0);
 }
@@ -717,6 +748,15 @@ async function internalSubmitReport(lat, lng) {
     coordsString: lat.toFixed(5) + ', ' + lng.toFixed(5),
     credibility: Math.floor(Math.random() * 20 + 75),
     textLocation: (document.getElementById('textLocation') || {}).value || '',
+    // ✨ BLOQUE 1 / FIX 1.3: registrar cómo se capturó la ubicación
+    locationMethod: (function() {
+      const hasText = ((document.getElementById('textLocation') || {}).value || '').trim().length >= 4;
+      const hasGps = state.gpsLocked === true;
+      if (hasGps && hasText) return 'both';
+      if (hasGps) return 'gps';
+      if (hasText) return 'text';
+      return 'unknown';
+    })(),
     syncStatus: 'pending',
     createdAt: new Date().toISOString(),
     // ✨ Punto 6: Guardar clasificación CV mock si existe
@@ -1012,6 +1052,14 @@ function restart() {
   document.getElementById('photo-upload-label').style.display = 'block';
   document.getElementById('textLocation').value = '';
   
+  // ✨ BLOQUE 1 / FIX 1.2: reset estado de bloqueo del paso foto
+  if (state.photoSkipped) state.photoSkipped = false;
+  if (typeof disablePhotoNextButton === 'function') disablePhotoNextButton();
+  
+  // ✨ BLOQUE 1 / FIX 1.1: reset GPS lock para próximo reporte
+  if (state.gpsLocked) state.gpsLocked = false;
+  if (state.locationMethod) state.locationMethod = null;
+  
   // Desactivar Conflict Mode si estaba activo (banner + foto bloqueada)
   if (state.conflictMode && typeof deactivateConflictMode === 'function') {
     deactivateConflictMode();
@@ -1022,7 +1070,7 @@ function restart() {
 
 // ===== EXPORT =====
 function exportCSV() {
-  const headers = ['ID','Time','Crisis Type','Infrastructure','Damage Level','Credibility','Coordinates','Text Location','Sync Status','Event ID'];
+  const headers = ['ID','Time','Crisis Type','Infrastructure','Damage Level','Credibility','Coordinates','Text Location','Location Method','Sync Status','Event ID'];
   
   // Solo exportar reportes REALES (eliminados los 4 RPT hardcoded del Lote A)
   const rows = state.reports.map(r => {
@@ -1044,6 +1092,7 @@ function exportCSV() {
       (r.credibility || 0) + '%', 
       coordsStr, 
       r.textLocation || '',
+      r.locationMethod || 'unknown',
       r.syncStatus || 'unknown',
       r.eventId || ''
     ];
@@ -3237,6 +3286,9 @@ function confirmAiClassification() {
   }
   
   console.log('FRIDA: User confirmed AI classification');
+  
+  // ✨ BLOQUE 1 / FIX 1.2: habilitar botón Next del paso foto
+  enablePhotoNextButton('confirmed');
 }
 
 // Usuario corrige (su reporte original prevalece)
@@ -3264,6 +3316,9 @@ function correctAiClassification() {
   }
   
   console.log('FRIDA: User corrected AI classification (user input prevails)');
+  
+  // ✨ BLOQUE 1 / FIX 1.2: habilitar botón Next del paso foto
+  enablePhotoNextButton('corrected');
 }
 
 // Limpia el estado de CV cuando se reinicia el flujo
@@ -3277,6 +3332,96 @@ function resetAiClassification() {
   if (result) result.style.display = 'none';
   const feedback = document.getElementById('ai-feedback-msg');
   if (feedback) feedback.style.display = 'none';
+}
+
+// ===== PHOTO STEP FLOW CONTROL (Bloque 1 / Fix 1.2) ✨ =====
+// El botón "Next →" del paso foto está bloqueado por defecto. Solo se
+// habilita cuando el usuario toma una decisión explícita:
+//   - Subió foto + confirmó la detección IA  → enablePhotoNextButton('confirmed')
+//   - Subió foto + corrigió la detección IA  → enablePhotoNextButton('corrected')
+//   - Decidió saltar el paso (sin foto)      → skipPhotoStep()
+// Esto elimina la confusión de "doble botón" del v18 y fuerza una decisión.
+
+function enablePhotoNextButton(reason) {
+  const btn = document.getElementById('photo-next-btn');
+  const hint = document.getElementById('photo-next-hint');
+  if (!btn) return;
+  
+  btn.disabled = false;
+  btn.style.opacity = '1';
+  btn.style.cursor = 'pointer';
+  
+  // Actualizar hint según razón
+  if (hint) {
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    const hints = {
+      confirmed: {
+        en: '✓ Photo confirmed — tap Next to continue',
+        es: '✓ Foto confirmada — toca Siguiente para continuar',
+        fr: '✓ Photo confirmée — appuyez sur Suivant',
+        ar: '✓ تم تأكيد الصورة — اضغط التالي',
+        zh: '✓ 照片已确认 — 点击下一步',
+        ru: '✓ Фото подтверждено — нажмите Далее'
+      },
+      corrected: {
+        en: '✓ Your assessment will be used — tap Next to continue',
+        es: '✓ Tu evaluación será usada — toca Siguiente',
+        fr: '✓ Votre évaluation sera utilisée — appuyez sur Suivant',
+        ar: '✓ سيتم استخدام تقييمك — اضغط التالي',
+        zh: '✓ 将使用您的评估 — 点击下一步',
+        ru: '✓ Ваша оценка будет использована — Далее'
+      },
+      skipped: {
+        en: '⏭ Photo skipped — tap Next to continue',
+        es: '⏭ Foto omitida — toca Siguiente',
+        fr: '⏭ Photo ignorée — appuyez sur Suivant',
+        ar: '⏭ تم تخطي الصورة — اضغط التالي',
+        zh: '⏭ 已跳过照片 — 点击下一步',
+        ru: '⏭ Фото пропущено — Далее'
+      }
+    };
+    hint.textContent = (hints[reason] && hints[reason][lang]) || hints[reason].en;
+    hint.style.color = '#4ade80';
+  }
+}
+
+function disablePhotoNextButton() {
+  const btn = document.getElementById('photo-next-btn');
+  const hint = document.getElementById('photo-next-hint');
+  if (!btn) return;
+  
+  btn.disabled = true;
+  btn.style.opacity = '0.4';
+  btn.style.cursor = 'not-allowed';
+  
+  if (hint) {
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    const msgs = {
+      en: 'Take a photo or skip below',
+      es: 'Toma una foto o omite abajo',
+      fr: 'Prenez une photo ou ignorez',
+      ar: 'التقط صورة أو تخطى',
+      zh: '拍照或跳过',
+      ru: 'Сделайте фото или пропустите'
+    };
+    hint.textContent = msgs[lang] || msgs.en;
+    hint.style.color = 'var(--text2)';
+  }
+}
+
+// Salto explícito del paso foto (usuario sin condiciones seguras)
+function skipPhotoStep() {
+  // Marcar que el usuario optó por saltar (data flag para credibility scoring)
+  if (!state.photoSkipped) state.photoSkipped = true;
+  sendPartialReport({ step: 'photo', value: 'skipped' });
+  enablePhotoNextButton('skipped');
+}
+
+// Avanzar al siguiente paso desde foto
+function proceedFromPhoto() {
+  const btn = document.getElementById('photo-next-btn');
+  if (btn && btn.disabled) return;  // doble check
+  nextStep(6);
 }
 
 // ===== PRIORITY RANKING ENGINE (Punto 5 / Layer 8 parcial) ✨ =====
@@ -4114,11 +4259,17 @@ function initLocationMap() {
     locationMap.on('click', e => {
       locationMapMarker.setLatLng(e.latlng);
       updateAccuracyDisplay(null, true);
+      // ✨ BLOQUE 1 / FIX 1.1: el usuario ajustó manualmente → ubicación válida
+      state.gpsLocked = true;
+      if (typeof revalidateSubmitButton === 'function') revalidateSubmitButton();
     });
     
     // 4. Si arrastra el marcador, también es ajuste manual
     locationMapMarker.on('dragend', () => {
       updateAccuracyDisplay(null, true);
+      // ✨ BLOQUE 1 / FIX 1.1: ajuste manual válido
+      state.gpsLocked = true;
+      if (typeof revalidateSubmitButton === 'function') revalidateSubmitButton();
     });
     
     // 5. Mostrar indicador visual de "buscando GPS..."
@@ -4135,6 +4286,10 @@ function initLocationMap() {
           showLocationStatus('imprecise', quality.message);
           updateAccuracyDisplay(coords.accuracy, false);
           console.warn('FRIDA: GPS rejected (accuracy too low):', Math.round(coords.accuracy) + 'm');
+          // ✨ BLOQUE 1 / FIX 1.1 + 1.3: GPS no confiable → texto obligatorio
+          state.gpsLocked = false;
+          forceTextLocationMode();
+          revalidateSubmitButton();
           return;
         }
         
@@ -4143,11 +4298,19 @@ function initLocationMap() {
         locationMapMarker.setLatLng([coords.lat, coords.lng]);
         showLocationStatus(quality.level, quality.message);
         updateAccuracyDisplay(coords.accuracy, false);
+        
+        // ✨ BLOQUE 1 / FIX 1.1: GPS válido — desbloquear submit
+        state.gpsLocked = true;
+        revalidateSubmitButton();
       })
       .catch(err => {
         // GPS falló totalmente: timeout, permiso denegado, hardware sin señal
         showLocationStatus('error', err.message);
         updateAccuracyDisplay(null, false);
+        // ✨ BLOQUE 1 / FIX 1.1 + 1.3: GPS roto → texto obligatorio
+        state.gpsLocked = false;
+        forceTextLocationMode();
+        revalidateSubmitButton();
       });
       
   } catch(e) { 
@@ -4231,6 +4394,108 @@ function updateAccuracyDisplay(accuracyMeters, isManual) {
     accEl.textContent = '';
   }
 }
+
+// ===== LOCATION VALIDATION (Bloque 1 / Fix 1.1 + 1.3) ✨ =====
+// El botón "Submit report" del paso 7 está bloqueado por defecto. Se habilita
+// solo cuando hay ubicación válida: GPS confiable, ajuste manual en mapa,
+// O descripción de texto suficiente (≥4 caracteres).
+// Esto evita el bug del usuario reportando en CDMX cuando vive en otra ciudad
+// porque el GPS aún no había cargado.
+
+function revalidateSubmitButton() {
+  const btn = document.getElementById('submit-btn');
+  const hint = document.getElementById('submit-hint');
+  if (!btn) return;
+  
+  // Reglas de habilitación:
+  //   (a) GPS bloqueado (state.gpsLocked === true), o
+  //   (b) Usuario describió ubicación en texto (≥4 chars no-espacio)
+  const textInput = document.getElementById('textLocation');
+  const textValue = (textInput && textInput.value || '').trim();
+  const hasText = textValue.length >= 4;
+  const hasGps = state.gpsLocked === true;
+  
+  const isValid = hasGps || hasText;
+  
+  btn.disabled = !isValid;
+  btn.style.opacity = isValid ? '1' : '0.4';
+  btn.style.cursor = isValid ? 'pointer' : 'not-allowed';
+  
+  if (hint) {
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    let hintKey;
+    if (hasGps && hasText) hintKey = 'ready_both';
+    else if (hasGps) hintKey = 'ready_gps';
+    else if (hasText) hintKey = 'ready_text';
+    else hintKey = 'waiting';
+    
+    const hints = {
+      ready_both: {
+        en: '✓ Location captured (GPS + description)',
+        es: '✓ Ubicación capturada (GPS + descripción)',
+        fr: '✓ Position capturée (GPS + description)',
+        ar: '✓ تم تحديد الموقع (GPS + وصف)',
+        zh: '✓ 已捕获位置 (GPS + 描述)',
+        ru: '✓ Местоположение получено (GPS + описание)'
+      },
+      ready_gps: {
+        en: '✓ GPS location confirmed',
+        es: '✓ Ubicación GPS confirmada',
+        fr: '✓ Position GPS confirmée',
+        ar: '✓ تم تأكيد موقع GPS',
+        zh: '✓ 已确认 GPS 位置',
+        ru: '✓ Местоположение GPS подтверждено'
+      },
+      ready_text: {
+        en: '✓ Location described — you can submit',
+        es: '✓ Ubicación descrita — puedes enviar',
+        fr: '✓ Position décrite — vous pouvez soumettre',
+        ar: '✓ تم وصف الموقع — يمكنك الإرسال',
+        zh: '✓ 已描述位置 — 可以提交',
+        ru: '✓ Местоположение описано — можно отправлять'
+      },
+      waiting: {
+        en: 'Waiting for GPS lock or location description',
+        es: 'Esperando GPS o descripción de ubicación',
+        fr: 'En attente du GPS ou de la description',
+        ar: 'في انتظار GPS أو وصف الموقع',
+        zh: '等待 GPS 或位置描述',
+        ru: 'Ожидание GPS или описания местоположения'
+      }
+    };
+    hint.textContent = (hints[hintKey] && hints[hintKey][lang]) || hints[hintKey].en;
+    hint.style.color = isValid ? '#4ade80' : 'var(--text2)';
+  }
+}
+
+// Cuando GPS falla, fuerza el modo texto obligatorio
+function forceTextLocationMode() {
+  const label = document.getElementById('text-location-label');
+  const input = document.getElementById('textLocation');
+  if (!label || !input) return;
+  
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const requiredMsgs = {
+    en: 'GPS UNAVAILABLE — DESCRIBE YOUR LOCATION (REQUIRED)',
+    es: 'GPS NO DISPONIBLE — DESCRIBE TU UBICACIÓN (OBLIGATORIO)',
+    fr: 'GPS INDISPONIBLE — DÉCRIVEZ VOTRE POSITION (OBLIGATOIRE)',
+    ar: 'GPS غير متاح — صف موقعك (مطلوب)',
+    zh: 'GPS 不可用 — 描述您的位置（必填）',
+    ru: 'GPS НЕДОСТУПЕН — ОПИШИТЕ МЕСТО (ОБЯЗАТЕЛЬНО)'
+  };
+  
+  label.textContent = requiredMsgs[lang] || requiredMsgs.en;
+  label.style.color = '#fbbf24';  // amarillo de advertencia
+  label.style.fontWeight = '700';
+  input.style.borderColor = '#fbbf24';
+  input.focus();
+}
+
+// Handler de input de texto — revalida submit en cada keystroke
+function onTextLocationInput() {
+  revalidateSubmitButton();
+}
+
 </script>
 </body>
 </html>
@@ -4254,6 +4519,45 @@ const extraKeys = {
 Object.keys(extraKeys).forEach(lang => {
   if (i18n[lang]) Object.assign(i18n[lang], extraKeys[lang]);
   else i18n[lang] = extraKeys[lang];
+});
+
+// ===== EXTENSIÓN I18N — BLOQUE 1 (Tier 2) ✨ =====
+// Claves nuevas para flujo bloqueante de foto y GPS
+const bloque1Keys = {
+  en: {
+    photo_next_btn: 'Next →',
+    photo_next_hint: 'Take a photo or skip below',
+    submit_hint: 'Waiting for GPS lock or location description'
+  },
+  es: {
+    photo_next_btn: 'Siguiente →',
+    photo_next_hint: 'Toma una foto u omite abajo',
+    submit_hint: 'Esperando GPS o descripción de ubicación'
+  },
+  fr: {
+    photo_next_btn: 'Suivant →',
+    photo_next_hint: 'Prenez une photo ou ignorez ci-dessous',
+    submit_hint: 'En attente du GPS ou de la description'
+  },
+  ar: {
+    photo_next_btn: 'التالي ←',
+    photo_next_hint: 'التقط صورة أو تخطى أدناه',
+    submit_hint: 'في انتظار GPS أو وصف الموقع'
+  },
+  zh: {
+    photo_next_btn: '下一步 →',
+    photo_next_hint: '拍照或跳过',
+    submit_hint: '等待 GPS 或位置描述'
+  },
+  ru: {
+    photo_next_btn: 'Далее →',
+    photo_next_hint: 'Сделайте фото или пропустите',
+    submit_hint: 'Ожидание GPS или описания местоположения'
+  }
+};
+Object.keys(bloque1Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], bloque1Keys[lang]);
+  else i18n[lang] = bloque1Keys[lang];
 });
 
 // El re-render del idioma se hace al final, después de definir SUPPORTED_LANGS y setLanguage
@@ -4699,39 +5003,12 @@ window.addEventListener('DOMContentLoaded', () => {
   }, 700);
 });
 
-// ===== AI CLASSIFICATION SIMULATION =====
-// Triggered when user uploads a photo
-const _originalHandlePhoto = window.handlePhoto;
-window.handlePhoto = function(input) {
-  if (_originalHandlePhoto) _originalHandlePhoto(input);
-
-  // Show AI analysis simulation
-  if (input.files && input.files[0]) {
-    setTimeout(() => {
-      const label = document.querySelector('.photo-label');
-      if (label) {
-        // Simulate AI processing
-        const damages = ['minimal', 'partial', 'complete'];
-        const detected = damages[Math.floor(Math.random() * damages.length)];
-        const confidence = Math.floor(Math.random() * 15 + 80);
-
-        const aiBox = document.createElement('div');
-        aiBox.style.cssText = 'background:rgba(82,183,136,0.1);border:1px solid rgba(82,183,136,0.3);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--green-light);margin-top:12px;text-align:left;';
-        aiBox.innerHTML = `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;"><span>🤖</span><strong>AI Vision Analysis</strong></div><div style="color:var(--text2);font-size:12px;">Computer vision detected: <strong style="color:var(--text)">${detected.toUpperCase()} damage</strong><br>Confidence: ${confidence}% · You can confirm or correct in the next step.</div>`;
-
-        const photoLabel = document.getElementById('photo-upload-label');
-        if (photoLabel && photoLabel.style.display === 'none') {
-          // Insert after the preview
-          const preview = document.getElementById('photo-preview');
-          if (preview && !document.getElementById('ai-analysis-box')) {
-            aiBox.id = 'ai-analysis-box';
-            preview.insertAdjacentElement('afterend', aiBox);
-          }
-        }
-      }
-    }, 800);
-  }
-};
+// ===== AI CLASSIFICATION SIMULATION (LEGACY WRAPPER — REMOVED) =====
+// Punto 1.2 (Bloque 1): wrapper antiguo eliminado.
+// Creaba un segundo bloque CV con Math.random() que duplicaba la UI del
+// triggerAiAnalysis() legítimo (definido en CV mock, Punto 6 Tier 1).
+// Resultado: doble botón visual y datos no-determinísticos en panel UNDP.
+// Ahora la única ruta de análisis es la oficial: handlePhoto → triggerAiAnalysis.
 
 /*
  * ====================================================================
@@ -5424,6 +5701,67 @@ window.handlePhoto = function(input) {
  * TRL alcanzado: 5 (validated in lab environment with real backend,
  * tested with real-time sync across devices, production-grade
  * architecture with offline-first design)
+ * 
+ * ====================================================================
+ * 🚀 TIER 2 — BLOQUE 1: UX CRÍTICOS (v19, 17 mayo 2026)
+ * ====================================================================
+ * 
+ * FIX 1.1 — GPS BLOQUEANTE
+ *   Bug original: usuario podía pulsar "Submit report" antes de que el
+ *   GPS cargara, resultando en reportes en CDMX (coordenada fallback)
+ *   cuando el usuario estaba en otra ciudad.
+ *   Solución:
+ *   - Nuevo flag state.gpsLocked (false por defecto)
+ *   - Botón #submit-btn disabled por defecto + style.opacity 0.4
+ *   - Habilitado solo cuando: getCurrentPosition resuelve con accuracy
+ *     ≠ rejected, O usuario ajustó manualmente el marcador (click/drag),
+ *     O usuario escribió ≥4 chars en #textLocation.
+ *   - Hint dinámico #submit-hint refleja qué se está esperando.
+ *   - IDs gps-status y gps-accuracy ahora EXISTEN en el DOM (antes las
+ *     funciones showLocationStatus/updateAccuracyDisplay hablaban al
+ *     vacío porque los IDs nunca se habían añadido al step-7).
+ * 
+ * FIX 1.2 — FOTO BLOQUEANTE + ELIMINACIÓN DEL DOBLE BOTÓN
+ *   Bug original: la pantalla foto mostraba 2 botones de confirmación
+ *   ("Confirm detection"/"Correct" del CV + "Confirm photo →"/"Skip"),
+ *   causando confusión al usuario.
+ *   Causa raíz: wrapper legacy de window.handlePhoto en línea 4704
+ *   creaba un SEGUNDO bloque #ai-analysis-box con Math.random() que
+ *   duplicaba la UI del triggerAiAnalysis() legítimo (Punto 6 Tier 1).
+ *   Solución:
+ *   - Eliminado wrapper legacy completo (35 líneas).
+ *   - "Confirm photo →" y "Skip" reemplazados por un único "Next →"
+ *     bloqueado por defecto + link "Skip if not safe to photograph"
+ *     que llama a skipPhotoStep().
+ *   - "Next →" se habilita por: confirmAiClassification() |
+ *     correctAiClassification() | skipPhotoStep().
+ *   - Esto fuerza al usuario a tomar una decisión explícita antes de
+ *     avanzar, evitando saltos accidentales.
+ *   - Eliminado Math.random() (violaba metodología de honestidad
+ *     técnica — los datos críticos no deben ser no-determinísticos).
+ * 
+ * FIX 1.3 — TOGGLE MAPA ↔ TEXTO INTELIGENTE
+ *   Antes: el campo "Or describe your location" era opcional siempre,
+ *   sin forzar uso ni cuando GPS fallaba.
+ *   Ahora:
+ *   - GPS OK → mapa principal, texto plano opcional, etiqueta neutra.
+ *   - GPS rejected (accuracy >5km) o error total → forceTextLocationMode()
+ *     cambia etiqueta a "GPS UNAVAILABLE — DESCRIBE YOUR LOCATION
+ *     (REQUIRED)" en amarillo de advertencia + autofocus al input.
+ *   - Cumple Q&A #6 del PDF: "se prefiere la capacidad de describir
+ *     la ubicación textualmente cuando el GPS no está disponible".
+ *   - Nuevo campo state.locationMethod ('gps' | 'text' | 'both' |
+ *     'unknown') se calcula al submit y se persiste en el reporte,
+ *     CSV export y futuras exportaciones GeoJSON.
+ *   - El usuario puede ELEGIR usar ambos (GPS + texto descriptivo)
+ *     para máxima credibilidad — el hint dinámico lo reconoce.
+ * 
+ * IMPACTO EVALUACIÓN UNDP:
+ *   - Resuelve riesgo de datos basura (coordenadas fallback).
+ *   - Cumple Q&A #6 explícitamente.
+ *   - Elimina inconsistencia visual reportada al evaluar UX.
+ *   - locationMethod es campo nuevo en CSV → trazabilidad de calidad
+ *     del dato para analistas UNDP.
  * 
  * ====================================================================
  */
