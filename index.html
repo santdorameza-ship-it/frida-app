@@ -636,6 +636,7 @@ const state = {
   },
   // ✨ BLOQUE 1 / FIX 1.1 + 1.2 + 1.3: estado de validación de pasos críticos
   gpsLocked: false,        // true cuando GPS devolvió accuracy aceptable
+  lastGpsAccuracy: null,   // metros de precisión del último GPS lock (para credibility)
   photoSkipped: false,     // true si usuario optó por saltar foto explícitamente
   locationMethod: null,    // 'gps' | 'text' | 'both' — se llena al submit
   // ✨ BLOQUE 2.6: estado UI del dashboard
@@ -981,24 +982,66 @@ async function internalSubmitReport(lat, lng) {
   const reportId = state.currentPanicReportId || generateReportId();
   const wasPartial = !!state.currentPanicReportId;
   
-  // ✨ BLOQUE 3: credibility DETERMINÍSTICA (sin Math.random, respeta metodología).
-  //   - Base: 75 (un reporte con todos los campos básicos completos)
-  //   - +10 si subió foto (no la saltó)
-  //   - +5 si GPS lock (no solo texto)
-  //   - +5 si confirmó CV (sin discrepancia) o corrigió manualmente
-  //   - +5 si llenó textLocation (información adicional)
-  //   Máximo: 100. Esto es transparente y auditable.
-  let computedCredibility = 75;
+  // ✨ BLOQUE 3 (v26 — rebalance):
+  //   El credibility NO debe castigar al usuario que NO puede tomar foto
+  //   por seguridad ("not safe to photograph"). Pero TAMPOCO debe regalar
+  //   100% por completar formulario sin corroboración independiente.
+  //
+  //   MODELO REBALANCEADO:
+  //   1. BASE FLOOR (25 pts): todo reporte sincronizado tiene este piso
+  //      digno — un reportero ciudadano honesto vale al menos 25%.
+  //
+  //   2. COMPLETENESS (0-35 pts): qué tan completo está el reporte
+  //      - Foto subida (no skip):    +10  (era 15)
+  //      - GPS lock o pin manual:    +10
+  //      - CV feedback (interactuó): +10
+  //      - textLocation (≥4 chars):  +5
+  //
+  //   3. TRUST (0-40 pts dinámicos):
+  //      a) GPS accuracy: <20m +5 | 20-50m +3 | >50m 0  (era +10 / +5)
+  //      b) CV-Human concordancia: confirmed +10 | corrected +5 (era +15 / +5)
+  //      c) Corroboración temporal: +15 base / +20 / +25 (igual)
+  //      d) Penalties: duplicate -30, deescalation -20 (igual)
+  //
+  //   MÁXIMOS:
+  //   - Reporte mínimo (sin foto, sin GPS): 25%
+  //   - Reporte sin foto pero con GPS+texto: 25 + 15 + 5 = 45%
+  //   - Reporte aislado completo: 25 + 35 + (5+10+0) = 75%
+  //   - Reporte completo + 2 corroboradores: 25 + 35 + (5+10+15) = 90%
+  //   - Reporte completo + 4+ corroboradores: 25 + 35 + (5+10+25) = 100%
+  
+  // Computar COMPLETENESS
+  let completenessScore = 0;
   const photoUploaded = state.photoSkipped !== true && typeof currentAiClassification !== 'undefined' && currentAiClassification;
   const hasGpsLock = state.gpsLocked === true;
   const hasTextLocation = ((document.getElementById('textLocation') || {}).value || '').trim().length >= 4;
   const aiFeedback = (typeof currentAiClassification !== 'undefined' && currentAiClassification) ? currentAiClassification.userFeedback : null;
   
-  if (photoUploaded) computedCredibility += 10;
-  if (hasGpsLock) computedCredibility += 5;
-  if (aiFeedback === 'confirmed' || aiFeedback === 'corrected') computedCredibility += 5;
-  if (hasTextLocation) computedCredibility += 5;
-  computedCredibility = Math.min(100, computedCredibility);
+  if (photoUploaded) completenessScore += 10;
+  if (hasGpsLock) completenessScore += 10;
+  if (aiFeedback === 'confirmed' || aiFeedback === 'corrected') completenessScore += 10;
+  if (hasTextLocation) completenessScore += 5;
+  
+  // Computar TRUST factors estáticos (corroboración se calcula después)
+  let trustScore = 0;
+  
+  const lastGpsAccuracy = state.lastGpsAccuracy || null;
+  if (hasGpsLock && typeof lastGpsAccuracy === 'number' && lastGpsAccuracy < 20) {
+    trustScore += 5;
+  } else if (hasGpsLock && typeof lastGpsAccuracy === 'number' && lastGpsAccuracy < 50) {
+    trustScore += 3;
+  }
+  
+  if (aiFeedback === 'confirmed' && currentAiClassification && !currentAiClassification.isDiscrepancy) {
+    trustScore += 10;
+  } else if (aiFeedback === 'corrected') {
+    trustScore += 5;
+  }
+  
+  // Base floor digno
+  const baseScore = 25;
+  
+  const computedCredibility = Math.min(100, baseScore + completenessScore + trustScore);
   
   // 4. Construir el reporte con estructura nueva y robusta
   const report = {
@@ -2948,9 +2991,12 @@ const VALIDATION_CONFIG = {
   
   // Ventana y radio para detectar corroboración positiva
   // (varios reportantes independientes confirman el mismo daño)
+  // ✨ BLOQUE 3 (v25): bonus granular para premiar corroboración fuerte
   CORROBORATION_WINDOW_MIN: 30,
   CORROBORATION_RADIUS_M: 100,
-  CORROBORATION_CREDIBILITY_BONUS: 10,
+  CORROBORATION_CREDIBILITY_BONUS: 15,        // base por tener ≥2 corroboradores
+  CORROBORATION_EXTRA_PER_REPORT: 5,          // +5 por cada corroborador adicional (cap 25)
+  CORROBORATION_MAX_BONUS: 25,                // tope total de corroboración
   MIN_CORROBORATIONS: 2  // mínimo 2 reportes adicionales para corroborar
 };
 
@@ -3122,11 +3168,19 @@ function validateReportTemporally(report, allReports) {
   // ----- REGLA 3b: Detectar corroboración positiva -----
   const corroborators = findCorroborators(report, allReports);
   if (corroborators.length >= VALIDATION_CONFIG.MIN_CORROBORATIONS) {
+    // ✨ BLOQUE 3 (v25): bonus granular — más corroboradores = más confianza
+    // Base 15 + 5 por cada uno adicional al mínimo, cap a 25
+    const extraCorroborators = corroborators.length - VALIDATION_CONFIG.MIN_CORROBORATIONS;
+    const grantedBonus = Math.min(
+      VALIDATION_CONFIG.CORROBORATION_MAX_BONUS,
+      VALIDATION_CONFIG.CORROBORATION_CREDIBILITY_BONUS + 
+      (extraCorroborators * VALIDATION_CONFIG.CORROBORATION_EXTRA_PER_REPORT)
+    );
     return {
       type: VALIDATION_TYPES.CROSS_CORROBORATED,
-      credibilityDelta: VALIDATION_CONFIG.CORROBORATION_CREDIBILITY_BONUS,
+      credibilityDelta: grantedBonus,
       relatedReportIds: corroborators.map(c => c.id),
-      message: 'Cross-corroborated by ' + corroborators.length + ' independent reports in same area'
+      message: 'Cross-corroborated by ' + corroborators.length + ' independent reports in same area (+' + grantedBonus + ')'
     };
   }
   
@@ -4659,6 +4713,66 @@ function getCurrentPosition(options = {}) {
   });
 }
 
+// ✨ v26: reintenta GPS hasta 3 veces con delays.
+// Muchos navegadores devuelven POSITION_UNAVAILABLE la primera vez después
+// de conceder permiso porque el chip GPS no ha hecho lock todavía. Los
+// reintentos resuelven esto sin que el usuario sienta que algo está roto.
+async function tryGetGpsWithRetries() {
+  const attempts = [
+    { timeout: 8000,  maxAge: 60000, label: 'fast' },    // Intento 1: rápido, acepta cache
+    { timeout: 12000, maxAge: 10000, label: 'medium' },  // Intento 2: más tiempo, cache fresca
+    { timeout: 20000, maxAge: 0,     label: 'fresh' }    // Intento 3: paciente, sin cache (fresh lock)
+  ];
+  
+  let lastError = null;
+  for (let i = 0; i < attempts.length; i++) {
+    const attempt = attempts[i];
+    console.log('FRIDA: GPS attempt ' + (i + 1) + '/3 (' + attempt.label + ')');
+    
+    // Mostrar status visual en el intento >= 2
+    if (i > 0) {
+      const statusEl = document.getElementById('gps-status');
+      if (statusEl) {
+        const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+        const retryMsgs = {
+          en: '📡 Retrying GPS lock... (' + (i + 1) + '/3)',
+          es: '📡 Reintentando GPS... (' + (i + 1) + '/3)',
+          fr: '📡 Nouvelle tentative GPS... (' + (i + 1) + '/3)',
+          ar: '📡 إعادة محاولة GPS... (' + (i + 1) + '/3)',
+          zh: '📡 重试 GPS... (' + (i + 1) + '/3)',
+          ru: '📡 Повторная попытка GPS... (' + (i + 1) + '/3)'
+        };
+        statusEl.textContent = retryMsgs[lang] || retryMsgs.en;
+      }
+    }
+    
+    try {
+      const coords = await getCurrentPosition({ 
+        highAccuracy: true, 
+        timeout: attempt.timeout,
+        maxAge: attempt.maxAge
+      });
+      // Éxito — devolver coords
+      return coords;
+    } catch (err) {
+      lastError = err;
+      // Si fue permission denied, no reintentar (el usuario lo negó)
+      if (err.code === 'PERMISSION_DENIED' || err.code === 1) {
+        throw err;
+      }
+      // Si fue POSITION_UNAVAILABLE o TIMEOUT, esperar 1.5s y reintentar
+      if (i < attempts.length - 1) {
+        await new Promise(r => setTimeout(r, 1500));
+      }
+    }
+  }
+  
+  // Todos los intentos fallaron
+  console.warn('FRIDA: GPS failed after 3 attempts');
+  throw lastError || { code: 'TIMEOUT', message: 'GPS unavailable after retries' };
+}
+
+
 // Traduce errores técnicos de la API a mensajes humanos
 function getGeolocationErrorInfo(error) {
   const lang = currentLang || 'en';
@@ -4769,7 +4883,11 @@ function initLocationMap() {
     showLocationStatus('searching');
     
     // 6. Intentar obtener GPS real con validación robusta de calidad
-    getCurrentPosition({ highAccuracy: true, timeout: 25000 })
+    //    ✨ v26: con reintentos automáticos porque el chip GPS suele necesitar
+    //    unos segundos para hacer lock después de conceder permiso.
+    //    Estrategia: 3 intentos, primero rápido (5s) con maxAge alto, los
+    //    siguientes más permisivos. Total ~30s antes de fallar definitivamente.
+    tryGetGpsWithRetries()
       .then(coords => {
         // Validar calidad antes de aceptar la coordenada
         const quality = assessGpsQuality(coords.accuracy);
@@ -4794,6 +4912,8 @@ function initLocationMap() {
         
         // ✨ BLOQUE 1 / FIX 1.1: GPS válido — desbloquear submit
         state.gpsLocked = true;
+        // ✨ BLOQUE 3 (v25): capturar accuracy para cálculo de trust score
+        state.lastGpsAccuracy = coords.accuracy;
         revalidateSubmitButton();
         
         // ✨ BLOQUE 3: enviar señal parcial con location (stage 6 — UNDP ya tiene coords)
@@ -4808,7 +4928,7 @@ function initLocationMap() {
         }
       })
       .catch(err => {
-        // GPS falló totalmente: timeout, permiso denegado, hardware sin señal
+        // GPS falló totalmente después de reintentos: timeout, permiso denegado, hardware sin señal
         showLocationStatus('error', err.message);
         updateAccuracyDisplay(null, false);
         // ✨ BLOQUE 1 / FIX 1.1 + 1.3: GPS roto → texto obligatorio
@@ -7205,6 +7325,82 @@ window.addEventListener('DOMContentLoaded', () => {
  *   - 1 helper nuevo: mapSupabaseRowToReport
  *   - Realtime ahora INSERT + UPDATE
  *   - 0 errores 409 en submit final
+ * 
+ * ====================================================================
+ * 🚀 TIER 2 — BLOQUE 3 REBALANCE (v25): CREDIBILITY HONESTO MULTI-FACTOR
+ * ====================================================================
+ * 
+ * FEEDBACK DEL USUARIO POST-V24:
+ *   "No quiero darle 100% de credibilidad a un reporte solo porque
+ *   está completo. Quiero que esa actividad siga siendo una de nuestros
+ *   mayores puntos de ventaja ya que podemos evitar reportes falsos o
+ *   modificación/alteración de los datos."
+ * 
+ * RAZONAMIENTO:
+ *   En v24, credibility = completeness (foto + GPS + CV + texto). Un
+ *   actor malicioso podía simplemente llenar todos los campos para
+ *   obtener 100%. Esto NO es honesto técnicamente ni defendible ante
+ *   evaluadores UNDP. Un reporte "completo pero aislado" no debería
+ *   valer lo mismo que uno "completo Y corroborado por vecinos".
+ * 
+ * NUEVO MODELO — 3 DIMENSIONES INDEPENDIENTES:
+ * 
+ *   1. BASE FLOOR (10 pts): todo reporte sincronizado tiene este piso.
+ * 
+ *   2. COMPLETENESS (0-40 pts): qué tan completo está el reporte
+ *      - Foto subida (no skip):         +15
+ *      - GPS lock o pin manual:         +10
+ *      - CV feedback (confirmed/correct): +10
+ *      - textLocation (≥4 chars):       +5
+ *      
+ *      Este es el componente que el USUARIO INDIVIDUAL controla.
+ *      Llenar todo el formulario → completeness 40, total 50%.
+ * 
+ *   3. TRUST factors (0-50 pts dinámicos):
+ *      a) GPS accuracy:
+ *         - <20m  → +10 (alta precisión)
+ *         - 20-50m → +5 (precisión media)
+ *         - >50m   → 0
+ *      b) CV-Human concordancia:
+ *         - 'confirmed' sin discrepancia → +15 (CV y humano coinciden)
+ *         - 'corrected'                  → +5 (humano corrigió, datos válidos)
+ *         - sin CV interacción           → 0
+ *      c) Corroboración temporal (calculada en applyTemporalValidationToAll):
+ *         - 2 corroboradores → +15
+ *         - 3 corroboradores → +20
+ *         - 4+ corroboradores → +25 (tope)
+ *         - 0-1 vecinos      → 0
+ *      d) Penalizaciones existentes:
+ *         - Duplicado detectado → -30
+ *         - De-escalación sospechosa → -20
+ * 
+ *   MÁXIMOS REALISTAS:
+ *   - Reporte aislado completo: 10 + 40 + (10+15+0) = 75%
+ *   - Reporte completo + 2 corroboradores: 10 + 40 + (10+15+15) = 90%
+ *   - Reporte completo + 4 corroboradores: 10 + 40 + (10+15+25) = 100%
+ *   - Reporte mínimo (solo crisis+infra+damage): 10%
+ *   
+ * DEFENSA CONTRA REPORTES FALSOS:
+ *   - Un actor malicioso solo puede subir su propio completeness (40 pts).
+ *   - Para llegar a 100% necesita coordinar 4+ usuarios reportando
+ *     lo mismo en mismo lugar/tiempo — coordinación masiva difícil.
+ *   - Duplicate detection ya penaliza spam de un mismo usuario (-30).
+ *   - De-escalation penalty desincentiva manipulación a posteriori (-20).
+ * 
+ * IMPLEMENTACIÓN:
+ *   - internalSubmitReport calcula completenessScore + trustScore inicial.
+ *   - applyTemporalValidationToAll suma bonus de corroboración después.
+ *   - state.lastGpsAccuracy capturado al GPS lock para trust score.
+ *   - VALIDATION_CONFIG.CORROBORATION_*: 3 nuevas constantes granulares.
+ * 
+ * COMPATIBILIDAD CON RLS:
+ *   supabaseSaveReport usa UPSERT. Requiere policy permanente
+ *   en Supabase (corrida UNA SOLA VEZ):
+ *     CREATE POLICY "Allow anon update for upsert" ON frida_reports
+ *       FOR UPDATE TO anon
+ *       USING (true) WITH CHECK (true);
+ *   Documentado en propuesta como demo TRL 4 — producción real usaría
+ *   auth con JWT y policies por usuario.
  * 
  * ====================================================================
  */
