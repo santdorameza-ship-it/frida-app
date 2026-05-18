@@ -981,6 +981,25 @@ async function internalSubmitReport(lat, lng) {
   const reportId = state.currentPanicReportId || generateReportId();
   const wasPartial = !!state.currentPanicReportId;
   
+  // ✨ BLOQUE 3: credibility DETERMINÍSTICA (sin Math.random, respeta metodología).
+  //   - Base: 75 (un reporte con todos los campos básicos completos)
+  //   - +10 si subió foto (no la saltó)
+  //   - +5 si GPS lock (no solo texto)
+  //   - +5 si confirmó CV (sin discrepancia) o corrigió manualmente
+  //   - +5 si llenó textLocation (información adicional)
+  //   Máximo: 100. Esto es transparente y auditable.
+  let computedCredibility = 75;
+  const photoUploaded = state.photoSkipped !== true && typeof currentAiClassification !== 'undefined' && currentAiClassification;
+  const hasGpsLock = state.gpsLocked === true;
+  const hasTextLocation = ((document.getElementById('textLocation') || {}).value || '').trim().length >= 4;
+  const aiFeedback = (typeof currentAiClassification !== 'undefined' && currentAiClassification) ? currentAiClassification.userFeedback : null;
+  
+  if (photoUploaded) computedCredibility += 10;
+  if (hasGpsLock) computedCredibility += 5;
+  if (aiFeedback === 'confirmed' || aiFeedback === 'corrected') computedCredibility += 5;
+  if (hasTextLocation) computedCredibility += 5;
+  computedCredibility = Math.min(100, computedCredibility);
+  
   // 4. Construir el reporte con estructura nueva y robusta
   const report = {
     id: reportId,
@@ -993,12 +1012,12 @@ async function internalSubmitReport(lat, lng) {
     damage: state.damageLevel || 'complete',
     coords: { lat: lat, lng: lng },
     coordsString: lat.toFixed(5) + ', ' + lng.toFixed(5),
-    credibility: Math.floor(Math.random() * 20 + 75),
+    credibility: computedCredibility,
     textLocation: (document.getElementById('textLocation') || {}).value || '',
     // ✨ BLOQUE 1 / FIX 1.3: registrar cómo se capturó la ubicación
     locationMethod: (function() {
-      const hasText = ((document.getElementById('textLocation') || {}).value || '').trim().length >= 4;
-      const hasGps = state.gpsLocked === true;
+      const hasText = hasTextLocation;
+      const hasGps = hasGpsLock;
       if (hasGps && hasText) return 'both';
       if (hasGps) return 'gps';
       if (hasText) return 'text';
@@ -2225,6 +2244,31 @@ async function supabaseSaveReport(report) {
   
   try {
     // Mapear estructura local → schema PostgreSQL
+    // ✨ BLOQUE 3 FIX: añadimos campos partial para que el upsert sobrescriba
+    // el panic_report parcial que pueda existir en BD con el mismo id.
+    const stageMetadata = (report.isPartial === false || report.cameFromPanic) ? {
+      is_partial: false,
+      partial_stage: 7,
+      partial_label: 'COMPLETE',
+      partial_credibility: 1.00,
+      promoted_from_panic: !!report.cameFromPanic,
+      finalized_at: new Date().toISOString()
+    } : null;
+    
+    // Combinar metadata partial con validation existente (si la hay)
+    let finalValidation = report.validation || null;
+    if (stageMetadata) {
+      if (typeof finalValidation === 'object' && finalValidation !== null) {
+        // merge: preservar campos previos y añadir los del stage
+        finalValidation = Object.assign({}, finalValidation, stageMetadata);
+      } else if (typeof finalValidation === 'string') {
+        // si validation era un simple string (e.g. 'corroborated'), envolverlo
+        finalValidation = Object.assign({ legacy_validation: finalValidation }, stageMetadata);
+      } else {
+        finalValidation = stageMetadata;
+      }
+    }
+    
     const payload = {
       id: report.id,
       event_id: report.eventId,
@@ -2236,24 +2280,24 @@ async function supabaseSaveReport(report) {
       lng: report.coords ? report.coords.lng : null,
       credibility: report.credibility || null,
       effective_credibility: report.effectiveCredibility || null,
-      validation: report.validation || null,
+      validation: finalValidation,
       text_location: report.textLocation || null,
       ai_classification: report.aiClassification || null,
       conflict_mode: !!report.conflictMode,
       timestamp_iso: report.timestamp || new Date().toISOString()
     };
     
+    // ✨ BLOQUE 3 FIX: UPSERT en lugar de INSERT.
+    //   Razón: si el id ya existe (porque fue creado por sendPartialReport en
+    //   stage 6 como panic_report parcial), el INSERT falla con 409/23505.
+    //   El UPSERT lo actualiza correctamente — preservando la continuidad
+    //   del registro y promoviendo de parcial a completo (credibility 95→100).
     const { data, error } = await supabaseClient
       .from(SUPABASE_CONFIG.tableReports)
-      .insert([payload])
+      .upsert([payload], { onConflict: 'id' })
       .select();
     
     if (error) {
-      // Si el reporte ya existe (mismo id), no es error fatal
-      if (error.code === '23505') {
-        console.log('FRIDA: Report already in Supabase →', report.id);
-        return { success: true, duplicate: true };
-      }
       console.warn('FRIDA: Supabase report sync failed:', error.message);
       return { success: false, error: error.message };
     }
@@ -2262,7 +2306,7 @@ async function supabaseSaveReport(report) {
     // del lado de PostgreSQL si se necesitan queries espaciales. Para el MVP, 
     // lat/lng como columnas dobles son suficientes.
     
-    console.log('FRIDA: ☁️ Report synced to Supabase →', report.id);
+    console.log('FRIDA: ☁️ Report synced to Supabase →', report.id, (report.cameFromPanic ? '(promoted from panic)' : ''));
     return { success: true, data: data };
   } catch (err) {
     console.error('FRIDA: Supabase save error:', err);
@@ -2306,6 +2350,63 @@ async function supabaseSaveEvent(event) {
 }
 
 // Descarga reportes existentes desde Supabase al iniciar
+// ✨ BLOQUE 3 FIX: helper común que mapea un row de Supabase a la estructura local.
+// Usado por supabaseLoadAll (carga inicial) y por el realtime subscription.
+// Extrae los flags is_partial/partial_stage/etc del JSONB validation.
+function mapSupabaseRowToReport(r) {
+  let isPartial = false;
+  let partialStage = 7;
+  let partialStageLabel = 'COMPLETE';
+  let partialCredibility = 1.00;
+  let cleanValidation = r.validation;
+  
+  if (r.validation && typeof r.validation === 'object') {
+    if (typeof r.validation.is_partial === 'boolean') {
+      isPartial = r.validation.is_partial;
+    }
+    if (typeof r.validation.partial_stage === 'number') {
+      partialStage = r.validation.partial_stage;
+    }
+    if (typeof r.validation.partial_label === 'string') {
+      partialStageLabel = r.validation.partial_label;
+    }
+    if (typeof r.validation.partial_credibility === 'number') {
+      partialCredibility = r.validation.partial_credibility;
+    }
+    if (r.validation.legacy_validation) {
+      cleanValidation = r.validation.legacy_validation;
+    } else if (r.validation.is_partial !== undefined) {
+      // Si solo había metadata partial, no había validation legacy
+      cleanValidation = null;
+    }
+  }
+  
+  return {
+    id: r.id,
+    eventId: r.event_id,
+    eventName: r.event_name,
+    timestamp: r.timestamp_iso,
+    createdAt: r.timestamp_iso,
+    time: new Date(r.timestamp_iso).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }),
+    crisis: r.crisis,
+    infra: r.infra,
+    damage: r.damage,
+    coords: (r.lat && r.lng) ? { lat: r.lat, lng: r.lng } : null,
+    coordsString: (r.lat && r.lng) ? r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) : '',
+    credibility: r.credibility,
+    effectiveCredibility: r.effective_credibility,
+    validation: cleanValidation,
+    textLocation: r.text_location,
+    aiClassification: r.ai_classification,
+    conflictMode: r.conflict_mode,
+    syncStatus: 'synced',
+    isPartial: isPartial,
+    partialStage: partialStage,
+    partialStageLabel: partialStageLabel,
+    partialCredibility: partialCredibility
+  };
+}
+
 async function supabaseLoadAll() {
   if (!supabaseClient) return { reports: [], events: [] };
   if (!navigator.onLine) return { reports: [], events: [] };
@@ -2343,26 +2444,7 @@ async function supabaseLoadAll() {
       status: e.status || 'active'
     }));
     
-    const mappedReports = (reports || []).map(r => ({
-      id: r.id,
-      eventId: r.event_id,
-      eventName: r.event_name,
-      timestamp: r.timestamp_iso,
-      createdAt: r.timestamp_iso,
-      time: new Date(r.timestamp_iso).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }),
-      crisis: r.crisis,
-      infra: r.infra,
-      damage: r.damage,
-      coords: (r.lat && r.lng) ? { lat: r.lat, lng: r.lng } : null,
-      coordsString: (r.lat && r.lng) ? r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) : '',
-      credibility: r.credibility,
-      effectiveCredibility: r.effective_credibility,
-      validation: r.validation,
-      textLocation: r.text_location,
-      aiClassification: r.ai_classification,
-      conflictMode: r.conflict_mode,
-      syncStatus: 'synced'  // viene de Supabase, así que está sincronizado
-    }));
+    const mappedReports = (reports || []).map(r => mapSupabaseRowToReport(r));
     
     console.log('FRIDA: ☁️ Loaded from Supabase →', mappedEvents.length, 'events,', mappedReports.length, 'reports');
     return { reports: mappedReports, events: mappedEvents };
@@ -2427,52 +2509,40 @@ function subscribeToSupabaseChanges() {
   supabaseRealtimeChannel = supabaseClient
     .channel('frida-realtime')
     .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: SUPABASE_CONFIG.tableReports }, 
+        // ✨ BLOQUE 3 FIX: escuchar INSERT + UPDATE (los upserts del panic mode disparan UPDATE)
+        { event: '*', schema: 'public', table: SUPABASE_CONFIG.tableReports }, 
         (payload) => {
-          console.log('FRIDA: 🔴 Live update — new report from another device');
-          // Verificar si ya lo tenemos local (para evitar duplicado del propio)
-          const exists = state.reports.find(r => r.id === payload.new.id);
+          if (payload.eventType !== 'INSERT' && payload.eventType !== 'UPDATE') return;
+          
+          const r = payload.new;
+          if (!r || !r.id) return;
+          
+          const exists = state.reports.find(x => x.id === r.id);
+          const newReport = mapSupabaseRowToReport(r);
+          
           if (!exists) {
-            // Es un reporte de OTRO dispositivo — añadirlo
-            const r = payload.new;
-            const newReport = {
-              id: r.id,
-              eventId: r.event_id,
-              eventName: r.event_name,
-              timestamp: r.timestamp_iso,
-              createdAt: r.timestamp_iso,
-              time: new Date(r.timestamp_iso).toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' }),
-              crisis: r.crisis,
-              infra: r.infra,
-              damage: r.damage,
-              coords: (r.lat && r.lng) ? { lat: r.lat, lng: r.lng } : null,
-              coordsString: (r.lat && r.lng) ? r.lat.toFixed(5) + ', ' + r.lng.toFixed(5) : '',
-              credibility: r.credibility,
-              effectiveCredibility: r.effective_credibility,
-              validation: r.validation,
-              textLocation: r.text_location,
-              aiClassification: r.ai_classification,
-              conflictMode: r.conflict_mode,
-              syncStatus: 'synced'
-            };
+            // Reporte nuevo (de otro dispositivo o panic upsert inicial)
+            console.log('FRIDA: 🔴 Live ' + payload.eventType + ' — new report', r.id);
             state.reports.push(newReport);
-            
-            // Persistir y refrescar UI
             try { dbSave(newReport); } catch (e) {}
-            if (typeof refreshReportsTable === 'function') refreshReportsTable();
-            if (typeof applyTemporalValidationToAll === 'function') applyTemporalValidationToAll();
-            if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
-            if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
             if (typeof addMarkerToMap === 'function' && mainMap) addMarkerToMap(newReport);
-            
-            // Indicador visual: pulso en algún lugar del UI
-            showLiveUpdateIndicator();
+          } else {
+            // Update de reporte existente (panic promoviéndose a completo)
+            console.log('FRIDA: 🔄 Live UPDATE — report progressed', r.id, 'stage', newReport.partialStage);
+            Object.assign(exists, newReport);
           }
+          
+          // Re-render común
+          if (typeof refreshReportsTable === 'function') refreshReportsTable();
+          if (typeof applyTemporalValidationToAll === 'function') applyTemporalValidationToAll();
+          if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
+          if (typeof refreshPriorityZones === 'function') refreshPriorityZones();
+          showLiveUpdateIndicator();
         }
     )
     .subscribe((status) => {
       if (status === 'SUBSCRIBED') {
-        console.log('FRIDA: 📡 Real-time subscription active');
+        console.log('FRIDA: 📡 Real-time subscription active (INSERT + UPDATE)');
       }
     });
 }
@@ -7068,6 +7138,73 @@ window.addEventListener('DOMContentLoaded', () => {
  *   - 3 nuevos campos en state
  *   - 1 nuevo control UI: filtro credibility dropdown
  *   - 1 nuevo badge: ⚠ PARTIAL en reportes parciales
+ * 
+ * ====================================================================
+ * 🚀 TIER 2 — BLOQUE 3 FIXES (v24, post-test usuario)
+ * ====================================================================
+ * 
+ * 3 BUGS REPORTADOS POR USUARIO EN TESTING V23:
+ * 
+ * BUG 1: 409 CONFLICT EN SUBMIT FINAL
+ *   Síntoma: "POST .../frida_reports... 409 (Conflict)" en consola al
+ *   finalizar el reporte después de un flujo panic.
+ *   Causa: supabaseSaveReport usaba .insert([payload]) que falla con
+ *   código 23505 cuando el id ya existe. El panic ID se sincronizó en
+ *   stage 6 vía supabaseSavePartialReport, dejando un row en BD. Cuando
+ *   el submit final intentaba INSERT con el mismo id, Postgres rechazaba.
+ *   El código tenía un fallback "if (error.code === '23505') return success"
+ *   que silenciosamente NO actualizaba el row.
+ *   Fix: cambiar supabaseSaveReport de INSERT a UPSERT con
+ *   onConflict='id' (igual que supabaseSavePartialReport).
+ *   Resultado: el submit final ahora SOBRESCRIBE el row parcial,
+ *   promoviéndolo a completo.
+ * 
+ * BUG 2: CREDIBILITY SE QUEDABA EN 95
+ *   Síntoma: después del submit final, el reporte mostraba 95%
+ *   credibility en lugar de 100% (porque el stage 6 había sincronizado
+ *   ese valor y el INSERT fallido no lo actualizó).
+ *   Doble causa:
+ *     a) El bug 1 (no se actualizaba el row)
+ *     b) submitReport usaba Math.floor(Math.random() * 20 + 75) que
+ *        nunca llegaba a 100. Además violaba la regla "no Math.random()
+ *        para datos críticos" de la metodología.
+ *   Fix: credibility ahora es DETERMINÍSTICA:
+ *     base 75 + 10 si foto subida + 5 si GPS lock + 5 si CV feedback
+ *     + 5 si textLocation. Cap a 100.
+ *   Resultado: un reporte completo con todo siempre llega a 100.
+ *   Es auditable y explicable a evaluadores UNDP (no "magic number").
+ * 
+ * BUG 3: BADGE "⚠ PARTIAL" NO APARECÍA AL RELOAD
+ *   Síntoma: en TEST 7 (cerrar navegador después de stage 6, reabrir),
+ *   el reporte parcial aparecía en la tabla SIN el badge amarillo.
+ *   Causa: supabaseLoadAll mapeaba el row de Supabase a la estructura
+ *   local pero NO extraía los campos isPartial/partialStage/etc. que
+ *   estaban guardados dentro del JSONB 'validation'. Los flags se
+ *   perdían en la traducción de schema.
+ *   Fix:
+ *     a) Nuevo helper mapSupabaseRowToReport(r) que lee r.validation
+ *        (si es objeto) y extrae is_partial/partial_stage/partial_label/
+ *        partial_credibility como properties propias.
+ *     b) También distingue el legacy_validation (string) del nuevo
+ *        schema JSONB para no romper validations previas.
+ *     c) Helper se usa en supabaseLoadAll Y en el realtime subscription.
+ * 
+ * EXTRA: REALTIME ESCUCHA UPDATE (no solo INSERT)
+ *   Antes el channel solo escuchaba INSERT. Pero los upserts del panic
+ *   disparan UPDATE en Postgres. Sin esto, un evaluador con dashboard
+ *   abierto NO veía las promociones de parcial→completo en vivo.
+ *   Fix: event: '*' con filtro manual a INSERT/UPDATE. UPDATEs ahora
+ *   actualizan in-place el reporte ya cargado con Object.assign().
+ * 
+ * MÉTRICAS:
+ *   - 0 usos de Math.random() para credibility (era 1, ahora cero)
+ *   - 13 usos restantes de Math.random() son legítimos:
+ *     · UUID generation (panic IDs, report IDs, event IDs, survey IDs)
+ *     · Geo-fuzzing privacy (debe ser aleatorio por diseño)
+ *     · CV mock demo mode (explícitamente etiquetado DEMO MODE)
+ *   - 1 helper nuevo: mapSupabaseRowToReport
+ *   - Realtime ahora INSERT + UPDATE
+ *   - 0 errores 409 en submit final
  * 
  * ====================================================================
  */
