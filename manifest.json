@@ -1,26 +1,30 @@
-﻿{
-  "name": "FRIDA — Crisis Mapping",
+{
+  "name": "FRIDA — Crisis Response System",
   "short_name": "FRIDA",
-  "description": "First Response Integrated Damage Assessment",
-  "start_url": "/",
+  "description": "Citizen-powered crisis mapping with offline-first PWA. Built for UNDP Challenge 2026.",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#0A0A0A",
-  "theme_color": "#E63946",
   "orientation": "portrait",
+  "background_color": "#0f0f0f",
+  "theme_color": "#E63946",
+  "lang": "en",
+  "dir": "auto",
+  "scope": "./",
+  "categories": ["utilities", "productivity", "social"],
   "icons": [
     {
-      "src": "icon-192.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxOTIgMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgZmlsbD0iI0U2MzlGNiIvPjx0ZXh0IHg9Ijk2IiB5PSIxMjAiIGZvbnQtZmFtaWx5PSJBcmlhbCwgc2Fucy1zZXJpZiIgZm9udC1zaXplPSI4MCIgZm9udC13ZWlnaHQ9ImJvbGQiIGZpbGw9IiNmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiPkY8L3RleHQ+PC9zdmc+",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     },
     {
-      "src": "icon-512.png",
+      "src": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iI0U2MzlGNiIvPjx0ZXh0IHg9IjI1NiIgeT0iMzIwIiBmb250LWZhbWlseT0iQXJpYWwsIHNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjEwIiBmb250LXdlaWdodD0iYm9sZCIgZmlsbD0iI2ZmZiIgdGV4dC1hbmNob3I9Im1pZGRsZSI+RjwvdGV4dD48L3N2Zz4=",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
-  "lang": "en",
-  "categories": ["utilities", "social"]
+  "screenshots": [],
+  "prefer_related_applications": false
 }

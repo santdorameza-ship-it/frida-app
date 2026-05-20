@@ -275,6 +275,15 @@ html[dir="rtl"] .options-grid {
           <button onclick="showQrScanModal()" style="background:transparent; border:none; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; text-decoration:underline;">
             🌉 <span data-i18n="qr_scan_link">Scan someone's offline report</span>
           </button>
+          <!-- ✨ SPRINT 4 CAP 4: install PWA + descargar APK -->
+          <div style="display:flex; gap:10px; justify-content:center; margin-top:8px;">
+            <button id="pwa-install-btn" onclick="triggerPwaInstall()" style="background:rgba(82,183,136,0.15); border:1px solid #52B788; color:#52B788; padding:6px 12px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:11px; font-weight:600; cursor:pointer;">
+              📲 <span data-i18n="install_pwa">Install App</span>
+            </button>
+            <button onclick="downloadApk()" style="background:transparent; border:1px solid var(--border); color:var(--text2); padding:6px 12px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer;">
+              📦 <span data-i18n="download_apk">APK</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -477,7 +486,7 @@ html[dir="rtl"] .options-grid {
       
       <div style="margin-bottom:14px;">
         <div id="text-location-label" style="font-size:11px;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px;" data-i18n="or_describe">Or describe your location</div>
-        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" oninput="onTextLocationInput(); onLocationAutocomplete(this.value)" autocomplete="off" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" oninput="onTextLocationInput(); onLocationAutocomplete(this.value)" autocomplete="off" maxlength="120" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
         <!-- ✨ TIER 3 CAP 4: dropdown autocomplete Nominatim -->
         <div id="location-autocomplete-list" style="display:none; background:var(--bg3); border:1px solid var(--border); border-radius:8px; margin-top:4px; max-height:200px; overflow-y:auto;"></div>
       </div>
@@ -637,7 +646,7 @@ html[dir="rtl"] .options-grid {
         <div style="background:rgba(244,162,97,0.15); border:1px solid rgba(244,162,97,0.4); border-radius:8px; padding:10px; margin-bottom:14px; font-size:11px; color:#F4A261; text-align:left;" data-i18n="qr_freeze_warning">⚠️ Keep this screen open until someone scans the QR. Tap "Download" to save the image and share it via WhatsApp, SMS or print.</div>
         <div style="display:flex; gap:10px; justify-content:center;">
           <button onclick="downloadQrImage()" style="background:#52B788; color:#fff; border:none; padding:12px 18px; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="qr_download">⬇ Download</button>
-          <button onclick="closeQrShareModal()" style="background:#fff; color:#000; border:none; padding:12px 24px; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="qr_done">Done</button>
+          <button id="qr-done-btn" onclick="closeQrShareModal()" style="background:#fff; color:#000; border:none; padding:12px 24px; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="qr_done">Done</button>
         </div>
       </div>
     </div>
@@ -699,6 +708,8 @@ html[dir="rtl"] .options-grid {
       <button class="export-btn" onclick="exportCSV()" data-i18n="export_btn">⬇ Export CSV</button>
       <!-- ✨ BLOQUE 9: Export GeoJSON (UNDP-compliant) -->
       <button class="export-btn" onclick="exportGeoJSON()" data-i18n="export_geojson" style="margin-left:6px;">⬇ Export GeoJSON</button>
+      <!-- ✨ SPRINT 4 / CAP 1: botón de routing respetando bloqueos -->
+      <button class="export-btn" onclick="openRoutingPanel()" data-i18n="routing_btn" style="margin-left:6px; background:rgba(82,183,136,0.15); border-color:#52B788; color:#52B788;">🗺️ Plan Route</button>
     </div>
     <div class="kpi-grid">
       <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">0</div><div class="kpi-label" data-i18n="kpi_total">Total Reports</div></div>
@@ -1136,7 +1147,121 @@ function getFingerprintSync() {
 async function initFingerprint() { await getDeviceFingerprint(); }
 // ===== FIN CAP 1 =====
 
-// ===== TIER 3 CAP 7: ANTI-SPAM SEVERO ✨ =====
+// ===== TIER 3 / FIX v34 — UNCONFIRMED REPORT LOCK ✨ =====
+// Si un reporte se hizo submit pero NO confirmó envío al servidor,
+// bloqueamos TODA la app excepto el botón QR para forzar al usuario
+// a generar QR y no perder el reporte.
+// Se libera automáticamente cuando trySyncReport tiene éxito.
+
+state.unconfirmedReportId = null;
+
+function activateUnconfirmedReportLock(reportId) {
+  // Solo activar si NO hay conexión (con conexión Supabase reintenta solo)
+  if (navigator.onLine) {
+    // Con conexión, dejamos que el retry automático maneje. No bloqueamos UX.
+    return;
+  }
+  
+  state.unconfirmedReportId = reportId;
+  console.warn('FRIDA: 🔒 App locked — report ' + reportId + ' not confirmed. Forcing QR backup.');
+  
+  // Crear overlay full-screen
+  let overlay = document.getElementById('unconfirmed-lock-overlay');
+  if (overlay) return;  // ya existe
+  
+  overlay = document.createElement('div');
+  overlay.id = 'unconfirmed-lock-overlay';
+  overlay.style.cssText = 'position:fixed; inset:0; background:rgba(0,0,0,0.92); z-index:99998; padding:24px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; overflow-y:auto;';
+  
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const titles = {
+    en: '⚠️ Report not confirmed', es: '⚠️ Reporte no confirmado',
+    fr: '⚠️ Rapport non confirmé', ar: '⚠️ التقرير غير مؤكد',
+    zh: '⚠️ 报告未确认', ru: '⚠️ Отчёт не подтверждён'
+  };
+  const descs = {
+    en: 'Your report was saved locally but could not be sent to the server. To prevent losing it, generate a QR code now and share it with anyone who has internet.',
+    es: 'Tu reporte se guardó localmente pero no se pudo enviar al servidor. Para no perderlo, genera un QR ahora y compártelo con alguien que tenga internet.',
+    fr: 'Votre rapport a été sauvegardé localement mais n\'a pas pu être envoyé. Générez un QR maintenant et partagez-le.',
+    ar: 'تم حفظ تقريرك محلياً لكن لم يُرسل للخادم. لتجنب فقدانه، أنشئ رمز QR وشاركه.',
+    zh: '您的报告已保存在本地，但无法发送到服务器。请立即生成 QR 码并分享。',
+    ru: 'Отчёт сохранён локально, но не отправлен на сервер. Создайте QR-код и поделитесь.'
+  };
+  const qrBtnMsgs = { en:'🌉 Generate QR', es:'🌉 Generar QR', fr:'🌉 Générer QR', ar:'🌉 إنشاء QR', zh:'🌉 生成 QR', ru:'🌉 Создать QR' };
+  
+  overlay.innerHTML = '<div style="max-width:420px; text-align:center; color:#fff;"><div style="font-size:48px; margin-bottom:16px;">⚠️</div><div style="font-family:\'DM Sans\',sans-serif; font-size:18px; font-weight:700; color:#fbbf24; margin-bottom:12px;">' + (titles[lang] || titles.en) + '</div><div style="font-size:13px; color:#ddd; line-height:1.5; margin-bottom:24px;">' + (descs[lang] || descs.en) + '</div><button onclick="showQrShareModal()" style="background:#52B788; color:#fff; border:none; padding:16px 32px; border-radius:10px; font-family:\'DM Sans\',sans-serif; font-size:14px; font-weight:700; cursor:pointer;">' + (qrBtnMsgs[lang] || qrBtnMsgs.en) + '</button><div style="margin-top:20px; font-size:11px; color:#888;" id="unconfirmed-retry-status">' + (lang === 'es' ? 'Reintentando conexión...' : 'Retrying connection...') + '</div></div>';
+  
+  document.body.appendChild(overlay);
+  
+  // Reintento automático cada 10 segundos
+  if (!window._unconfirmedRetryInterval) {
+    window._unconfirmedRetryInterval = setInterval(() => {
+      if (!state.unconfirmedReportId) {
+        clearInterval(window._unconfirmedRetryInterval);
+        window._unconfirmedRetryInterval = null;
+        return;
+      }
+      if (navigator.onLine) {
+        const report = state.reports.find(r => r.id === state.unconfirmedReportId);
+        if (report) {
+          console.log('FRIDA: 🔄 Retrying sync for unconfirmed report...');
+          trySyncReport(report);
+        }
+      }
+    }, 10000);
+  }
+}
+
+function releaseUnconfirmedReportLock(reportId) {
+  // Solo liberar si era ESTE reporte el que estaba bloqueando
+  if (state.unconfirmedReportId !== reportId) return;
+  
+  state.unconfirmedReportId = null;
+  const overlay = document.getElementById('unconfirmed-lock-overlay');
+  if (overlay) overlay.remove();
+  
+  if (window._unconfirmedRetryInterval) {
+    clearInterval(window._unconfirmedRetryInterval);
+    window._unconfirmedRetryInterval = null;
+  }
+  
+  console.log('FRIDA: 🔓 App unlocked — report confirmed:', reportId);
+  
+  // Mostrar toast de éxito
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const okMsgs = {
+    en: '✓ Report confirmed by server', es: '✓ Reporte confirmado por el servidor',
+    fr: '✓ Rapport confirmé', ar: '✓ تم تأكيد التقرير',
+    zh: '✓ 服务器已确认报告', ru: '✓ Отчёт подтверждён сервером'
+  };
+  const toast = document.createElement('div');
+  toast.style.cssText = 'position:fixed; top:20px; left:50%; transform:translateX(-50%); background:#52B788; color:#fff; padding:12px 20px; border-radius:10px; font-family:DM Sans,sans-serif; font-size:13px; font-weight:600; z-index:99999; box-shadow:0 4px 12px rgba(0,0,0,0.4);';
+  toast.textContent = okMsgs[lang] || okMsgs.en;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3000);
+}
+
+// Botón "Done" del modal QR ahora SOLO está habilitado tras descarga o sync
+function checkQrDoneButton() {
+  const btn = document.getElementById('qr-done-btn');
+  if (!btn) return;
+  
+  const downloaded = window._qrWasDownloaded === true;
+  const synced = state.unconfirmedReportId === null;
+  
+  if (downloaded || synced) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.style.cursor = 'pointer';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    btn.style.cursor = 'not-allowed';
+  }
+}
+// ===== FIN UNCONFIRMED REPORT LOCK =====
+
+
 // Ratelimit por fingerprint: 5 reportes/hora.
 // Si IA detecta foto fake → -100 al reporte + -10 reputación al usuario.
 const RATELIMIT_KEY = 'frida-ratelimit';
@@ -1199,6 +1324,119 @@ function getReputationWeight(report) {
   return Math.max(0.1, score / 100);
 }
 // ===== FIN CAP 7 =====
+
+// ===== TIER 3 / FIX v34: ANTI-BOT DETECTION ✨ =====
+// El ratelimit solo por IP es débil (VPN/hotspot lo evade en segundos).
+// Defensa en capas:
+//   1. Fingerprint hardware (sobrevive cambio de IP, ya implementado en Cap 1)
+//   2. Detección de comportamiento (esta sección): patrones de uso humano vs bot
+//   3. Proof-of-work suave (opcional, en producción)
+//   4. Validación cruzada (reportes aislados no afectan hasta corroboración)
+//
+// Señales humanas que medimos:
+//   - Tiempo total para completar el flujo (humanos >15s, bots <2s)
+//   - Movimientos de mouse/touch entre steps
+//   - Variabilidad del tiempo por step (humanos varían, bots son constantes)
+//   - Uso del scroll (humanos hacen scroll, bots no necesariamente)
+
+const BEHAVIOR_KEY = 'frida-behavior-session';
+
+function initBehaviorTracking() {
+  if (window._behaviorInitialized) return;
+  window._behaviorInitialized = true;
+  
+  window._behaviorMetrics = {
+    sessionStart: Date.now(),
+    mouseMoves: 0,
+    touchEvents: 0,
+    scrollEvents: 0,
+    keystrokeEvents: 0,
+    stepTimings: [],  // ms entre transiciones de step
+    lastStepTime: Date.now()
+  };
+  
+  // Tracking pasivo
+  document.addEventListener('mousemove', () => { window._behaviorMetrics.mouseMoves++; }, { passive: true });
+  document.addEventListener('touchstart', () => { window._behaviorMetrics.touchEvents++; }, { passive: true });
+  document.addEventListener('scroll', () => { window._behaviorMetrics.scrollEvents++; }, { passive: true });
+  document.addEventListener('keydown', () => { window._behaviorMetrics.keystrokeEvents++; }, { passive: true });
+}
+
+// Llamado en cada nextStep para timing
+function trackStepTransition() {
+  if (!window._behaviorMetrics) return;
+  const now = Date.now();
+  const elapsed = now - window._behaviorMetrics.lastStepTime;
+  window._behaviorMetrics.stepTimings.push(elapsed);
+  window._behaviorMetrics.lastStepTime = now;
+}
+
+// Score de "humanidad" 0-100 al enviar reporte
+// <30: probablemente bot, penalty severo
+// 30-60: sospechoso, requiere corroboración
+// >60: comportamiento humano normal
+function calculateHumanScore() {
+  const m = window._behaviorMetrics;
+  if (!m) return 50;  // default neutral si no se inicializó
+  
+  let score = 0;
+  
+  // Tiempo total: <10s muy sospechoso, 15-300s normal
+  const totalTime = Date.now() - m.sessionStart;
+  if (totalTime > 15000) score += 25;
+  else if (totalTime > 8000) score += 15;
+  else score += 0;  // muy rápido, posible bot
+  
+  // Movimientos del mouse o touches: cero es señal fuerte de bot
+  if (m.mouseMoves > 20 || m.touchEvents > 5) score += 25;
+  else if (m.mouseMoves > 5 || m.touchEvents > 0) score += 15;
+  else score += 0;  // sin interacción física
+  
+  // Variabilidad de timing entre steps (bots son muy constantes)
+  if (m.stepTimings.length >= 3) {
+    const avg = m.stepTimings.reduce((a, b) => a + b, 0) / m.stepTimings.length;
+    const variance = m.stepTimings.reduce((s, t) => s + Math.pow(t - avg, 2), 0) / m.stepTimings.length;
+    const stdDev = Math.sqrt(variance);
+    if (stdDev > 1000) score += 25;  // alta variabilidad = humano
+    else if (stdDev > 300) score += 15;
+    else score += 5;  // demasiado consistente
+  } else {
+    score += 10;  // pocos pasos, no podemos juzgar bien
+  }
+  
+  // Scrolls o keystrokes
+  if (m.scrollEvents > 0 || m.keystrokeEvents > 5) score += 25;
+  else if (m.keystrokeEvents > 0) score += 15;
+  else score += 5;
+  
+  return Math.min(100, Math.max(0, score));
+}
+
+// Aplica al reporte: si humanScore <30, marcar como sospechoso y reducir cred
+function applyBehaviorScore(report) {
+  const score = calculateHumanScore();
+  report.humanScore = score;
+  
+  if (score < 30) {
+    report.credibility = Math.max(0, Math.floor((report.credibility || 50) * 0.3));
+    report.effectiveCredibility = report.credibility;
+    report.flagged = true;
+    report.flaggedReason = 'bot_behavior_detected';
+    console.warn('FRIDA: 🤖 Bot behavior detected (score=' + score + '), credibility penalized');
+    
+    const p = loadUserProfile();
+    p.reputationScore = Math.max(0, (p.reputationScore || 50) - 20);
+    saveUserProfile(p);
+  } else if (score < 60) {
+    // Sospechoso: cred queda baja hasta corroboración
+    report.credibility = Math.floor((report.credibility || 50) * 0.7);
+    report.effectiveCredibility = report.credibility;
+    console.log('FRIDA: ⚠️ Suspicious behavior (score=' + score + '), credibility reduced pending corroboration');
+  }
+  
+  return report;
+}
+// ===== FIN ANTI-BOT =====
 
 const PROFILE_KEY = 'frida-user-profile';
 
@@ -1424,37 +1662,316 @@ function initObserverReport() {
 function showObserverScreen() {
   nextStep('observer');
   
-  // Inicializar el mapa si no existe
-  setTimeout(() => {
-    if (!window.observerMap && typeof L !== 'undefined') {
+  // ✨ FIX v34: esperar render completo del DOM antes de inicializar Leaflet.
+  // Leaflet requiere que el contenedor tenga dimensiones reales (no display:none).
+  // Usamos requestAnimationFrame para esperar al siguiente paint, después setTimeout
+  // para garantizar que el CSS .active se aplicó.
+  requestAnimationFrame(() => {
+    setTimeout(() => {
       const mapEl = document.getElementById('observer-map');
-      if (!mapEl) return;
-      
-      // Centrar en la zona con más reportes recientes
-      let centerLat = 19.43, centerLng = -99.13, zoom = 5;
-      if (state.reports && state.reports.length > 0) {
-        const recent = state.reports.filter(r => r.coords).slice(-10);
-        if (recent.length > 0) {
-          const avgLat = recent.reduce((s, r) => s + r.coords.lat, 0) / recent.length;
-          const avgLng = recent.reduce((s, r) => s + r.coords.lng, 0) / recent.length;
-          centerLat = avgLat; centerLng = avgLng; zoom = 12;
-        }
+      if (!mapEl || typeof L === 'undefined') {
+        console.warn('FRIDA: observer-map element or Leaflet not ready');
+        return;
       }
       
-      window.observerMap = L.map(mapEl).setView([centerLat, centerLng], zoom);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-        attribution: '© OpenStreetMap © CARTO', maxZoom: 19
-      }).addTo(window.observerMap);
+      // Si el contenedor no tiene altura, forzar
+      if (mapEl.offsetHeight === 0) {
+        mapEl.style.height = '340px';
+      }
+      
+      if (!window.observerMap) {
+        // Centrar en la zona con más reportes recientes
+        let centerLat = 19.43, centerLng = -99.13, zoom = 5;
+        if (state.reports && state.reports.length > 0) {
+          const recent = state.reports.filter(r => r.coords).slice(-10);
+          if (recent.length > 0) {
+            const avgLat = recent.reduce((s, r) => s + r.coords.lat, 0) / recent.length;
+            const avgLng = recent.reduce((s, r) => s + r.coords.lng, 0) / recent.length;
+            centerLat = avgLat; centerLng = avgLng; zoom = 12;
+          }
+        }
+        
+        try {
+          window.observerMap = L.map(mapEl).setView([centerLat, centerLng], zoom);
+          L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+          }).addTo(window.observerMap);
+          console.log('FRIDA: 👁️ Observer map initialized');
+        } catch (err) {
+          console.error('FRIDA: Failed to init observer map:', err);
+          mapEl.innerHTML = '<div style="padding:20px; color:#888; text-align:center;">⚠️ Map failed to load. Please reload page.</div>';
+          return;
+        }
+      } else {
+        // ya existe — solo refrescar tamaño
+        window.observerMap.invalidateSize();
+      }
       
       refreshObserverMap();
-    } else if (window.observerMap) {
-      window.observerMap.invalidateSize();
-      refreshObserverMap();
-    }
-  }, 100);
+    }, 300);  // 300ms es seguro para mobile lento
+  });
 }
 
 // Refresca markers en el mapa de observer (cluster + heridos + vialidades)
+// ===== SPRINT 4 / CAP 1: ROUTING CON BLOQUEOS ✨ =====
+// OSRM (Open Source Routing Machine) público para rutas. Detectamos
+// vialidades cerradas confirmadas (3+ reportes en <50m del mismo punto)
+// y avisamos al usuario cuando una ruta atraviesa esos puntos.
+//
+// Endpoint público: https://router.project-osrm.org
+// TOS: razonable para uso no comercial, ratelimit ~1 req/s
+
+const OSRM_BASE = 'https://router.project-osrm.org/route/v1/driving';
+const ROAD_BLOCK_PROXIMITY_METERS = 50;   // si ruta pasa a <50m de bloqueo, alertar
+const ROAD_BLOCK_MIN_CONFIRMS = 3;        // mínimo 3 reportes para considerar confirmado
+
+// Recopila TODOS los puntos de bloqueo de vialidades de todas las surveys
+// y los agrupa por proximidad (puntos a <30m son el mismo bloqueo)
+function getConfirmedRoadBlocks() {
+  const allPoints = [];
+  (state.surveys || []).forEach(s => {
+    if (!s.answers || !s.answers.road_blocks) return;
+    s.answers.road_blocks.forEach(p => {
+      if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+        allPoints.push({ lat: p.lat, lng: p.lng, surveyId: s.id, addedAt: p.addedAt });
+      }
+    });
+  });
+  
+  // Clustering por proximidad: puntos a <30m son el mismo bloqueo
+  const clusters = [];
+  const usedIdx = new Set();
+  allPoints.forEach((p, i) => {
+    if (usedIdx.has(i)) return;
+    const cluster = [p];
+    usedIdx.add(i);
+    allPoints.forEach((q, j) => {
+      if (i === j || usedIdx.has(j)) return;
+      if (haversineMeters(p.lat, p.lng, q.lat, q.lng) < 30) {
+        cluster.push(q);
+        usedIdx.add(j);
+      }
+    });
+    clusters.push(cluster);
+  });
+  
+  // Solo retornar los CONFIRMADOS (3+ reportes)
+  return clusters
+    .filter(c => c.length >= ROAD_BLOCK_MIN_CONFIRMS)
+    .map(c => {
+      const avgLat = c.reduce((s, p) => s + p.lat, 0) / c.length;
+      const avgLng = c.reduce((s, p) => s + p.lng, 0) / c.length;
+      return { lat: avgLat, lng: avgLng, confirms: c.length };
+    });
+}
+
+// Distancia Haversine en metros (más preciso que la aproximación lineal)
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const R = 6371000;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) ** 2 + 
+            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+            Math.sin(dLng/2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+// Distancia mínima de un punto a una línea (segmento de ruta)
+function distancePointToSegment(pLat, pLng, aLat, aLng, bLat, bLng) {
+  // Aproximación: distancia a los dos extremos y al punto medio
+  const dA = haversineMeters(pLat, pLng, aLat, aLng);
+  const dB = haversineMeters(pLat, pLng, bLat, bLng);
+  const midLat = (aLat + bLat) / 2;
+  const midLng = (aLng + bLng) / 2;
+  const dMid = haversineMeters(pLat, pLng, midLat, midLng);
+  return Math.min(dA, dB, dMid);
+}
+
+// Llama a OSRM y devuelve {coordinates, distance, duration, intersectsBlocks[]}
+async function calculateRoute(fromLat, fromLng, toLat, toLng) {
+  const url = OSRM_BASE + '/' + fromLng + ',' + fromLat + ';' + toLng + ',' + toLat + 
+              '?overview=full&geometries=geojson';
+  
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('OSRM ' + res.status);
+    const data = await res.json();
+    
+    if (!data.routes || data.routes.length === 0) {
+      return { error: 'no_route_found' };
+    }
+    
+    const route = data.routes[0];
+    const coords = route.geometry.coordinates;  // [[lng, lat], ...]
+    
+    // Detectar intersección con bloqueos confirmados
+    const blocks = getConfirmedRoadBlocks();
+    const intersects = [];
+    
+    blocks.forEach(block => {
+      // Verificar cada segmento de la ruta
+      for (let i = 0; i < coords.length - 1; i++) {
+        const [aLng, aLat] = coords[i];
+        const [bLng, bLat] = coords[i + 1];
+        const dist = distancePointToSegment(block.lat, block.lng, aLat, aLng, bLat, bLng);
+        if (dist < ROAD_BLOCK_PROXIMITY_METERS) {
+          intersects.push({ ...block, segmentIdx: i, distMeters: Math.round(dist) });
+          break;  // un bloqueo solo cuenta una vez
+        }
+      }
+    });
+    
+    return {
+      coordinates: coords,
+      distanceMeters: Math.round(route.distance),
+      durationSeconds: Math.round(route.duration),
+      intersectsBlocks: intersects
+    };
+  } catch (err) {
+    console.warn('FRIDA: OSRM error:', err.message);
+    return { error: err.message };
+  }
+}
+
+// Muestra el panel de routing en el dashboard
+let routingMap = null;
+let routingFromMarker = null;
+let routingToMarker = null;
+let routingLine = null;
+let routingBlockMarkers = [];
+
+function openRoutingPanel() {
+  const modal = document.getElementById('routing-modal');
+  if (!modal) return;
+  modal.style.display = 'block';
+  
+  setTimeout(() => {
+    const mapEl = document.getElementById('routing-map');
+    if (!mapEl || typeof L === 'undefined') return;
+    if (mapEl.offsetHeight === 0) mapEl.style.height = '360px';
+    
+    if (!routingMap) {
+      // Centrar en eventos recientes si hay
+      let centerLat = 19.43, centerLng = -99.13, zoom = 12;
+      if (state.reports && state.reports.length > 0) {
+        const recent = state.reports.filter(r => r.coords).slice(-5);
+        if (recent.length > 0) {
+          centerLat = recent[0].coords.lat;
+          centerLng = recent[0].coords.lng;
+        }
+      }
+      try {
+        routingMap = L.map(mapEl).setView([centerLat, centerLng], zoom);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+          attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+        }).addTo(routingMap);
+        
+        // Click: primer click pone From, segundo click pone To y calcula ruta
+        routingMap.on('click', e => {
+          if (!routingFromMarker) {
+            routingFromMarker = L.marker(e.latlng, {
+              icon: L.divIcon({ html: '<div style="font-size:28px;">🏁</div>', iconSize: [28,28], iconAnchor:[14,28], className:'' })
+            }).addTo(routingMap);
+            document.getElementById('routing-status').textContent = 
+              (t('routing_now_pick_to') || 'Now tap destination on map');
+          } else if (!routingToMarker) {
+            routingToMarker = L.marker(e.latlng, {
+              icon: L.divIcon({ html: '<div style="font-size:28px;">🎯</div>', iconSize: [28,28], iconAnchor:[14,28], className:'' })
+            }).addTo(routingMap);
+            computeAndDrawRoute();
+          }
+        });
+      } catch (err) {
+        console.error('FRIDA: routing map init failed:', err);
+        return;
+      }
+    } else {
+      routingMap.invalidateSize();
+    }
+    
+    drawConfirmedBlocksOnRoutingMap();
+  }, 300);
+}
+
+function drawConfirmedBlocksOnRoutingMap() {
+  if (!routingMap) return;
+  // Limpiar marcadores previos
+  routingBlockMarkers.forEach(m => { try { routingMap.removeLayer(m); } catch(e){} });
+  routingBlockMarkers = [];
+  
+  const blocks = getConfirmedRoadBlocks();
+  blocks.forEach(b => {
+    const marker = L.marker([b.lat, b.lng], {
+      icon: L.divIcon({
+        html: '<div style="font-size:22px;">🚧</div>',
+        iconSize: [22, 22], iconAnchor: [11, 22], className: ''
+      })
+    }).addTo(routingMap);
+    marker.bindPopup('<div style="font-size:11px;"><b>🚧 Confirmed road block</b><br>' + b.confirms + ' reports</div>');
+    routingBlockMarkers.push(marker);
+  });
+  
+  document.getElementById('routing-status').textContent = 
+    (blocks.length > 0)
+      ? (t('routing_pick_from') || 'Tap origin on map') + ' · ' + blocks.length + ' blocks shown'
+      : (t('routing_pick_from') || 'Tap origin on map');
+}
+
+async function computeAndDrawRoute() {
+  if (!routingFromMarker || !routingToMarker) return;
+  const from = routingFromMarker.getLatLng();
+  const to = routingToMarker.getLatLng();
+  
+  const status = document.getElementById('routing-status');
+  if (status) status.textContent = (t('routing_calculating') || '🧮 Calculating route...');
+  
+  const result = await calculateRoute(from.lat, from.lng, to.lat, to.lng);
+  
+  if (result.error) {
+    if (status) status.textContent = '⚠️ ' + (t('routing_error') || 'Route error: ') + result.error;
+    return;
+  }
+  
+  // Dibujar línea de ruta
+  if (routingLine) routingMap.removeLayer(routingLine);
+  const latlngs = result.coordinates.map(c => [c[1], c[0]]);  // OSRM: [lng,lat] → leaflet: [lat,lng]
+  
+  const hasBlocks = result.intersectsBlocks.length > 0;
+  routingLine = L.polyline(latlngs, {
+    color: hasBlocks ? '#ef4444' : '#52B788',
+    weight: 5,
+    opacity: 0.85
+  }).addTo(routingMap);
+  
+  routingMap.fitBounds(routingLine.getBounds(), { padding: [30, 30] });
+  
+  // Mensaje en panel
+  const km = (result.distanceMeters / 1000).toFixed(1);
+  const min = Math.round(result.durationSeconds / 60);
+  let msg = '';
+  if (hasBlocks) {
+    msg = '🚧 ' + (t('routing_blocked_warning') || 'Route crosses ' + result.intersectsBlocks.length + ' confirmed block(s)') + 
+          ' · ' + km + ' km · ' + min + ' min';
+  } else {
+    msg = '✅ ' + (t('routing_clear') || 'Clear route') + ' · ' + km + ' km · ' + min + ' min';
+  }
+  if (status) status.innerHTML = msg;
+}
+
+function resetRoutingPanel() {
+  if (!routingMap) return;
+  if (routingFromMarker) { routingMap.removeLayer(routingFromMarker); routingFromMarker = null; }
+  if (routingToMarker)   { routingMap.removeLayer(routingToMarker);   routingToMarker = null; }
+  if (routingLine)       { routingMap.removeLayer(routingLine);       routingLine = null; }
+  drawConfirmedBlocksOnRoutingMap();
+}
+
+function closeRoutingPanel() {
+  const modal = document.getElementById('routing-modal');
+  if (modal) modal.style.display = 'none';
+}
+// ===== FIN SPRINT 4 CAP 1 =====
+
 function refreshObserverMap() {
   if (!window.observerMap) return;
   
@@ -1723,6 +2240,10 @@ function showQrShareModal() {
     meta.textContent = 'ID: ' + last.id.substring(0, 16) + '... · ' + payload.length + ' chars';
   }
   
+  // ✨ FIX v34: resetear flag y deshabilitar botón Done hasta descarga o sync
+  window._qrWasDownloaded = false;
+  if (typeof checkQrDoneButton === 'function') checkQrDoneButton();
+  
   modal.style.display = 'block';
 }
 
@@ -1736,14 +2257,12 @@ function downloadQrImage() {
     return;
   }
   
-  // Convertir el QR img a canvas para descargar como PNG
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   const tmpImg = new Image();
   tmpImg.onload = function() {
     canvas.width = tmpImg.width;
     canvas.height = tmpImg.height;
-    // Fondo blanco para que sea legible al imprimirse
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(tmpImg, 0, 0);
@@ -1754,6 +2273,9 @@ function downloadQrImage() {
       a.download = 'FRIDA_report_' + (window._lastQrReportId || 'unknown').substring(0, 16) + '.png';
       a.click();
       URL.revokeObjectURL(url);
+      // ✨ FIX v34: marcar como descargado para habilitar el botón Done
+      window._qrWasDownloaded = true;
+      if (typeof checkQrDoneButton === 'function') checkQrDoneButton();
     });
   };
   tmpImg.src = img.src;
@@ -1780,19 +2302,64 @@ async function showQrScanModal() {
   modal.style.display = 'block';
   if (status) status.textContent = t('qr_scan_starting') || 'Starting camera...';
   
+  // ✨ FIX v34: chequeos previos para iOS Safari y navegadores que requieren HTTPS
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    if (status) {
+      status.innerHTML = '❌ ' + (t('qr_camera_unsupported') || 'Camera not supported in this browser') + 
+        '<br><span style="font-size:10px; color:#888;">Requires HTTPS + modern browser (Chrome, Safari 11+, Firefox)</span>';
+    }
+    return;
+  }
+  
+  // Verificar HTTPS (cámara solo funciona en contextos seguros)
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    if (status) {
+      status.innerHTML = '⚠️ ' + (t('qr_camera_https') || 'Camera requires HTTPS') + 
+        '<br><span style="font-size:10px; color:#888;">Open this page over https://</span>';
+    }
+    return;
+  }
+  
   try {
-    qrScanStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'environment' }
-    });
+    // Solicitar cámara trasera primero (mejor para QR)
+    let constraints = {
+      video: { 
+        facingMode: { ideal: 'environment' },  // ideal en lugar de exact: permite fallback
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      },
+      audio: false
+    };
+    
+    try {
+      qrScanStream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (firstErr) {
+      // Si falló cámara trasera, intentar cualquier cámara
+      console.warn('FRIDA: rear camera failed, trying any camera:', firstErr.name);
+      qrScanStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    }
+    
     video.srcObject = qrScanStream;
+    video.setAttribute('playsinline', 'true');  // iOS Safari fix
+    video.setAttribute('muted', 'true');
     await video.play();
     
     if (status) status.textContent = t('qr_scan_searching') || 'Searching for QR code...';
-    
-    // Loop de escaneo cada 250ms
     qrScanInterval = setInterval(scanQrFrame, 250);
+    
   } catch (err) {
-    if (status) status.textContent = '❌ ' + (err.message || 'Camera access denied');
+    let msg = '';
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      msg = t('qr_camera_denied') || 'Camera permission denied. Please grant access in browser settings.';
+    } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      msg = t('qr_camera_notfound') || 'No camera found on this device.';
+    } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      msg = t('qr_camera_busy') || 'Camera is in use by another app. Close other camera apps and retry.';
+    } else {
+      msg = (err.message || 'Camera error: ' + err.name);
+    }
+    if (status) status.innerHTML = '❌ ' + msg;
+    console.error('FRIDA: camera error:', err);
   }
 }
 
@@ -1930,6 +2497,9 @@ function trackBridgeRelay() {
 // ===== FIN BLOQUE 8 — QR MESH SYNC =====
 
 function nextStep(step) {
+  // ✨ FIX v34: tracking de comportamiento humano (anti-bot)
+  if (typeof trackStepTransition === 'function') trackStepTransition();
+  
   document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
   if (step === 'success') {
     document.getElementById('step-success').classList.add('active');
@@ -1970,6 +2540,12 @@ function nextStep(step) {
 function handleCrisisSelection(crisisType) {
   setData('crisisType', crisisType);
   sendPartialReport({ step: 'crisis_type', value: crisisType });
+  
+  // ✨ SPRINT 4 CAP 3: 'Other' requiere foto obligatoria (anti-spam + evidencia)
+  state.photoMandatory = (crisisType === 'Other');
+  if (state.photoMandatory) {
+    console.log('FRIDA: 📷 Photo required for "Other emergency" — anti-spam policy');
+  }
   
   // Avanzar directamente — la asignación de evento se hace al final con GPS confiable
   nextStep(3);
@@ -2085,6 +2661,38 @@ async function submitReport() {
   //    y la lógica de guardado continúa en el callback (función internalSubmit más abajo).
   if (!state.activeEventId) {
     const assignment = await assignToEvent(state.crisisType, lat, lng);
+    
+    // ✨ SPRINT 4 CAP 2: caso isolated (no califica para crear evento)
+    if (assignment.type === 'isolated') {
+      const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+      const msgs = {
+        en: 'Your report was saved as isolated (' + assignment.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ' needed to create event). Add a photo to validate alone, or wait for more reports nearby.',
+        es: 'Tu reporte se guardó como aislado (' + assignment.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ' necesarios para crear evento). Añade una foto para validar solo, o espera más reportes cercanos.',
+        fr: 'Rapport sauvegardé comme isolé (' + assignment.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ' nécessaires). Ajoutez une photo ou attendez plus de rapports.',
+        ar: 'تم حفظ تقريرك كمعزول (' + assignment.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ' مطلوب).',
+        zh: '您的报告已保存为孤立 (' + assignment.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ' 需要)。',
+        ru: 'Отчёт сохранён как изолированный (' + assignment.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ' нужно).'
+      };
+      
+      // Crear evento "isolated" temporal con ID especial
+      state.activeEventId = 'isolated-' + Date.now();
+      const isolatedEvent = {
+        id: state.activeEventId,
+        name: 'Isolated reports · ' + state.crisisType,
+        crisisType: state.crisisType,
+        centerLat: lat,
+        centerLng: lng,
+        startedAt: new Date().toISOString(),
+        lastReportAt: new Date().toISOString(),
+        reportsCount: 0,
+        status: 'isolated'  // estado especial
+      };
+      state.events.push(isolatedEvent);
+      
+      alert('ℹ️ ' + (msgs[lang] || msgs.en));
+      await internalSubmitReport(lat, lng);
+      return;
+    }
     
     if (assignment.type === 'choice') {
       // Hay múltiples eventos coincidentes → mostrar pantalla de selección
@@ -2255,7 +2863,17 @@ async function internalSubmitReport(lat, lng) {
   trySyncReport(report);
   
   // 8. Actualizar state y aplicar validación temporal a TODOS los reportes
+  // ✨ FIX v34: aplicar score anti-bot al reporte antes de persistir
+  if (typeof applyBehaviorScore === 'function') {
+    applyBehaviorScore(report);
+  }
+  
   state.reports.push(report);
+  
+  // ✨ SPRINT 4 CAP 2: revisar si algún evento isolated puede ser promovido
+  if (typeof promoteIsolatedReportsIfPossible === 'function') {
+    promoteIsolatedReportsIfPossible();
+  }
   
   // ✨ BLOQUE 7: track al perfil del usuario (badges, stats)
   if (typeof trackReportSubmitted === 'function') {
@@ -2297,6 +2915,8 @@ async function internalSubmitReport(lat, lng) {
   const eventIdDisplay = document.getElementById('event-id-display');
   if (eventIdDisplay) {
     eventIdDisplay.textContent = activeEvent ? getEventDisplayName(activeEvent) : '';
+    // ✨ FIX v34 Cap 12: guardar reference para re-render en cambio de idioma
+    state.lastSuccessEvent = activeEvent;
   }
   
   // 10. Desactivar Conflict Mode (banner + bloqueo de foto)
@@ -2315,43 +2935,51 @@ async function internalSubmitReport(lat, lng) {
 // Por ahora simulado: 80% éxito, 20% falla, con delay realista.
 // En Mejora #4 esto hará llamadas reales al servidor cuando haya red.
 async function trySyncReport(report) {
-  // ✨ Punto 7: Sync REAL a Supabase (no más Math.random simulado)
   try {
-    // Si Supabase no está disponible, mantener como pending
     if (typeof supabaseSaveReport !== 'function' || !supabaseClient) {
       console.log('FRIDA: Supabase unavailable — report remains pending →', report.id);
+      // ✨ FIX v34 Cap11: activar bloqueo si no se confirmó envío
+      if (typeof activateUnconfirmedReportLock === 'function') {
+        activateUnconfirmedReportLock(report.id);
+      }
       return;
     }
     
-    // ✨ FIX foreign key: subir el EVENTO PRIMERO (antes del reporte)
-    // PostgreSQL rechaza el reporte si event_id no existe en frida_events
     if (report.eventId && typeof supabaseSaveEvent === 'function') {
       const event = state.events.find(e => e.id === report.eventId);
       if (event) {
         const eventResult = await supabaseSaveEvent(event);
         if (!eventResult.success) {
           console.warn('FRIDA: Event sync failed, skipping report sync. Will retry later.');
+          if (typeof activateUnconfirmedReportLock === 'function') {
+            activateUnconfirmedReportLock(report.id);
+          }
           return;
         }
       }
     }
     
-    // Ahora sí subir el reporte (el evento ya existe en Supabase)
     const result = await supabaseSaveReport(report);
     
     if (result.success) {
-      // Marcar como sincronizado en IndexedDB
       await dbMarkSynced(report.id);
       console.log('FRIDA: ✓ Report synced to cloud →', report.id);
-      
-      // Actualizar UI: cambiar indicador de pending a synced
       updateReportSyncStatus(report.id, 'synced');
+      // ✨ FIX v34 Cap11: liberar bloqueo
+      if (typeof releaseUnconfirmedReportLock === 'function') {
+        releaseUnconfirmedReportLock(report.id);
+      }
     } else {
       console.warn('FRIDA: Cloud sync failed for', report.id, '-', result.error, '— will retry later');
-      // El reporte queda como 'pending' en IndexedDB para reintentar después
+      if (typeof activateUnconfirmedReportLock === 'function') {
+        activateUnconfirmedReportLock(report.id);
+      }
     }
   } catch (err) {
     console.warn('FRIDA: Sync exception for', report.id, '-', err.message);
+    if (typeof activateUnconfirmedReportLock === 'function') {
+      activateUnconfirmedReportLock(report.id);
+    }
   }
 }
 
@@ -3646,6 +4274,141 @@ async function updateEventStats(eventId) {
 // Si hay 1 evento cercano del mismo tipo → auto-asignar (devolver ese ID)
 // Si hay 2+ eventos cercanos → necesita selección del usuario (devolver array)
 // Si no hay eventos → crear nuevo y auto-asignar (devolver ID nuevo)
+// ===== SPRINT 4 / CAP 2: UMBRAL HÍBRIDO PARA CREAR EVENTO ✨ =====
+// Para evitar reportes triviales o de prueba activando eventos:
+//   - Reporte CON foto + credibility ≥70 → puede crear evento solo
+//   - Sin foto → requiere 3+ reportes en <500m del mismo crisisType en última hora
+//   - Reportes que NO califican quedan como "isolated", visibles pero no crean evento
+const EVENT_THRESHOLD = {
+  MIN_CRED_WITH_PHOTO: 70,
+  MIN_REPORTS_WITHOUT_PHOTO: 3,
+  CORROBORATION_RADIUS_METERS: 500,
+  CORROBORATION_WINDOW_MS: 3600000  // 1 hora
+};
+
+function reportQualifiesForEvent(report, lat, lng) {
+  // (a) Reporte CON foto + alta cred → califica solo
+  const hasPhoto = report.photoUploaded === true || 
+                   (state.currentPanicData && state.currentPanicData.photoData);
+  const cred = report.credibility || 0;
+  
+  if (hasPhoto && cred >= EVENT_THRESHOLD.MIN_CRED_WITH_PHOTO) {
+    return { qualifies: true, reason: 'photo_high_cred' };
+  }
+  
+  // (b) Sin foto → buscar corroboración
+  const now = Date.now();
+  const corroborating = (state.reports || []).filter(r => {
+    if (!r.coords || r.crisis !== report.crisis) return false;
+    if (r.flagged === true) return false;
+    const age = now - new Date(r.timestamp).getTime();
+    if (age > EVENT_THRESHOLD.CORROBORATION_WINDOW_MS) return false;
+    const dist = haversineMeters(lat, lng, r.coords.lat, r.coords.lng);
+    return dist < EVENT_THRESHOLD.CORROBORATION_RADIUS_METERS;
+  });
+  
+  if (corroborating.length + 1 >= EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO) {
+    return { qualifies: true, reason: 'corroboration', count: corroborating.length + 1 };
+  }
+  
+  return { 
+    qualifies: false, 
+    reason: 'isolated_no_photo', 
+    needed: EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO - (corroborating.length + 1),
+    current: corroborating.length + 1
+  };
+}
+// ===== FIN SPRINT 4 CAP 2 =====
+
+// ===== SPRINT 4 / CAP 4: PWA INSTALL + APK DOWNLOAD ✨ =====
+// Capturamos el evento beforeinstallprompt para mostrar nuestro propio botón.
+// El browser solo lo emite si el manifest es válido + service worker registrado.
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  console.log('FRIDA: 📲 PWA install prompt available');
+  
+  // Mostrar el botón si está oculto
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'block';
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('FRIDA: ✅ PWA installed');
+  deferredInstallPrompt = null;
+  const btn = document.getElementById('pwa-install-btn');
+  if (btn) btn.style.display = 'none';
+});
+
+async function triggerPwaInstall() {
+  if (!deferredInstallPrompt) {
+    // El usuario está en un browser que no soporta install prompt, o ya está instalado
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    const msgs = {
+      en: 'To install FRIDA on this device:\n\n📱 Mobile: tap browser menu → "Add to Home Screen"\n💻 Desktop: tap the install icon in the address bar',
+      es: 'Para instalar FRIDA en este dispositivo:\n\n📱 Móvil: menú del navegador → "Añadir a pantalla de inicio"\n💻 Escritorio: ícono de instalar en la barra de direcciones',
+      fr: 'Pour installer FRIDA:\n\n📱 Mobile: menu → "Ajouter à l\'écran d\'accueil"\n💻 Bureau: icône d\'installation dans la barre',
+      ar: 'لتثبيت FRIDA:\n\n📱 الجوال: القائمة → "أضف إلى الشاشة الرئيسية"',
+      zh: '安装 FRIDA：\n\n📱 移动：菜单 → "添加到主屏幕"\n💻 桌面：地址栏的安装图标',
+      ru: 'Установить FRIDA:\n\n📱 Мобильный: меню → "На главный экран"'
+    };
+    alert(msgs[lang] || msgs.en);
+    return;
+  }
+  
+  deferredInstallPrompt.prompt();
+  const choice = await deferredInstallPrompt.userChoice;
+  if (choice.outcome === 'accepted') {
+    console.log('FRIDA: ✅ User accepted install');
+  } else {
+    console.log('FRIDA: ❌ User dismissed install');
+  }
+  deferredInstallPrompt = null;
+}
+
+function downloadApk() {
+  // Por ahora, el APK no existe — direccionamos a una landing que explica cómo generarlo
+  // En producción, sería un APK real subido al repo (GitHub Releases)
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const msgs = {
+    en: 'APK download requires a one-time build with Capacitor or PWA Builder. For now, please use the "Install PWA" option which provides the same offline experience as a native app.\n\nProduction roadmap: APK on GitHub Releases.',
+    es: 'La descarga de APK requiere una compilación con Capacitor o PWA Builder. Por ahora usa "Instalar PWA" que ofrece la misma experiencia offline que una app nativa.\n\nRoadmap producción: APK en GitHub Releases.',
+    fr: 'Le téléchargement APK nécessite une compilation. Utilisez "Installer PWA" pour la même expérience.',
+    ar: 'تنزيل APK يتطلب تجميعاً. استخدم "تثبيت PWA".',
+    zh: 'APK 下载需要编译。请使用 "安装 PWA"。',
+    ru: 'Загрузка APK требует сборки. Используйте "Установить PWA".'
+  };
+  alert('📦 ' + (msgs[lang] || msgs.en));
+}
+// ===== FIN SPRINT 4 CAP 4 =====
+
+// Promueve reportes isolated a eventos reales cuando llega suficiente corroboración.
+// Llamado tras cada submit nuevo.
+function promoteIsolatedReportsIfPossible() {
+  const isolatedEvents = (state.events || []).filter(e => e.status === 'isolated');
+  if (isolatedEvents.length === 0) return;
+  
+  isolatedEvents.forEach(ev => {
+    // Buscar reportes en este evento isolated
+    const reps = (state.reports || []).filter(r => r.eventId === ev.id);
+    if (reps.length === 0) return;
+    
+    const sample = reps[0];
+    const qual = reportQualifiesForEvent(sample, ev.centerLat, ev.centerLng);
+    if (qual.qualifies) {
+      // Promover a evento real
+      ev.status = 'active';
+      ev.promotedAt = new Date().toISOString();
+      ev.promotedReason = qual.reason;
+      console.log('FRIDA: ⬆️ Isolated event promoted to active →', ev.id, '(', qual.reason, ')');
+      
+      if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
+    }
+  });
+}
+
 async function assignToEvent(crisisType, lat, lng) {
   // Si no recibió coordenadas explícitas, intentar usar geoState como fallback
   if (lat == null || lng == null) {
@@ -3658,10 +4421,27 @@ async function assignToEvent(crisisType, lat, lng) {
   const matches = findMatchingEvents(crisisType, lat, lng);
   
   if (matches.length === 0) {
+    // ✨ SPRINT 4 CAP 2: validar umbral antes de crear evento.
+    // Si el reporte NO califica, lo dejamos isolated (sin event) y NO creamos evento.
+    // Se promueve a evento real cuando lleguen 2 reportes corroborantes más.
+    const partialReport = {
+      crisis: crisisType,
+      coords: { lat: lat, lng: lng },
+      timestamp: new Date().toISOString(),
+      credibility: state.currentCredibility || 50,
+      photoUploaded: !!(state.currentPanicData && state.currentPanicData.photoData)
+    };
+    
+    const qual = reportQualifiesForEvent(partialReport, lat, lng);
+    if (!qual.qualifies) {
+      console.log('FRIDA: ⚠️ Report does not meet event threshold (reason: ' + qual.reason + ', ' + qual.current + '/' + EVENT_THRESHOLD.MIN_REPORTS_WITHOUT_PHOTO + ')');
+      return { type: 'isolated', reason: qual.reason, current: qual.current, needed: qual.needed };
+    }
+    
     // No hay eventos cercanos del mismo tipo → crear uno nuevo
     const newEvent = await createEvent(crisisType, lat, lng);
     state.activeEventId = newEvent.id;
-    console.log('FRIDA: Assigned to new event →', newEvent.name);
+    console.log('FRIDA: Assigned to new event →', newEvent.name, '(qualified by:', qual.reason + ')');
     return { type: 'auto', eventId: newEvent.id, isNew: true };
   }
   
@@ -5706,6 +6486,21 @@ function disablePhotoNextButton() {
 
 // Salto explícito del paso foto (usuario sin condiciones seguras)
 function skipPhotoStep() {
+  // ✨ SPRINT 4 CAP 3: si crisis = Other, foto OBLIGATORIA, no permitir skip
+  if (state.photoMandatory === true) {
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    const msgs = {
+      en: 'Photo is mandatory for "Other emergency" — please take a photo or change crisis type.',
+      es: 'La foto es obligatoria para "Otra emergencia" — toma una foto o cambia el tipo de crisis.',
+      fr: 'Photo obligatoire pour "Autre urgence".',
+      ar: 'الصورة إلزامية لـ "حالة طوارئ أخرى".',
+      zh: '"其他紧急情况"必须有照片。',
+      ru: 'Фото обязательно для "Другая ЧС".'
+    };
+    alert('📷 ' + (msgs[lang] || msgs.en));
+    return;
+  }
+  
   // Marcar que el usuario optó por saltar (data flag para credibility scoring)
   if (!state.photoSkipped) state.photoSkipped = true;
   sendPartialReport({ step: 'photo', value: 'skipped' });
@@ -6828,6 +7623,33 @@ function showLocationStatus(state, errorMsg) {
   
   statusEl.textContent = text;
   statusEl.className = 'gps-status gps-status-' + state;
+  
+  // ✨ FIX v34: bloquear/desbloquear input de texto según GPS
+  const textInput = document.getElementById('textLocation');
+  const textLabel = document.getElementById('text-location-label');
+  if (textInput) {
+    if (state === 'success') {
+      // GPS OK → deshabilitar texto (anti spam y mejor UX)
+      textInput.disabled = true;
+      textInput.style.opacity = '0.4';
+      textInput.style.cursor = 'not-allowed';
+      textInput.placeholder = '';
+      if (textLabel) {
+        const lockedMsgs = {
+          en: '✓ Using GPS location (text disabled)', es: '✓ Usando ubicación GPS (texto deshabilitado)',
+          fr: '✓ Position GPS (texte désactivé)', ar: '✓ موقع GPS (النص معطل)',
+          zh: '✓ 使用 GPS 定位（文本已禁用）', ru: '✓ Используется GPS (текст отключён)'
+        };
+        textLabel.textContent = lockedMsgs[lang] || lockedMsgs.en;
+        textLabel.style.color = '#52B788';
+      }
+    } else if (state === 'error') {
+      // GPS falló → habilitar y forzar
+      textInput.disabled = false;
+      textInput.style.opacity = '';
+      textInput.style.cursor = '';
+    }
+  }
 }
 
 // Muestra la precisión del GPS o indicador de ajuste manual
@@ -7094,6 +7916,24 @@ function selectNominatimResult(lat, lng, displayName) {
 // ===== FIN CAP 4 =====
 
 </script>
+
+<!-- ✨ SPRINT 4 CAP 1: Modal de routing -->
+<div id="routing-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:99999; padding:24px; box-sizing:border-box; overflow-y:auto;">
+  <div style="max-width:520px; margin:0 auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+      <div style="font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; color:#fff;" data-i18n="routing_title">🗺️ Route Planner</div>
+      <button onclick="closeRoutingPanel()" style="background:transparent; border:none; color:#fff; font-size:24px; cursor:pointer;">×</button>
+    </div>
+    <div style="font-size:12px; color:#aaa; margin-bottom:12px; line-height:1.5;" data-i18n="routing_desc">Plan a route that avoids confirmed road blocks (3+ reports). Tap the map for origin and destination.</div>
+    <div id="routing-map" style="height:360px; border-radius:12px; overflow:hidden; border:1px solid #333; margin-bottom:12px;"></div>
+    <div id="routing-status" style="font-size:12px; color:#fff; padding:10px 14px; background:#1a1a1a; border-radius:8px; margin-bottom:12px; font-family:'DM Sans',sans-serif;" data-i18n="routing_pick_from">Tap origin on map</div>
+    <div style="display:flex; gap:10px;">
+      <button onclick="resetRoutingPanel()" style="flex:1; background:transparent; color:#fff; border:1px solid #555; padding:11px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer;" data-i18n="routing_reset">↻ Reset</button>
+      <button onclick="closeRoutingPanel()" style="flex:1; background:#fff; color:#000; border:none; padding:11px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="routing_close">Close</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
 <script>
@@ -8431,6 +9271,104 @@ Object.keys(tier3Keys).forEach(lang => {
   else i18n[lang] = tier3Keys[lang];
 });
 
+// ===== SPRINT 4 i18n ✨ =====
+const sprint4Keys = {
+  en: {
+    routing_btn: '🗺️ Plan Route',
+    routing_title: '🗺️ Route Planner',
+    routing_desc: 'Plan a route that avoids confirmed road blocks (3+ reports). Tap the map for origin and destination.',
+    routing_pick_from: 'Tap origin on map',
+    routing_now_pick_to: 'Now tap destination on map',
+    routing_calculating: '🧮 Calculating route...',
+    routing_blocked_warning: 'Route crosses confirmed blocks',
+    routing_clear: 'Clear route',
+    routing_error: 'Route error: ',
+    routing_reset: '↻ Reset',
+    routing_close: 'Close',
+    install_pwa: 'Install App',
+    download_apk: 'APK'
+  },
+  es: {
+    routing_btn: '🗺️ Planear Ruta',
+    routing_title: '🗺️ Planeador de Ruta',
+    routing_desc: 'Planea una ruta que evite vialidades cerradas confirmadas (3+ reportes). Toca el mapa para origen y destino.',
+    routing_pick_from: 'Toca origen en el mapa',
+    routing_now_pick_to: 'Ahora toca destino en el mapa',
+    routing_calculating: '🧮 Calculando ruta...',
+    routing_blocked_warning: 'La ruta cruza bloqueos confirmados',
+    routing_clear: 'Ruta libre',
+    routing_error: 'Error de ruta: ',
+    routing_reset: '↻ Reiniciar',
+    routing_close: 'Cerrar',
+    install_pwa: 'Instalar App',
+    download_apk: 'APK'
+  },
+  fr: {
+    routing_btn: '🗺️ Planifier Route',
+    routing_title: '🗺️ Planificateur',
+    routing_desc: 'Planifiez une route évitant les blocages confirmés.',
+    routing_pick_from: 'Touchez origine',
+    routing_now_pick_to: 'Touchez destination',
+    routing_calculating: '🧮 Calcul...',
+    routing_blocked_warning: 'Route traverse des blocages',
+    routing_clear: 'Route libre',
+    routing_error: 'Erreur: ',
+    routing_reset: '↻ Réinit',
+    routing_close: 'Fermer',
+    install_pwa: 'Installer',
+    download_apk: 'APK'
+  },
+  ar: {
+    routing_btn: '🗺️ خطط الطريق',
+    routing_title: '🗺️ مخطط الطريق',
+    routing_desc: 'خطط طريقاً يتجنب الإغلاقات.',
+    routing_pick_from: 'اضغط نقطة البداية',
+    routing_now_pick_to: 'اضغط الوجهة',
+    routing_calculating: '🧮 جاري الحساب...',
+    routing_blocked_warning: 'الطريق يتقاطع مع إغلاقات',
+    routing_clear: 'طريق سالك',
+    routing_error: 'خطأ: ',
+    routing_reset: '↻ إعادة',
+    routing_close: 'إغلاق',
+    install_pwa: 'تثبيت',
+    download_apk: 'APK'
+  },
+  zh: {
+    routing_btn: '🗺️ 规划路线',
+    routing_title: '🗺️ 路线规划',
+    routing_desc: '规划避开已确认封路的路线。',
+    routing_pick_from: '点击起点',
+    routing_now_pick_to: '点击终点',
+    routing_calculating: '🧮 计算中...',
+    routing_blocked_warning: '路线穿越封堵',
+    routing_clear: '畅通路线',
+    routing_error: '错误：',
+    routing_reset: '↻ 重置',
+    routing_close: '关闭',
+    install_pwa: '安装应用',
+    download_apk: 'APK'
+  },
+  ru: {
+    routing_btn: '🗺️ Маршрут',
+    routing_title: '🗺️ Планировщик',
+    routing_desc: 'Спланируйте маршрут, избегая подтверждённых блокировок.',
+    routing_pick_from: 'Нажмите начало',
+    routing_now_pick_to: 'Нажмите конец',
+    routing_calculating: '🧮 Расчёт...',
+    routing_blocked_warning: 'Маршрут пересекает блокировки',
+    routing_clear: 'Свободный путь',
+    routing_error: 'Ошибка: ',
+    routing_reset: '↻ Сброс',
+    routing_close: 'Закрыть',
+    install_pwa: 'Установить',
+    download_apk: 'APK'
+  }
+};
+Object.keys(sprint4Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], sprint4Keys[lang]);
+  else i18n[lang] = sprint4Keys[lang];
+});
+
 // Mapeos para tCrisis y tRegion
 const CRISIS_VALUE_MAP = {
   'Earthquake': 'crisis_v_earthquake',
@@ -8547,6 +9485,14 @@ function setLanguage(lang) {
     if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
     if (typeof refreshEventsTabs === 'function') refreshEventsTabs();  // ✨ Bloque 2.6: tabs eventos
     if (typeof refreshAllEventsDropdown === 'function') refreshAllEventsDropdown();  // ✨ Bloque 4: dropdown agrupado
+    
+    // ✨ FIX v34 Cap 12: re-render del display de éxito (crisis · location · fecha)
+    if (state.lastSuccessEvent) {
+      const successDisplay = document.getElementById('event-id-display');
+      if (successDisplay) {
+        successDisplay.textContent = getEventDisplayName(state.lastSuccessEvent);
+      }
+    }
     
     // ✨ TIER 3 CAP 2.3: re-render profile screen si está visible
     const profileScreen = document.getElementById('step-profile');
@@ -9127,6 +10073,7 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshSatelliteValidations();  // ✨ Punto 8: Satellite Cross-Validation
     if (typeof refreshProfileBadgeCount === 'function') refreshProfileBadgeCount();  // ✨ BLOQUE 7
     if (typeof initFingerprint === 'function') initFingerprint();  // ✨ TIER 3 CAP 1
+    if (typeof initBehaviorTracking === 'function') initBehaviorTracking();  // ✨ FIX v34 anti-bot
   }, 700);
 });
 
