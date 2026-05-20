@@ -255,7 +255,8 @@ html[dir="rtl"] .options-grid {
         </button>
         
         <!-- ✨ BLOQUE 7: botón secundario Observer Help (modo ciudadano remoto) -->
-        <button class="observer-btn" onclick="initObserverReport(); nextStep(1)" style="width:100%; max-width:280px; padding:14px; margin:0 auto 12px; display:block; background:rgba(82,183,136,0.1); border:1px solid #52B788; color:#52B788; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;">
+        <!-- ✨ TIER 3 CAP 6: ya NO usa flujo emergencia — abre pantalla observer -->
+        <button class="observer-btn" onclick="showObserverScreen()" style="width:100%; max-width:280px; padding:14px; margin:0 auto 12px; display:block; background:rgba(82,183,136,0.1); border:1px solid #52B788; color:#52B788; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;">
           <span style="font-size:18px; margin-right:6px;">👁️</span>
           <span data-i18n="observer_btn">Report what you've seen (Observer mode)</span>
         </button>
@@ -278,6 +279,18 @@ html[dir="rtl"] .options-grid {
       </div>
     </div>
     
+    <!-- ✨ TIER 3 CAP 6: pantalla Observer (interactúa con datos existentes) -->
+    <div id="step-observer" class="form-step">
+      <div class="step-header">
+        <div class="step-number" data-i18n="observer_title">Observer Mode</div>
+        <div class="step-question" data-i18n="observer_subtitle">Help confirm or refute existing reports</div>
+      </div>
+      <div class="survival-tip"><span class="tip-icon">👁️</span><span data-i18n="observer_intro">Click on any marker to confirm (✓) or dispute (✗). 3+ confirmations boost the report's credibility. You can also confirm injury points as attended.</span></div>
+      <div id="observer-map" style="height:340px; border-radius:12px; overflow:hidden; border:1px solid var(--border); margin-bottom:16px;"></div>
+      <div style="font-size:11px; color:var(--text2); margin-bottom:12px; line-height:1.4;" data-i18n="observer_legend">🔴 Critical · 🟠 Partial · 🟢 Minimal · 🩹 Needs help</div>
+      <button class="confirm-btn" onclick="nextStep(0)" data-i18n="observer_back">← Back to home</button>
+    </div>
+    
     <!-- ✨ BLOQUE 7: pantalla de perfil de usuario -->
     <div id="step-profile" class="form-step">
       <div class="step-header">
@@ -297,7 +310,7 @@ html[dir="rtl"] .options-grid {
       </div>
       <div class="danger-warning" data-i18n="danger_warn">⚠️ If you are in immediate danger, do not stop. This can wait.</div>
       <div class="options-grid">
-        <button class="option-btn" onclick="sendPartialReport({step:'confirmed',value:'yes'}); nextStep(2)">
+        <button class="option-btn" onclick="sendPartialReport({step:'confirmed',value:'yes'}); nextStep(7)">
           <span class="option-icon">✅</span> <span data-i18n="confirm_yes">Yes, I am in an emergency</span>
         </button>
         <button class="option-btn" onclick="state.currentPanicReportId=null; state.currentPanicData=null; nextStep(0)">
@@ -441,9 +454,9 @@ html[dir="rtl"] .options-grid {
         <div class="step-question" data-i18n="q5">Is there debris that requires clearing?</div>
       </div>
       <div class="options-grid">
-        <button class="option-btn" onclick="setData('debris','yes'); sendPartialReport({step:'debris',value:'yes'}); nextStep(7)"><span class="option-icon">🧱</span> <span data-i18n="debris_yes">Yes, there is debris</span></button>
-        <button class="option-btn" onclick="setData('debris','no'); sendPartialReport({step:'debris',value:'no'}); nextStep(7)"><span class="option-icon">✅</span> <span data-i18n="debris_no">No debris</span></button>
-        <button class="option-btn" onclick="setData('debris','unknown'); sendPartialReport({step:'debris',value:'unknown'}); nextStep(7)"><span class="option-icon">❓</span> <span data-i18n="debris_un">Not sure</span></button>
+        <button class="option-btn" onclick="setData('debris','yes'); sendPartialReport({step:'debris',value:'yes'}); submitReport()"><span class="option-icon">🧱</span> <span data-i18n="debris_yes">Yes, there is debris</span></button>
+        <button class="option-btn" onclick="setData('debris','no'); sendPartialReport({step:'debris',value:'no'}); submitReport()"><span class="option-icon">✅</span> <span data-i18n="debris_no">No debris</span></button>
+        <button class="option-btn" onclick="setData('debris','unknown'); sendPartialReport({step:'debris',value:'unknown'}); submitReport()"><span class="option-icon">❓</span> <span data-i18n="debris_un">Not sure</span></button>
       </div>
     </div>
 
@@ -462,14 +475,15 @@ html[dir="rtl"] .options-grid {
       
       <div id="location-map" style="height:180px;border-radius:12px;overflow:hidden;margin-bottom:16px;border:1px solid var(--border);"></div>
       
-      <!-- ✨ BLOQUE 1 / FIX 1.3: Texto plano adaptativo. Visible siempre, pero etiquetado según GPS -->
       <div style="margin-bottom:14px;">
         <div id="text-location-label" style="font-size:11px;color:var(--text2);margin-bottom:7px;text-transform:uppercase;letter-spacing:1px;" data-i18n="or_describe">Or describe your location</div>
-        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" oninput="onTextLocationInput()" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+        <input type="text" id="textLocation" placeholder="e.g. The school near the central market" oninput="onTextLocationInput(); onLocationAutocomplete(this.value)" autocomplete="off" style="width:100%;padding:13px;background:var(--bg3);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;">
+        <!-- ✨ TIER 3 CAP 4: dropdown autocomplete Nominatim -->
+        <div id="location-autocomplete-list" style="display:none; background:var(--bg3); border:1px solid var(--border); border-radius:8px; margin-top:4px; max-height:200px; overflow-y:auto;"></div>
       </div>
       
-      <!-- ✨ BLOQUE 1 / FIX 1.1: botón submit BLOQUEADO hasta tener ubicación válida (GPS o texto) -->
-      <button id="submit-btn" class="confirm-btn" onclick="submitReport()" disabled data-i18n="submit_btn">Submit report →</button>
+      <!-- ✨ TIER 3 CAP 3: botón AVANZA al wizard, submit final está en step-6 (debris) -->
+      <button id="location-next-btn" class="confirm-btn" onclick="proceedFromLocation()" disabled data-i18n="loc_next_btn">Continue →</button>
       <div id="submit-hint" style="font-size:11px; color:var(--text2); text-align:center; margin-top:8px;" data-i18n="submit_hint">Waiting for GPS lock or location description</div>
     </div>
 
@@ -490,11 +504,15 @@ html[dir="rtl"] .options-grid {
           <button class="option-btn survey-btn" data-survey-field="roads" data-survey-value="no" onclick="setSurveyAnswer('roads','no',this); showRoadBlockMap(false)">❌ <span data-i18n="survey_no">No</span></button>
           <button class="option-btn survey-btn" data-survey-field="roads" data-survey-value="unknown" onclick="setSurveyAnswer('roads','unknown',this); showRoadBlockMap(false)">❓ <span data-i18n="survey_unknown">Don't know</span></button>
         </div>
-        <!-- ✨ BLOQUE 6: mini-mapa para marcar punto exacto del bloqueo (solo si yes) -->
+        <!-- ✨ TIER 3 CAP 5: multi-puntos + lista + clear all -->
         <div id="road-block-container" style="display:none; margin-top:10px;">
-          <div style="font-size:11px; color:var(--text2); margin-bottom:6px;" data-i18n="survey_q_road_pin">📍 Tap the map to mark the blocked section (optional)</div>
-          <div id="road-block-map" style="height:140px; border-radius:10px; overflow:hidden; border:1px solid var(--border);"></div>
-          <div id="road-block-coords" style="font-size:10px; color:var(--text2); margin-top:4px; font-family:'DM Mono',monospace;"></div>
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px;" data-i18n="survey_q_road_pin">📍 Tap the map to add blocked roads (you can add multiple)</div>
+          <div id="road-block-map" style="height:160px; border-radius:10px; overflow:hidden; border:1px solid var(--border); position:relative;"></div>
+          <div id="road-block-list" style="margin-top:8px;"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <div id="road-block-counter" style="font-size:11px; color:var(--text2);"></div>
+            <button onclick="clearAllRoadBlocks()" id="road-block-clear-btn" style="display:none; background:transparent; border:1px solid #ef4444; color:#ef4444; padding:4px 10px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer;" data-i18n="road_block_clear">Clear all</button>
+          </div>
         </div>
       </div>
       
@@ -546,14 +564,24 @@ html[dir="rtl"] .options-grid {
         </div>
       </div>
       
-      <!-- HERIDOS — pregunta original -->
+      <!-- HERIDOS — pregunta original (clasificación rápida) -->
       <div style="margin-bottom:20px;">
         <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px;" data-i18n="survey_q_injuries">🩹 Are there visible injuries?</div>
         <div class="options-grid">
-          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="many" onclick="setSurveyAnswer('injuries','many',this)">🚨 <span data-i18n="survey_inj_many">Yes, many</span></button>
-          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="few" onclick="setSurveyAnswer('injuries','few',this)">⚠️ <span data-i18n="survey_inj_few">Yes, few</span></button>
-          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="material_only" onclick="setSurveyAnswer('injuries','material_only',this)">📦 <span data-i18n="survey_inj_material">Material damage only</span></button>
-          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="unknown" onclick="setSurveyAnswer('injuries','unknown',this)">❓ <span data-i18n="survey_unknown">Don't know</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="many" onclick="setSurveyAnswer('injuries','many',this); initInjuriesMap(); document.getElementById('injuries-points-container').style.display='block'">🚨 <span data-i18n="survey_inj_many">Yes, many</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="few" onclick="setSurveyAnswer('injuries','few',this); initInjuriesMap(); document.getElementById('injuries-points-container').style.display='block'">⚠️ <span data-i18n="survey_inj_few">Yes, few</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="material_only" onclick="setSurveyAnswer('injuries','material_only',this); document.getElementById('injuries-points-container').style.display='none'">📦 <span data-i18n="survey_inj_material">Material damage only</span></button>
+          <button class="option-btn survey-btn" data-survey-field="injuries" data-survey-value="unknown" onclick="setSurveyAnswer('injuries','unknown',this); document.getElementById('injuries-points-container').style.display='none'">❓ <span data-i18n="survey_unknown">Don't know</span></button>
+        </div>
+        <!-- ✨ TIER 3 CAP 5: puntos en mapa para localizar heridos (no estadística) -->
+        <div id="injuries-points-container" style="display:none; margin-top:10px;">
+          <div style="font-size:11px; color:var(--text2); margin-bottom:6px;" data-i18n="survey_q_injuries_points">📍 Mark locations where you see people needing help (max 5)</div>
+          <div id="injuries-map" style="height:160px; border-radius:10px; overflow:hidden; border:1px solid var(--border); position:relative;"></div>
+          <div id="injuries-list" style="margin-top:8px;"></div>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:8px;">
+            <div id="injuries-counter" style="font-size:11px; color:var(--text2);"></div>
+            <button onclick="clearAllInjuries()" id="injuries-clear-btn" style="display:none; background:transparent; border:1px solid #ef4444; color:#ef4444; padding:4px 10px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer;" data-i18n="injuries_clear">Clear all</button>
+          </div>
         </div>
       </div>
       
@@ -605,7 +633,12 @@ html[dir="rtl"] .options-grid {
         <div style="font-size:12px; color:#aaa; margin-bottom:16px; line-height:1.5;" data-i18n="qr_share_desc">Anyone with internet can scan this code to upload your report. They won't change the data — only relay it.</div>
         <div id="qr-display" style="background:#fff; padding:16px; border-radius:12px; display:inline-block; margin-bottom:16px;"></div>
         <div id="qr-meta" style="font-size:10px; color:#888; font-family:'DM Mono',monospace; margin-bottom:16px;"></div>
-        <button onclick="closeQrShareModal()" style="background:#fff; color:#000; border:none; padding:12px 24px; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="qr_done">Done</button>
+        <!-- ✨ TIER 3 CAP 11.1: warning para que el usuario NO cierre antes de mostrarlo -->
+        <div style="background:rgba(244,162,97,0.15); border:1px solid rgba(244,162,97,0.4); border-radius:8px; padding:10px; margin-bottom:14px; font-size:11px; color:#F4A261; text-align:left;" data-i18n="qr_freeze_warning">⚠️ Keep this screen open until someone scans the QR. Tap "Download" to save the image and share it via WhatsApp, SMS or print.</div>
+        <div style="display:flex; gap:10px; justify-content:center;">
+          <button onclick="downloadQrImage()" style="background:#52B788; color:#fff; border:none; padding:12px 18px; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="qr_download">⬇ Download</button>
+          <button onclick="closeQrShareModal()" style="background:#fff; color:#000; border:none; padding:12px 24px; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="qr_done">Done</button>
+        </div>
       </div>
     </div>
     
@@ -778,11 +811,12 @@ const state = {
     help: null,
     injuries: null,
     // ✨ BLOQUE 6 / APÉNDICE 1 UNDP: nuevos campos
-    electricity: null,         // 6 niveles
-    health_facility: null,     // 5 niveles
-    urgent_needs: [],          // multi-select 10 opciones
-    road_block_lat: null,      // punto exacto del bloqueo (mini-mapa)
-    road_block_lng: null
+    electricity: null,
+    health_facility: null,
+    urgent_needs: [],
+    // ✨ TIER 3 CAP 5: arrays multi-puntos
+    road_blocks: [],
+    injuries_points: []
   },
   // ✨ BLOQUE 1 / FIX 1.1 + 1.2 + 1.3: estado de validación de pasos críticos
   gpsLocked: false,        // true cuando GPS devolvió accuracy aceptable
@@ -1022,6 +1056,150 @@ async function supabaseSavePartialReport(partial) {
 //   - Badges desbloqueables (6 categorías, sin recompensa monetaria)
 //   - Modo Observer: para reportar desde lejos (cap credibility 0.6)
 
+// ===== TIER 3 / CAP 1: IDENTIDAD ANÓNIMA SHA-256 ✨ =====
+// Hardware fingerprint hasheado. NO identifica al usuario pero sobrevive
+// borrado de localStorage. Solo se usa para asociar badges/reputación.
+const FINGERPRINT_KEY = 'frida-fingerprint';
+const FINGERPRINT_SALT_KEY = 'frida-fp-salt';
+
+function buildFingerprintRaw() {
+  const parts = [];
+  const ua = (navigator.userAgent || '').replace(/[\d.]+/g, m => m.split('.')[0]);
+  parts.push('ua=' + ua.substring(0, 200));
+  parts.push('sw=' + (screen.width || 0));
+  parts.push('sh=' + (screen.height || 0));
+  parts.push('dpr=' + (window.devicePixelRatio || 1));
+  parts.push('tz=' + new Date().getTimezoneOffset());
+  parts.push('lang=' + (navigator.language || 'unknown'));
+  parts.push('cpu=' + (navigator.hardwareConcurrency || 0));
+  parts.push('mem=' + (navigator.deviceMemory || 0));
+  parts.push('plat=' + (navigator.platform || 'unknown'));
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 200; canvas.height = 50;
+    const ctx = canvas.getContext('2d');
+    ctx.textBaseline = 'top';
+    ctx.font = '14px Arial';
+    ctx.fillStyle = '#f60';
+    ctx.fillRect(10, 10, 50, 30);
+    ctx.fillStyle = '#069';
+    ctx.fillText('FRIDA-fp-2026', 12, 14);
+    parts.push('canvas=' + canvas.toDataURL().substring(0, 50));
+  } catch (e) { parts.push('canvas=none'); }
+  return parts.join('|');
+}
+
+async function sha256(text) {
+  if (!crypto || !crypto.subtle) {
+    let hash = 0;
+    for (let i = 0; i < text.length; i++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(i);
+      hash |= 0;
+    }
+    return 'fb-' + Math.abs(hash).toString(16);
+  }
+  const buffer = new TextEncoder().encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function getDeviceFingerprint() {
+  try {
+    const cached = localStorage.getItem(FINGERPRINT_KEY);
+    if (cached && cached.length === 64) return cached;
+  } catch (e) {}
+  
+  const raw = buildFingerprintRaw();
+  let salt = '';
+  try {
+    salt = localStorage.getItem(FINGERPRINT_SALT_KEY) || '';
+    if (!salt) {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      salt = Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+      localStorage.setItem(FINGERPRINT_SALT_KEY, salt);
+    }
+  } catch (e) {}
+  
+  const fp = await sha256(raw + '|salt=' + salt);
+  try { localStorage.setItem(FINGERPRINT_KEY, fp); } catch (e) {}
+  console.log('FRIDA: 🔐 Anonymous fingerprint →', fp.substring(0, 12) + '...');
+  return fp;
+}
+
+function getFingerprintSync() {
+  try { return localStorage.getItem(FINGERPRINT_KEY) || null; }
+  catch (e) { return null; }
+}
+
+async function initFingerprint() { await getDeviceFingerprint(); }
+// ===== FIN CAP 1 =====
+
+// ===== TIER 3 CAP 7: ANTI-SPAM SEVERO ✨ =====
+// Ratelimit por fingerprint: 5 reportes/hora.
+// Si IA detecta foto fake → -100 al reporte + -10 reputación al usuario.
+const RATELIMIT_KEY = 'frida-ratelimit';
+const RATELIMIT_MAX_PER_HOUR = 5;
+
+function checkRatelimit() {
+  try {
+    const raw = localStorage.getItem(RATELIMIT_KEY);
+    const data = raw ? JSON.parse(raw) : { reports: [] };
+    const now = Date.now();
+    const hourAgo = now - 3600000;
+    data.reports = (data.reports || []).filter(ts => ts > hourAgo);
+    
+    if (data.reports.length >= RATELIMIT_MAX_PER_HOUR) {
+      const oldestIn = data.reports[0];
+      const waitMs = (oldestIn + 3600000) - now;
+      const waitMin = Math.ceil(waitMs / 60000);
+      return { ok: false, waitMinutes: waitMin };
+    }
+    
+    data.reports.push(now);
+    localStorage.setItem(RATELIMIT_KEY, JSON.stringify(data));
+    return { ok: true };
+  } catch (e) {
+    return { ok: true };
+  }
+}
+
+// Simulación de detección de foto fake. PRODUCCIÓN: Claude Vision API o YOLOv8.
+function detectFakePhotoSimulated(aiClassification) {
+  if (!aiClassification) return { isFake: false, confidence: 0, demo: true };
+  return { isFake: false, confidence: 0, demo: true, reason: 'demo-mode' };
+}
+
+function applyFakePenalty(report, fakeInfo) {
+  if (!report || !fakeInfo || !fakeInfo.isFake) return report;
+  report.credibility = 0;
+  report.effectiveCredibility = 0;
+  report.flagged = true;
+  report.flaggedReason = 'ai_detected_fake_photo';
+  report.flaggedAt = new Date().toISOString();
+  
+  const p = loadUserProfile();
+  p.flaggedReports = (p.flaggedReports || 0) + 1;
+  p.reputationScore = Math.max(0, (p.reputationScore || 50) - 10);
+  if (p.reputationScore < 20) {
+    p.unlockedBadges = [];
+    console.warn('FRIDA: 🚨 Badges revoked due to low reputation');
+  }
+  saveUserProfile(p);
+  console.warn('FRIDA: 🚨 Fake photo detected — credibility=0');
+  return report;
+}
+
+function getReputationWeight(report) {
+  if (report && report.flagged === true) return 0;
+  const p = loadUserProfile();
+  if (!p) return 1;
+  const score = p.reputationScore || 50;
+  return Math.max(0.1, score / 100);
+}
+// ===== FIN CAP 7 =====
+
 const PROFILE_KEY = 'frida-user-profile';
 
 const BADGE_CATALOG = {
@@ -1082,25 +1260,32 @@ function loadUserProfile() {
     const raw = localStorage.getItem(PROFILE_KEY);
     if (raw) {
       const p = JSON.parse(raw);
-      // Asegurar campos esperados (para perfiles antiguos)
       return Object.assign({
+        fingerprint: getFingerprintSync(),
         reportsCount: 0,
         surveysCount: 0,
         observerReports: 0,
         highCredibilityReports: 0,
+        flaggedReports: 0,         // ✨ Cap 7: reportes detectados fake
+        reputationScore: 50,       // ✨ Cap 7: base 50, range 0-100
         languagesUsed: [],
         unlockedBadges: [],
+        bridgeRelays: 0,
         createdAt: new Date().toISOString()
       }, p);
     }
-  } catch (e) { /* corrupted, reset */ }
+  } catch (e) {}
   return {
+    fingerprint: getFingerprintSync(),
     reportsCount: 0,
     surveysCount: 0,
     observerReports: 0,
     highCredibilityReports: 0,
+    flaggedReports: 0,
+    reputationScore: 50,
     languagesUsed: [],
     unlockedBadges: [],
+    bridgeRelays: 0,
     createdAt: new Date().toISOString()
   };
 }
@@ -1228,11 +1413,192 @@ function showProfileScreen() {
 }
 
 // Inicia un reporte en modo Observer (credibility CAP)
+// ✨ TIER 3 CAP 6: rediseñado — observer NO sigue flujo emergencia.
+// Ahora abre pantalla aparte donde puede interactuar con datos existentes.
 function initObserverReport() {
-  initPanicReport();  // mismo flujo de panic
-  state.currentPanicData.isObserver = true;
-  state.currentPanicData.observerCredibilityCap = 60;  // CAP 60%
-  console.log('FRIDA: 👁️ Observer mode activated — credibility will be capped at 60%');
+  // No usar el flujo panic — llevar a pantalla específica de observer
+  nextStep('observer');
+}
+
+// Pantalla observer: muestra mapa con datos existentes + opciones
+function showObserverScreen() {
+  nextStep('observer');
+  
+  // Inicializar el mapa si no existe
+  setTimeout(() => {
+    if (!window.observerMap && typeof L !== 'undefined') {
+      const mapEl = document.getElementById('observer-map');
+      if (!mapEl) return;
+      
+      // Centrar en la zona con más reportes recientes
+      let centerLat = 19.43, centerLng = -99.13, zoom = 5;
+      if (state.reports && state.reports.length > 0) {
+        const recent = state.reports.filter(r => r.coords).slice(-10);
+        if (recent.length > 0) {
+          const avgLat = recent.reduce((s, r) => s + r.coords.lat, 0) / recent.length;
+          const avgLng = recent.reduce((s, r) => s + r.coords.lng, 0) / recent.length;
+          centerLat = avgLat; centerLng = avgLng; zoom = 12;
+        }
+      }
+      
+      window.observerMap = L.map(mapEl).setView([centerLat, centerLng], zoom);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '© OpenStreetMap © CARTO', maxZoom: 19
+      }).addTo(window.observerMap);
+      
+      refreshObserverMap();
+    } else if (window.observerMap) {
+      window.observerMap.invalidateSize();
+      refreshObserverMap();
+    }
+  }, 100);
+}
+
+// Refresca markers en el mapa de observer (cluster + heridos + vialidades)
+function refreshObserverMap() {
+  if (!window.observerMap) return;
+  
+  // Limpiar markers previos
+  if (!window.observerMarkers) window.observerMarkers = [];
+  window.observerMarkers.forEach(m => { try { window.observerMap.removeLayer(m); } catch(e){} });
+  window.observerMarkers = [];
+  
+  // Añadir reportes existentes
+  (state.reports || []).forEach(r => {
+    if (!r.coords) return;
+    const dmgColor = r.damage === 'complete' ? '#E63946' : r.damage === 'partial' ? '#F4A261' : '#52B788';
+    const icon = L.divIcon({
+      className: 'observer-report-marker',
+      html: '<div style="background:' + dmgColor + '; width:14px; height:14px; border-radius:50%; border:2px solid #fff;"></div>',
+      iconSize: [14, 14], iconAnchor: [7, 7]
+    });
+    const marker = L.marker([r.coords.lat, r.coords.lng], { icon: icon }).addTo(window.observerMap);
+    marker.bindPopup('<div style="font-size:11px;"><b>' + r.crisis + '</b><br>' + r.infra + ' · ' + r.damage + '<br>Cred: ' + (r.credibility||0) + '%<br><button onclick="observerConfirmReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer;">✓ Confirm</button> <button onclick="observerDisputeReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer;">✗ Dispute</button></div>');
+    window.observerMarkers.push(marker);
+  });
+  
+  // Añadir puntos de heridos de surveys existentes (con badge "needs help")
+  (state.surveys || []).forEach(s => {
+    if (s.answers && s.answers.injuries_points) {
+      s.answers.injuries_points.forEach(p => {
+        const icon = L.divIcon({
+          className: 'observer-injury-marker',
+          html: '<div style="font-size:18px;">🩹</div>',
+          iconSize: [18, 18], iconAnchor: [9, 18]
+        });
+        const marker = L.marker([p.lat, p.lng], { icon: icon }).addTo(window.observerMap);
+        const conf = (p.attendedConfirmations || []).length;
+        const status = conf >= 3 ? '✅ ATTENDED (' + conf + ' confirms)' : '⏳ Awaiting help (' + conf + '/3 confirms)';
+        marker.bindPopup('<div style="font-size:11px;">🩹 Injury point<br>' + status + '<br><button onclick="observerConfirmAttended(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer;">✓ Attended</button></div>');
+        window.observerMarkers.push(marker);
+      });
+    }
+  });
+}
+
+// Acciones de observer (con límites anti-spam y reputation tracking)
+function observerConfirmReport(reportId) {
+  const fp = getFingerprintSync();
+  if (!fp) { alert('Fingerprint not ready'); return; }
+  
+  const p = loadUserProfile();
+  if (!p.observerActions) p.observerActions = { confirms: {}, disputes: {}, attended: {} };
+  
+  // Max 5 confirms por usuario en total como anti-spam
+  const totalConfirms = Object.keys(p.observerActions.confirms).length;
+  if (totalConfirms >= MAX_POINTS_PER_CATEGORY && !p.observerActions.confirms[reportId]) {
+    alert((t('observer_max_actions') || 'Max 5 confirms per session'));
+    return;
+  }
+  
+  if (p.observerActions.confirms[reportId]) {
+    alert((t('observer_already_acted') || 'You already confirmed this report'));
+    return;
+  }
+  
+  p.observerActions.confirms[reportId] = new Date().toISOString();
+  p.observerReports = (p.observerReports || 0) + 1;
+  saveUserProfile(p);
+  
+  // Subir confirmación a Supabase (campo validation o similar)
+  const report = state.reports.find(r => r.id === reportId);
+  if (report) {
+    if (!report.observerConfirms) report.observerConfirms = [];
+    if (!report.observerConfirms.includes(fp)) {
+      report.observerConfirms.push(fp);
+      // Bonus pequeño al credibility por cada observer confirm
+      if (report.observerConfirms.length >= 3) {
+        report.credibility = Math.min(100, (report.credibility || 0) + 5);
+      }
+      if (typeof supabaseSaveReport === 'function' && navigator.onLine) {
+        supabaseSaveReport(report).catch(() => {});
+      }
+    }
+  }
+  
+  alert('✓ ' + (t('observer_confirmed') || 'Confirmation recorded'));
+  if (typeof checkAndUnlockBadges === 'function') checkAndUnlockBadges();
+}
+
+function observerDisputeReport(reportId) {
+  const fp = getFingerprintSync();
+  if (!fp) return;
+  
+  const p = loadUserProfile();
+  if (!p.observerActions) p.observerActions = { confirms: {}, disputes: {}, attended: {} };
+  
+  if (p.observerActions.disputes[reportId]) {
+    alert((t('observer_already_acted') || 'Already disputed'));
+    return;
+  }
+  
+  p.observerActions.disputes[reportId] = new Date().toISOString();
+  saveUserProfile(p);
+  
+  const report = state.reports.find(r => r.id === reportId);
+  if (report) {
+    if (!report.observerDisputes) report.observerDisputes = [];
+    if (!report.observerDisputes.includes(fp)) {
+      report.observerDisputes.push(fp);
+      if (report.observerDisputes.length >= 3) {
+        report.credibility = Math.max(0, (report.credibility || 0) - 15);
+      }
+      if (typeof supabaseSaveReport === 'function' && navigator.onLine) {
+        supabaseSaveReport(report).catch(() => {});
+      }
+    }
+  }
+  
+  alert('⚠️ ' + (t('observer_disputed') || 'Dispute recorded'));
+}
+
+// Confirma que un punto de herido ya fue atendido (votación 3+ usuarios)
+function observerConfirmAttended(surveyId, lat, lng) {
+  const fp = getFingerprintSync();
+  if (!fp) return;
+  
+  const survey = state.surveys.find(s => s.id === surveyId);
+  if (!survey || !survey.answers || !survey.answers.injuries_points) return;
+  
+  const point = survey.answers.injuries_points.find(p => 
+    Math.abs(p.lat - lat) < 0.00001 && Math.abs(p.lng - lng) < 0.00001
+  );
+  if (!point) return;
+  
+  if (!point.attendedConfirmations) point.attendedConfirmations = [];
+  if (point.attendedConfirmations.includes(fp)) {
+    alert('Already confirmed');
+    return;
+  }
+  
+  point.attendedConfirmations.push(fp);
+  refreshObserverMap();
+  
+  if (point.attendedConfirmations.length >= 3) {
+    alert('✅ ' + (t('observer_attended_confirmed') || 'Point confirmed as attended by 3+ observers'));
+  } else {
+    alert((t('observer_attended_progress') || 'Confirmation ' + point.attendedConfirmations.length + '/3 received'));
+  }
 }
 
 // ===== FIN BLOQUE 7 — PROFILE + BADGES + OBSERVER =====
@@ -1335,20 +1701,20 @@ function showQrShareModal() {
   
   display.innerHTML = '';
   
-  // Generar QR usando qrcode-generator (escala alfanumérica, ECC level L para mayor capacidad)
   if (typeof qrcode === 'undefined') {
     display.innerHTML = '<div style="color:#000; padding:20px;">QR library not loaded</div>';
     return;
   }
   
   try {
-    // typeNumber 0 = auto-detect según tamaño
     const qr = qrcode(0, 'L');
     qr.addData(payload);
     qr.make();
-    display.innerHTML = qr.createImgTag(5, 8);  // 5px por módulo, 8px margin
+    display.innerHTML = qr.createImgTag(5, 8);
+    // ✨ TIER 3 CAP 11.1: guardar payload para Download
+    window._lastQrPayload = payload;
+    window._lastQrReportId = last.id;
   } catch (err) {
-    // payload demasiado largo — intentar con menos data
     console.warn('FRIDA: QR too large, payload size:', payload.length);
     display.innerHTML = '<div style="color:#000; padding:20px;">Report too large for QR. Will be possible after compression improvements.</div>';
   }
@@ -1360,6 +1726,42 @@ function showQrShareModal() {
   modal.style.display = 'block';
 }
 
+// ✨ TIER 3 CAP 11.1: Descargar QR como PNG para compartir offline (WhatsApp, etc)
+function downloadQrImage() {
+  const display = document.getElementById('qr-display');
+  if (!display) return;
+  const img = display.querySelector('img');
+  if (!img) {
+    alert((t('qr_no_image') || 'No QR to download'));
+    return;
+  }
+  
+  // Convertir el QR img a canvas para descargar como PNG
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  const tmpImg = new Image();
+  tmpImg.onload = function() {
+    canvas.width = tmpImg.width;
+    canvas.height = tmpImg.height;
+    // Fondo blanco para que sea legible al imprimirse
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(tmpImg, 0, 0);
+    canvas.toBlob(function(blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'FRIDA_report_' + (window._lastQrReportId || 'unknown').substring(0, 16) + '.png';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  };
+  tmpImg.src = img.src;
+}
+
+// ✨ TIER 3 CAP 11.1: El modal NO se cierra automáticamente. El usuario debe
+// confirmar explícitamente "Done" para evitar perder el QR antes de mostrarlo
+// a quien lo va a escanear.
 function closeQrShareModal() {
   const modal = document.getElementById('qr-share-modal');
   if (modal) modal.style.display = 'none';
@@ -1429,6 +1831,15 @@ async function handleScannedQr(payload) {
   if (qrScanInterval) { clearInterval(qrScanInterval); qrScanInterval = null; }
   
   const status = document.getElementById('qr-scan-status');
+  
+  // ✨ TIER 3 CAP 8: deduplicación — si ya tenemos ese ID localmente, no procesar
+  const existsLocal = state.reports.find(r => r.id === unpacked.id);
+  if (existsLocal) {
+    if (status) status.textContent = '✓ ' + (t('qr_relay_already') || 'Report already in your local data');
+    setTimeout(closeQrScanModal, 2000);
+    return;
+  }
+  
   if (status) status.textContent = '✅ Report decoded — relaying...';
   
   // Construir reporte estándar desde el payload
@@ -1448,7 +1859,6 @@ async function handleScannedQr(payload) {
     isPartial: !!unpacked.p,
     partialStage: unpacked.ps || 7,
     isObserver: !!unpacked.obs,
-    // ✨ BLOQUE 8: marca de bridge — quién lo subió (NO afecta credibility)
     bridgedBy: 'mesh-relayer',
     bridgedAt: new Date().toISOString(),
     validation: {
@@ -1458,13 +1868,12 @@ async function handleScannedQr(payload) {
     }
   };
   
-  // Subir a Supabase si hay conexión
+  // Subir a Supabase si hay conexión (UPSERT garantiza idempotencia BD)
   if (navigator.onLine && typeof supabaseSaveReport === 'function') {
     try {
       const result = await supabaseSaveReport(relayed);
       if (result.success) {
         if (status) status.textContent = '🌉 ' + (t('qr_relay_success') || 'Report relayed to FRIDA cloud!');
-        // Track badge bridge
         trackBridgeRelay();
       } else {
         if (status) status.textContent = '⚠️ Sync failed: ' + result.error;
@@ -1473,13 +1882,28 @@ async function handleScannedQr(payload) {
       if (status) status.textContent = '⚠️ ' + err.message;
     }
   } else {
-    // Sin internet — guardar local para enviar después
+    // Sin internet: guardar local + marcar pendiente de sync
+    relayed.syncStatus = 'pending';
     state.reports.push(relayed);
     if (typeof refreshReportsTable === 'function') refreshReportsTable();
     if (status) status.textContent = '📦 ' + (t('qr_relay_offline') || 'Saved locally, will sync when online');
   }
   
   setTimeout(closeQrScanModal, 2500);
+}
+
+// ✨ TIER 3 CAP 8: deduplicación de canales — cuando llega un reporte por
+// Realtime de Supabase, marcarlo para no duplicar si el mismo usuario ya lo subió localmente.
+function deduplicateChannels(report) {
+  // Si vino via realtime/cloud Y ya está localmente con syncStatus='synced', es duplicado
+  if (!report) return false;
+  const existing = state.reports.find(r => r.id === report.id && r.id !== undefined);
+  if (existing) {
+    // Ya está — actualizar in-place en lugar de duplicar
+    Object.assign(existing, report);
+    return true;  // era duplicado
+  }
+  return false;
 }
 
 function closeQrScanModal() {
@@ -1518,6 +1942,10 @@ function nextStep(step) {
   } else if (step === 'profile') {
     // ✨ BLOQUE 7: pantalla de perfil de usuario
     document.getElementById('step-profile').classList.add('active');
+  } else if (step === 'observer') {
+    // ✨ TIER 3 CAP 6: pantalla observer
+    document.getElementById('step-observer').classList.add('active');
+    if (typeof showObserverScreen === 'function') showObserverScreen();
   } else {
     document.getElementById('step-' + step).classList.add('active');
     if (step === 7) {
@@ -1548,33 +1976,105 @@ function handleCrisisSelection(crisisType) {
 }
 
 function handlePhoto(input) {
-  // ✨ FIX BUG: Defensa en profundidad — bloquear fotos en Conflict Mode
-  // (además del input.disabled que ponemos en activateConflictMode)
   if (state.conflictMode) {
     console.warn('FRIDA: Photo upload blocked — Conflict Mode active');
-    input.value = '';  // limpiar el input
+    input.value = '';
     return;
   }
   
   if (input.files && input.files[0]) {
+    const file = input.files[0];
     const reader = new FileReader();
     reader.onload = e => {
+      const fullDataUrl = e.target.result;
       const preview = document.getElementById('photo-preview');
-      preview.src = e.target.result;
+      preview.src = fullDataUrl;
       preview.style.display = 'block';
       document.getElementById('photo-upload-label').style.display = 'none';
       sendPartialReport({ step: 'photo', value: 'uploaded' });
       
-      // ✨ Punto 6: Disparar análisis CV mock (demo mode)
+      // ✨ TIER 3 CAP 11.2: guardar foto original en IndexedDB + generar thumbnail
+      if (typeof savePhotoLocally === 'function') {
+        savePhotoLocally(fullDataUrl);
+      }
+      
       if (typeof triggerAiAnalysis === 'function') {
         triggerAiAnalysis();
       }
     };
-    reader.readAsDataURL(input.files[0]);
+    reader.readAsDataURL(file);
   }
 }
 
+// ===== TIER 3 CAP 11.2: ALMACENAMIENTO LOCAL DE FOTOS ✨ =====
+// La foto original se guarda en IndexedDB (no se pierde al cerrar app, persistente).
+// El thumbnail 200x200 es lo único que se sube al servidor (para el mapa).
+// Esto resuelve: "¿Dónde van las fotos?" — quedan en el dispositivo + thumbnail público.
+async function savePhotoLocally(fullDataUrl) {
+  if (!fullDataUrl) return;
+  
+  try {
+    // Generar thumbnail 200x200 reduciendo tamaño
+    const thumbnail = await generateThumbnail(fullDataUrl, 200, 200);
+    
+    // Guardar en IndexedDB (DB ya existe del worker offline)
+    const photoEntry = {
+      fullDataUrl: fullDataUrl,
+      thumbnail: thumbnail,
+      capturedAt: new Date().toISOString(),
+      reportId: null  // se asociará al hacer submit
+    };
+    
+    // Asociar al currentPanicData para que en submit se ligue al reporte
+    if (!state.currentPanicData) state.currentPanicData = {};
+    state.currentPanicData.photoData = photoEntry;
+    
+    console.log('FRIDA: 📷 Photo saved locally (thumbnail size: ' + thumbnail.length + ' chars)');
+  } catch (err) {
+    console.warn('FRIDA: Photo local save failed:', err.message);
+  }
+}
+
+function generateThumbnail(dataUrl, maxW, maxH) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = function() {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      const ratio = Math.min(maxW / w, maxH / h);
+      w = Math.floor(w * ratio);
+      h = Math.floor(h * ratio);
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.7));  // JPEG 70% quality
+    };
+    img.onerror = () => reject(new Error('image load failed'));
+    img.src = dataUrl;
+  });
+}
+// ===== FIN CAP 11.2 =====
+
 async function submitReport() {
+  // ✨ TIER 3 CAP 7: ratelimit check
+  if (typeof checkRatelimit === 'function') {
+    const rl = checkRatelimit();
+    if (!rl.ok) {
+      const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+      const msgs = {
+        en: 'Rate limit reached: max 5 reports per hour. Try again in ' + rl.waitMinutes + ' minutes.',
+        es: 'Límite alcanzado: máx 5 reportes por hora. Intenta de nuevo en ' + rl.waitMinutes + ' minutos.',
+        fr: 'Limite atteinte: 5 rapports/heure max. Réessayez dans ' + rl.waitMinutes + ' minutes.',
+        ar: 'تم الوصول للحد: 5 تقارير في الساعة. حاول مرة أخرى بعد ' + rl.waitMinutes + ' دقيقة.',
+        zh: '已达上限：每小时最多 5 份报告。请在 ' + rl.waitMinutes + ' 分钟后重试。',
+        ru: 'Достигнут лимит: 5 отчётов/час. Попробуйте через ' + rl.waitMinutes + ' минут.'
+      };
+      alert('⚠️ ' + (msgs[lang] || msgs.en));
+      return;
+    }
+  }
+  
   // 1. Obtener coordenadas reales del marcador GPS (Mejora #2 conectada aquí)
   const mapCoords = getCurrentMapCoords();
   const lat = mapCoords ? mapCoords.lat : 19.43;
@@ -2136,7 +2636,7 @@ function restart() {
   state.activeEventId = null;  // Reset evento activo para próximo reporte
   
   // ✨ Punto 4: limpiar survey state y desmarcar botones visuales
-  state.currentSurvey = { roads: null, services: [], help: null, injuries: null, electricity: null, health_facility: null, urgent_needs: [], road_block_lat: null, road_block_lng: null };
+  state.currentSurvey = { roads: null, services: [], help: null, injuries: null, electricity: null, health_facility: null, urgent_needs: [], road_blocks: [], injuries_points: [] };
   state.pendingSurveyReportId = null;
   document.querySelectorAll('.survey-btn, .survey-btn-multi').forEach(btn => {
     btn.classList.remove('selected');
@@ -2159,16 +2659,31 @@ function restart() {
   if (state.gpsLocked) state.gpsLocked = false;
   if (state.locationMethod) state.locationMethod = null;
   
-  // ✨ BLOQUE 6: limpiar mini-mapa de vialidades si existía
+  // ✨ BLOQUE 6 / TIER 3 CAP 5: limpiar mini-mapas si existían
   if (typeof roadBlockMap !== 'undefined' && roadBlockMap) {
     try {
-      if (roadBlockMarker) { roadBlockMap.removeLayer(roadBlockMarker); roadBlockMarker = null; }
+      if (typeof roadBlockMarkers !== 'undefined') {
+        roadBlockMarkers.forEach(m => { try { roadBlockMap.removeLayer(m); } catch(e){} });
+        roadBlockMarkers = [];
+      }
       roadBlockMap.remove();
       roadBlockMap = null;
     } catch (e) {}
   }
+  if (typeof injuriesMap !== 'undefined' && injuriesMap) {
+    try {
+      if (typeof injuriesMarkers !== 'undefined') {
+        injuriesMarkers.forEach(m => { try { injuriesMap.removeLayer(m); } catch(e){} });
+        injuriesMarkers = [];
+      }
+      injuriesMap.remove();
+      injuriesMap = null;
+    } catch (e) {}
+  }
   const roadBlockContainer = document.getElementById('road-block-container');
   if (roadBlockContainer) roadBlockContainer.style.display = 'none';
+  const injuriesPoints = document.getElementById('injuries-points-container');
+  if (injuriesPoints) injuriesPoints.style.display = 'none';
   
   // Desactivar Conflict Mode si estaba activo (banner + foto bloqueada)
   if (state.conflictMode && typeof deactivateConflictMode === 'function') {
@@ -2184,10 +2699,22 @@ function restart() {
 
 // ===== EXPORT =====
 function exportCSV() {
+  // ✨ TIER 3 CAP 10: filtrar por evento activo en dashboard si aplica
+  let toExport = state.reports || [];
+  let suffix = 'all';
+  if (state.dashboardEventId) {
+    toExport = toExport.filter(r => r.eventId === state.dashboardEventId);
+    suffix = 'event-' + state.dashboardEventId.substring(0, 12);
+  }
+  
+  if (toExport.length === 0) {
+    alert((t('export_no_data') || 'No reports to export'));
+    return;
+  }
   const headers = ['ID','Time','Crisis Type','Infrastructure','Damage Level','Credibility','Coordinates','Text Location','Location Method','Sync Status','Event ID'];
   
-  // Solo exportar reportes REALES (eliminados los 4 RPT hardcoded del Lote A)
-  const rows = state.reports.map(r => {
+  // ✨ TIER 3 CAP 10: usar toExport (filtrado por evento si aplica)
+  const rows = toExport.map(r => {
     // Manejar coords como objeto {lat,lng} o como string legacy
     let coordsStr = '';
     if (r.coordsString) {
@@ -2226,10 +2753,10 @@ function exportCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'FRIDA_export_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = 'FRIDA_export_' + suffix + '_' + new Date().toISOString().slice(0,10) + '.csv';
   a.click();
   
-  console.log('FRIDA: Exported', rows.length, 'reports to CSV');
+  console.log('FRIDA: Exported', rows.length, 'reports to CSV (' + suffix + ')');
 }
 
 // ===== BLOQUE 9: EXPORT GeoJSON (UNDP-compliant) ✨ =====
@@ -2237,7 +2764,15 @@ function exportCSV() {
 // geocoordinates decimal, timestamp, damage_classification, infrastructure_type.
 // Compatible con QGIS, ArcGIS, kepler.gl, geojson.io.
 function exportGeoJSON() {
-  const features = (state.reports || [])
+  // ✨ TIER 3 CAP 10: filtrar por evento activo en dashboard si aplica
+  let source = state.reports || [];
+  let suffix = 'all';
+  if (state.dashboardEventId) {
+    source = source.filter(r => r.eventId === state.dashboardEventId);
+    suffix = 'event-' + state.dashboardEventId.substring(0, 12);
+  }
+  
+  const features = source
     .filter(r => r.coords && typeof r.coords.lat === 'number')
     .map(r => ({
       type: 'Feature',
@@ -2284,10 +2819,10 @@ function exportGeoJSON() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'FRIDA_export_' + new Date().toISOString().slice(0,10) + '.geojson';
+  a.download = 'FRIDA_export_' + suffix + '_' + new Date().toISOString().slice(0,10) + '.geojson';
   a.click();
   
-  console.log('FRIDA: Exported', features.length, 'reports to GeoJSON');
+  console.log('FRIDA: Exported', features.length, 'reports to GeoJSON (' + suffix + ')');
 }
 
 // ===== BLOQUE 9: HISTORIAL POR EDIFICIO ✨ =====
@@ -2865,6 +3400,68 @@ function isEventActive(event) {
   return hoursAgo < EVENT_CONFIG.ACTIVE_TIMEOUT_HOURS;
 }
 
+// ===== TIER 3 CAP 9: LIFECYCLE AUTOMÁTICO ✨ =====
+// 4 estados: emergency (0-24h) → crisis_active (24-72h) → recovery (72h+) → closed
+// El estado se calcula dinámicamente según última actividad. El usuario puede
+// override manualmente con closeEvent/reopenEvent.
+function getEventLifecycleState(event) {
+  if (!event) return 'unknown';
+  if (event.status === 'closed') return 'closed';
+  
+  const lastActivity = new Date(event.lastReportAt || event.startedAt).getTime();
+  const hoursAgo = (Date.now() - lastActivity) / (1000 * 60 * 60);
+  
+  if (hoursAgo < 24) return 'emergency';      // 0-24h: emergencia activa
+  if (hoursAgo < 72) return 'crisis_active';  // 24-72h: crisis sigue
+  if (hoursAgo < 168) return 'recovery';      // 72h-1 semana: recuperación
+  return 'closed';                              // >1 semana: cerrar automáticamente
+}
+
+function getEventLifecycleLabel(state) {
+  const labels = {
+    emergency:    { en: '🚨 Emergency',     es: '🚨 Emergencia',       fr: '🚨 Urgence',       ar: '🚨 طوارئ',     zh: '🚨 紧急',     ru: '🚨 ЧС',           color: '#E63946' },
+    crisis_active:{ en: '⚡ Crisis Active',  es: '⚡ Crisis Activa',     fr: '⚡ Crise Active',   ar: '⚡ أزمة',       zh: '⚡ 危机持续',   ru: '⚡ Кризис',         color: '#F4A261' },
+    recovery:     { en: '🛠️ Recovery',      es: '🛠️ Recuperación',     fr: '🛠️ Récupération',  ar: '🛠️ تعافي',     zh: '🛠️ 恢复',     ru: '🛠️ Восстан.',      color: '#52B788' },
+    closed:       { en: '⚫ Closed',         es: '⚫ Cerrado',           fr: '⚫ Fermé',          ar: '⚫ مغلق',       zh: '⚫ 已关闭',     ru: '⚫ Закрыто',        color: '#6b7280' },
+    unknown:      { en: '❓ Unknown',        es: '❓ Desconocido',       fr: '❓ Inconnu',        ar: '❓ غير معروف',  zh: '❓ 未知',      ru: '❓ Неизвестно',    color: '#9ca3af' }
+  };
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const entry = labels[state] || labels.unknown;
+  return { label: entry[lang] || entry.en, color: entry.color };
+}
+
+// Auto-cerrar eventos con >168h (1 semana) sin actividad
+function autoCloseStaleEvents() {
+  let closedCount = 0;
+  (state.events || []).forEach(ev => {
+    if (ev.status === 'closed') return;
+    const lcState = getEventLifecycleState(ev);
+    if (lcState === 'closed') {
+      ev.status = 'closed';
+      ev.closedAt = new Date().toISOString();
+      ev.closedReason = 'auto_no_activity_7d';
+      closedCount++;
+      // Sync silenciosamente a Supabase (no requiere confirmación de usuario)
+      if (typeof supabaseSaveEvent === 'function' && navigator.onLine) {
+        supabaseSaveEvent(ev).catch(() => {});
+      }
+    }
+  });
+  if (closedCount > 0) {
+    console.log('FRIDA: 🔒 Auto-closed ' + closedCount + ' stale event(s)');
+    if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
+  }
+}
+
+// Llamar autoCloseStaleEvents cada 5 minutos
+if (typeof window !== 'undefined') {
+  setInterval(() => {
+    if (typeof autoCloseStaleEvents === 'function') autoCloseStaleEvents();
+  }, 5 * 60 * 1000);
+}
+// ===== FIN CAP 9 =====
+
+
 // ===== BLOQUE 4: LIFECYCLE DE EVENTOS ✨ =====
 // Funciones para cerrar/reabrir eventos manualmente y calcular severidad.
 
@@ -3345,26 +3942,44 @@ async function supabaseLoadAll() {
   if (!navigator.onLine) return { reports: [], events: [] };
   
   try {
-    // Cargar eventos
+    // ✨ TIER 3 CAP 10.2: PAGINACIÓN — escalar a decenas de miles de reportes.
+    // Cargamos en chunks de 1000 (límite Supabase) hasta acabar o llegar a 10000 max.
+    const CHUNK_SIZE = 1000;
+    const MAX_CHUNKS = 10;  // hasta 10K reportes; ajustable
+    
+    // Eventos (siempre cabe en una sola página)
     const { data: events, error: errEvents } = await supabaseClient
       .from(SUPABASE_CONFIG.tableEvents)
       .select('*')
       .order('started_at', { ascending: false })
       .limit(100);
     
-    // Cargar reportes
-    const { data: reports, error: errReports } = await supabaseClient
-      .from(SUPABASE_CONFIG.tableReports)
-      .select('*')
-      .order('timestamp_iso', { ascending: false })
-      .limit(500);
-    
-    if (errEvents || errReports) {
-      console.warn('FRIDA: Supabase load failed:', errEvents?.message || errReports?.message);
-      return { reports: [], events: [] };
+    // Reports en chunks paginados
+    let allReports = [];
+    let chunkIndex = 0;
+    while (chunkIndex < MAX_CHUNKS) {
+      const from = chunkIndex * CHUNK_SIZE;
+      const to = from + CHUNK_SIZE - 1;
+      const { data: chunk, error: errChunk } = await supabaseClient
+        .from(SUPABASE_CONFIG.tableReports)
+        .select('*')
+        .order('timestamp_iso', { ascending: false })
+        .range(from, to);
+      
+      if (errChunk) {
+        console.warn('FRIDA: Supabase chunk ' + chunkIndex + ' failed:', errChunk.message);
+        break;
+      }
+      if (!chunk || chunk.length === 0) break;
+      allReports = allReports.concat(chunk);
+      if (chunk.length < CHUNK_SIZE) break;  // último chunk parcial
+      chunkIndex++;
     }
     
-    // Convertir schema PostgreSQL → estructura local
+    if (errEvents) {
+      console.warn('FRIDA: Supabase events load failed:', errEvents.message);
+    }
+    
     const mappedEvents = (events || []).map(e => ({
       id: e.id,
       name: e.name,
@@ -3377,9 +3992,9 @@ async function supabaseLoadAll() {
       status: e.status || 'active'
     }));
     
-    const mappedReports = (reports || []).map(r => mapSupabaseRowToReport(r));
+    const mappedReports = allReports.map(r => mapSupabaseRowToReport(r));
     
-    console.log('FRIDA: ☁️ Loaded from Supabase →', mappedEvents.length, 'events,', mappedReports.length, 'reports');
+    console.log('FRIDA: ☁️ Loaded from Supabase →', mappedEvents.length, 'events,', mappedReports.length, 'reports (paginated in ' + (chunkIndex + 1) + ' chunks)');
     return { reports: mappedReports, events: mappedEvents };
   } catch (err) {
     console.error('FRIDA: Supabase load error:', err);
@@ -4170,11 +4785,36 @@ function toggleSurveyMulti(field, value, btn) {
   }
 }
 
-// ===== BLOQUE 6 / APÉNDICE 1: mini-mapa para marcar tramo bloqueado ✨ =====
-// Muestra/oculta el mini-mapa según si el usuario contestó "yes" a vialidades.
-// Inicializa un Leaflet map ligero centrado en la posición del reporte.
+// ===== TIER 3 CAP 5: MULTI-POINT MAPS ✨ =====
+// Vialidades cerradas y heridos ahora son listas de puntos.
+// Cada usuario puede añadir hasta 5 por categoría (anti-spam).
 let roadBlockMap = null;
-let roadBlockMarker = null;
+let roadBlockMarkers = [];
+let injuriesMap = null;
+let injuriesMarkers = [];
+
+const MAX_POINTS_PER_CATEGORY = 5;
+
+function initSurveyMiniMap(elId, onClickFn) {
+  const mapEl = document.getElementById(elId);
+  if (!mapEl || typeof L === 'undefined') return null;
+  
+  let centerLat = 19.43, centerLng = -99.13;
+  if (state.pendingSurveyReportId) {
+    const r = state.reports.find(x => x.id === state.pendingSurveyReportId);
+    if (r && r.coords) { centerLat = r.coords.lat; centerLng = r.coords.lng; }
+  } else if (typeof locationMapMarker !== 'undefined' && locationMapMarker) {
+    const pos = locationMapMarker.getLatLng();
+    centerLat = pos.lat; centerLng = pos.lng;
+  }
+  
+  const m = L.map(mapEl, { zoomControl: false, attributionControl: false }).setView([centerLat, centerLng], 17);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap'
+  }).addTo(m);
+  m.on('click', onClickFn);
+  return m;
+}
 
 function showRoadBlockMap(show) {
   const container = document.getElementById('road-block-container');
@@ -4182,69 +4822,170 @@ function showRoadBlockMap(show) {
   
   if (!show) {
     container.style.display = 'none';
-    // Limpiar punto previo
-    state.currentSurvey.road_block_lat = null;
-    state.currentSurvey.road_block_lng = null;
-    const coordsEl = document.getElementById('road-block-coords');
-    if (coordsEl) coordsEl.textContent = '';
     return;
   }
   
   container.style.display = 'block';
   
-  // Inicializar el mini-mapa la primera vez
   setTimeout(() => {
     if (!roadBlockMap) {
-      const mapEl = document.getElementById('road-block-map');
-      if (!mapEl || typeof L === 'undefined') return;
-      
-      // Centro: usar coords del reporte pendiente o fallback al locationMap
-      let centerLat = 19.43, centerLng = -99.13;  // CDMX fallback
-      if (state.pendingSurveyReportId) {
-        const r = state.reports.find(x => x.id === state.pendingSurveyReportId);
-        if (r && r.coords) {
-          centerLat = r.coords.lat;
-          centerLng = r.coords.lng;
+      roadBlockMap = initSurveyMiniMap('road-block-map', e => {
+        if (roadBlockMarkers.length >= MAX_POINTS_PER_CATEGORY) {
+          const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+          const msgs = { en:'Max 5 blocked roads', es:'Máximo 5 vialidades', fr:'Max 5 routes', ar:'الحد 5 طرق', zh:'最多 5 条', ru:'Макс 5 дорог' };
+          alert(msgs[lang] || msgs.en);
+          return;
         }
-      } else if (typeof locationMapMarker !== 'undefined' && locationMapMarker) {
-        const pos = locationMapMarker.getLatLng();
-        centerLat = pos.lat;
-        centerLng = pos.lng;
-      }
-      
-      roadBlockMap = L.map(mapEl, {
-        zoomControl: false,
-        attributionControl: false
-      }).setView([centerLat, centerLng], 17);
-      
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        maxZoom: 19,
-        attribution: '© OpenStreetMap'
-      }).addTo(roadBlockMap);
-      
-      // Click coloca el marker
-      roadBlockMap.on('click', e => {
-        if (roadBlockMarker) roadBlockMap.removeLayer(roadBlockMarker);
-        const icon = L.divIcon({
-          className: 'road-block-icon',
-          html: '<div style="font-size:24px; line-height:1;">🚧</div>',
-          iconSize: [24, 24],
-          iconAnchor: [12, 24]
-        });
-        roadBlockMarker = L.marker([e.latlng.lat, e.latlng.lng], { icon: icon }).addTo(roadBlockMap);
-        state.currentSurvey.road_block_lat = e.latlng.lat;
-        state.currentSurvey.road_block_lng = e.latlng.lng;
-        const coordsEl = document.getElementById('road-block-coords');
-        if (coordsEl) {
-          coordsEl.textContent = '🚧 ' + e.latlng.lat.toFixed(5) + ', ' + e.latlng.lng.toFixed(5);
-        }
+        addRoadBlockPoint(e.latlng.lat, e.latlng.lng);
       });
     } else {
-      // Ya existe, solo refrescar tamaño (puede haber quedado mal renderizado)
       roadBlockMap.invalidateSize();
     }
   }, 100);
 }
+
+function addRoadBlockPoint(lat, lng) {
+  if (!roadBlockMap) return;
+  const icon = L.divIcon({
+    className: 'road-block-icon',
+    html: '<div style="font-size:24px; line-height:1;">🚧</div>',
+    iconSize: [24, 24], iconAnchor: [12, 24]
+  });
+  const marker = L.marker([lat, lng], { icon: icon }).addTo(roadBlockMap);
+  marker._fridaPoint = { lat: lat, lng: lng, addedAt: new Date().toISOString() };
+  roadBlockMarkers.push(marker);
+  if (!state.currentSurvey.road_blocks) state.currentSurvey.road_blocks = [];
+  state.currentSurvey.road_blocks.push(marker._fridaPoint);
+  refreshRoadBlockList();
+}
+
+function refreshRoadBlockList() {
+  const listEl = document.getElementById('road-block-list');
+  const counterEl = document.getElementById('road-block-counter');
+  const clearBtn = document.getElementById('road-block-clear-btn');
+  if (!listEl) return;
+  
+  if (roadBlockMarkers.length === 0) {
+    listEl.innerHTML = '';
+    if (counterEl) counterEl.textContent = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    return;
+  }
+  
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const n = roadBlockMarkers.length;
+  const counterMsgs = {
+    en: n + (n === 1 ? ' blocked road' : ' blocked roads'),
+    es: n + (n === 1 ? ' vialidad bloqueada' : ' vialidades bloqueadas'),
+    fr: n + (n === 1 ? ' route bloquée' : ' routes bloquées'),
+    ar: n + ' طريق مغلق',
+    zh: n + ' 条封堵路段',
+    ru: n + ' заблокированных дорог'
+  };
+  if (counterEl) counterEl.textContent = counterMsgs[lang] || counterMsgs.en;
+  if (clearBtn) clearBtn.style.display = 'inline-block';
+  
+  listEl.innerHTML = roadBlockMarkers.map((m, idx) => {
+    const p = m._fridaPoint;
+    return '<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:var(--bg3); border-radius:6px; margin-bottom:3px; font-size:11px;"><span style="font-family:DM Mono,monospace; color:var(--text2);">🚧 #' + (idx+1) + ' · ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span><button onclick="removeRoadBlockPoint(' + idx + ')" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:14px;">×</button></div>';
+  }).join('');
+}
+
+function removeRoadBlockPoint(idx) {
+  if (idx < 0 || idx >= roadBlockMarkers.length) return;
+  if (roadBlockMap) roadBlockMap.removeLayer(roadBlockMarkers[idx]);
+  roadBlockMarkers.splice(idx, 1);
+  if (state.currentSurvey.road_blocks) state.currentSurvey.road_blocks.splice(idx, 1);
+  refreshRoadBlockList();
+}
+
+function clearAllRoadBlocks() {
+  if (roadBlockMap) roadBlockMarkers.forEach(m => roadBlockMap.removeLayer(m));
+  roadBlockMarkers = [];
+  state.currentSurvey.road_blocks = [];
+  refreshRoadBlockList();
+}
+
+// === Injuries (puntos en mapa, no estadística) ===
+function initInjuriesMap() {
+  setTimeout(() => {
+    if (!injuriesMap) {
+      injuriesMap = initSurveyMiniMap('injuries-map', e => {
+        if (injuriesMarkers.length >= MAX_POINTS_PER_CATEGORY) {
+          const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+          const msgs = { en:'Max 5 injury points', es:'Máx 5 puntos de heridos', fr:'Max 5 points', ar:'الحد 5 نقاط', zh:'最多 5 个', ru:'Макс 5 точек' };
+          alert(msgs[lang] || msgs.en);
+          return;
+        }
+        addInjuryPoint(e.latlng.lat, e.latlng.lng);
+      });
+    } else {
+      injuriesMap.invalidateSize();
+    }
+  }, 100);
+}
+
+function addInjuryPoint(lat, lng) {
+  if (!injuriesMap) return;
+  const icon = L.divIcon({
+    className: 'injury-icon',
+    html: '<div style="font-size:24px; line-height:1;">🩹</div>',
+    iconSize: [24, 24], iconAnchor: [12, 24]
+  });
+  const marker = L.marker([lat, lng], { icon: icon }).addTo(injuriesMap);
+  marker._fridaPoint = { lat: lat, lng: lng, addedAt: new Date().toISOString(), attendedConfirmations: [] };
+  injuriesMarkers.push(marker);
+  if (!state.currentSurvey.injuries_points) state.currentSurvey.injuries_points = [];
+  state.currentSurvey.injuries_points.push(marker._fridaPoint);
+  refreshInjuriesList();
+}
+
+function refreshInjuriesList() {
+  const listEl = document.getElementById('injuries-list');
+  const counterEl = document.getElementById('injuries-counter');
+  const clearBtn = document.getElementById('injuries-clear-btn');
+  if (!listEl) return;
+  
+  if (injuriesMarkers.length === 0) {
+    listEl.innerHTML = '';
+    if (counterEl) counterEl.textContent = '';
+    if (clearBtn) clearBtn.style.display = 'none';
+    return;
+  }
+  
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const n = injuriesMarkers.length;
+  const counterMsgs = {
+    en: n + (n === 1 ? ' injury point' : ' injury points'),
+    es: n + (n === 1 ? ' punto de herido' : ' puntos de heridos'),
+    fr: n + ' point' + (n === 1 ? '' : 's'),
+    ar: n + ' نقطة إصابة', zh: n + ' 个受伤点', ru: n + ' точек'
+  };
+  if (counterEl) counterEl.textContent = counterMsgs[lang] || counterMsgs.en;
+  if (clearBtn) clearBtn.style.display = 'inline-block';
+  
+  listEl.innerHTML = injuriesMarkers.map((m, idx) => {
+    const p = m._fridaPoint;
+    return '<div style="display:flex; justify-content:space-between; align-items:center; padding:5px 8px; background:var(--bg3); border-radius:6px; margin-bottom:3px; font-size:11px;"><span style="font-family:DM Mono,monospace; color:var(--text2);">🩹 #' + (idx+1) + ' · ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5) + '</span><button onclick="removeInjuryPoint(' + idx + ')" style="background:transparent; border:none; color:#ef4444; cursor:pointer; font-size:14px;">×</button></div>';
+  }).join('');
+}
+
+function removeInjuryPoint(idx) {
+  if (idx < 0 || idx >= injuriesMarkers.length) return;
+  if (injuriesMap) injuriesMap.removeLayer(injuriesMarkers[idx]);
+  injuriesMarkers.splice(idx, 1);
+  if (state.currentSurvey.injuries_points) state.currentSurvey.injuries_points.splice(idx, 1);
+  refreshInjuriesList();
+}
+
+function clearAllInjuries() {
+  if (injuriesMap) injuriesMarkers.forEach(m => injuriesMap.removeLayer(m));
+  injuriesMarkers = [];
+  state.currentSurvey.injuries_points = [];
+  refreshInjuriesList();
+}
+// ===== FIN CAP 5 =====
+
 
 // Guarda la encuesta vinculada al reporte y avanza a success
 async function submitSurvey() {
@@ -4278,11 +5019,9 @@ async function submitSurvey() {
       electricity: state.currentSurvey.electricity,
       health_facility: state.currentSurvey.health_facility,
       urgent_needs: state.currentSurvey.urgent_needs && state.currentSurvey.urgent_needs.length > 0 ? state.currentSurvey.urgent_needs : null,
-      // Punto exacto del bloqueo de vialidad (si aplicable)
-      road_block_point: (state.currentSurvey.road_block_lat && state.currentSurvey.road_block_lng) ? {
-        lat: state.currentSurvey.road_block_lat,
-        lng: state.currentSurvey.road_block_lng
-      } : null
+      // ✨ TIER 3 CAP 5: arrays de puntos en mapa (multi)
+      road_blocks: (state.currentSurvey.road_blocks && state.currentSurvey.road_blocks.length > 0) ? state.currentSurvey.road_blocks : null,
+      injuries_points: (state.currentSurvey.injuries_points && state.currentSurvey.injuries_points.length > 0) ? state.currentSurvey.injuries_points : null
     }
   };
   
@@ -4318,7 +5057,7 @@ async function submitSurvey() {
   }
   
   // Limpiar state.currentSurvey para próximo reporte
-  state.currentSurvey = { roads: null, services: [], help: null, injuries: null, electricity: null, health_facility: null, urgent_needs: [], road_block_lat: null, road_block_lng: null };
+  state.currentSurvey = { roads: null, services: [], help: null, injuries: null, electricity: null, health_facility: null, urgent_needs: [], road_blocks: [], injuries_points: [] };
   state.pendingSurveyReportId = null;
   
   nextStep('success');
@@ -4327,7 +5066,7 @@ async function submitSurvey() {
 // Saltar la encuesta y avanzar a success
 function skipSurvey() {
   console.log('FRIDA: User skipped optional survey');
-  state.currentSurvey = { roads: null, services: [], help: null, injuries: null, electricity: null, health_facility: null, urgent_needs: [], road_block_lat: null, road_block_lng: null };
+  state.currentSurvey = { roads: null, services: [], help: null, injuries: null, electricity: null, health_facility: null, urgent_needs: [], road_blocks: [], injuries_points: [] };
   state.pendingSurveyReportId = null;
   nextStep('success');
 }
@@ -4978,6 +5717,49 @@ function proceedFromPhoto() {
   const btn = document.getElementById('photo-next-btn');
   if (btn && btn.disabled) return;  // doble check
   nextStep(6);
+}
+
+// ✨ TIER 3 CAP 3: Location es ahora el PRIMER paso del wizard.
+// Este botón avanza a step-2 (crisis type). Submit final está en step-6.
+function proceedFromLocation() {
+  const btn = document.getElementById('location-next-btn');
+  if (btn && btn.disabled) return;
+  
+  if (state.gpsLocked && typeof locationMapMarker !== 'undefined' && locationMapMarker) {
+    const pos = locationMapMarker.getLatLng();
+    state.tempLocationFromLocFirst = { lat: pos.lat, lng: pos.lng };
+  }
+  
+  nextStep(2);  // step-2 = crisis type
+}
+
+function revalidateLocationNext() {
+  const btn = document.getElementById('location-next-btn');
+  const hint = document.getElementById('submit-hint');
+  if (!btn) return;
+  
+  const hasText = ((document.getElementById('textLocation') || {}).value || '').trim().length >= 4;
+  const hasGps = state.gpsLocked === true;
+  const enabled = hasGps || hasText;
+  
+  btn.disabled = !enabled;
+  btn.style.opacity = enabled ? '1' : '0.5';
+  btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+  
+  if (hint) {
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    if (enabled) {
+      const okMsgs = {
+        en:'✓ Ready — tap Continue', es:'✓ Listo — toca Continuar',
+        fr:'✓ Prêt — appuyez sur Continuer', ar:'✓ جاهز — اضغط على متابعة',
+        zh:'✓ 准备好了 — 点击继续', ru:'✓ Готово — нажмите Продолжить'
+      };
+      hint.textContent = okMsgs[lang] || okMsgs.en;
+      hint.style.color = '#4ade80';
+    } else {
+      hint.style.color = '';
+    }
+  }
 }
 
 // ===== PRIORITY RANKING ENGINE (Punto 5 / Layer 8 parcial) ✨ =====
@@ -5738,10 +6520,18 @@ function getCurrentPosition(options = {}) {
 // de conceder permiso porque el chip GPS no ha hecho lock todavía. Los
 // reintentos resuelven esto sin que el usuario sienta que algo está roto.
 async function tryGetGpsWithRetries() {
-  const attempts = [
-    { timeout: 8000,  maxAge: 60000, label: 'fast' },    // Intento 1: rápido, acepta cache
-    { timeout: 12000, maxAge: 10000, label: 'medium' },  // Intento 2: más tiempo, cache fresca
-    { timeout: 20000, maxAge: 0,     label: 'fresh' }    // Intento 3: paciente, sin cache (fresh lock)
+  // ✨ TIER 3 CAP 2 FIX: detectar si nunca tuvimos permission/lock previo.
+  // En ese caso NO usar cache (puede no haber) y dar más tiempo al chip GPS.
+  const firstTime = !geoState || !geoState.lastKnownPosition;
+  
+  const attempts = firstTime ? [
+    { timeout: 12000, maxAge: 0, label: 'fresh-1' },
+    { timeout: 15000, maxAge: 0, label: 'fresh-2' },
+    { timeout: 20000, maxAge: 0, label: 'fresh-3' }
+  ] : [
+    { timeout: 8000,  maxAge: 60000, label: 'fast' },
+    { timeout: 12000, maxAge: 10000, label: 'medium' },
+    { timeout: 20000, maxAge: 0,     label: 'fresh' }
   ];
   
   let lastError = null;
@@ -5749,21 +6539,18 @@ async function tryGetGpsWithRetries() {
     const attempt = attempts[i];
     console.log('FRIDA: GPS attempt ' + (i + 1) + '/3 (' + attempt.label + ')');
     
-    // Mostrar status visual en el intento >= 2
-    if (i > 0) {
-      const statusEl = document.getElementById('gps-status');
-      if (statusEl) {
-        const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
-        const retryMsgs = {
-          en: '📡 Retrying GPS lock... (' + (i + 1) + '/3)',
-          es: '📡 Reintentando GPS... (' + (i + 1) + '/3)',
-          fr: '📡 Nouvelle tentative GPS... (' + (i + 1) + '/3)',
-          ar: '📡 إعادة محاولة GPS... (' + (i + 1) + '/3)',
-          zh: '📡 重试 GPS... (' + (i + 1) + '/3)',
-          ru: '📡 Повторная попытка GPS... (' + (i + 1) + '/3)'
-        };
-        statusEl.textContent = retryMsgs[lang] || retryMsgs.en;
-      }
+    const statusEl = document.getElementById('gps-status');
+    if (statusEl) {
+      const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+      const msgs = {
+        en: '📡 Locking GPS... (' + (i+1) + '/3)',
+        es: '📡 Conectando GPS... (' + (i+1) + '/3)',
+        fr: '📡 Verrouillage GPS... (' + (i+1) + '/3)',
+        ar: '📡 قفل GPS... (' + (i+1) + '/3)',
+        zh: '📡 锁定 GPS... (' + (i+1) + '/3)',
+        ru: '📡 Захват GPS... (' + (i+1) + '/3)'
+      };
+      statusEl.textContent = msgs[lang] || msgs.en;
     }
     
     try {
@@ -5772,24 +6559,48 @@ async function tryGetGpsWithRetries() {
         timeout: attempt.timeout,
         maxAge: attempt.maxAge
       });
-      // Éxito — devolver coords
       return coords;
     } catch (err) {
       lastError = err;
-      // Si fue permission denied, no reintentar (el usuario lo negó)
-      if (err.code === 'PERMISSION_DENIED' || err.code === 1) {
-        throw err;
-      }
-      // Si fue POSITION_UNAVAILABLE o TIMEOUT, esperar 1.5s y reintentar
+      if (err.code === 'PERMISSION_DENIED' || err.code === 1) throw err;
       if (i < attempts.length - 1) {
-        await new Promise(r => setTimeout(r, 1500));
+        await new Promise(r => setTimeout(r, firstTime ? 2500 : 1500));
       }
     }
   }
   
-  // Todos los intentos fallaron
   console.warn('FRIDA: GPS failed after 3 attempts');
   throw lastError || { code: 'TIMEOUT', message: 'GPS unavailable after retries' };
+}
+
+// ✨ TIER 3 CAP 2: retry manual del GPS (botón en mapa lock overlay)
+async function retryGpsManual() {
+  const statusEl = document.getElementById('gps-status');
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  if (statusEl) {
+    const msgs = { en:'📡 Retrying GPS...', es:'📡 Reintentando GPS...', fr:'📡 Réessayer GPS...', ar:'📡 إعادة المحاولة...', zh:'📡 重试 GPS...', ru:'📡 Повтор GPS...' };
+    statusEl.textContent = msgs[lang] || msgs.en;
+  }
+  if (typeof geoState !== 'undefined') geoState.lastKnownPosition = null;
+  
+  try {
+    const coords = await tryGetGpsWithRetries();
+    const quality = assessGpsQuality(coords.accuracy);
+    if (quality.level !== 'rejected') {
+      if (typeof locationMap !== 'undefined' && locationMap && locationMapMarker) {
+        locationMap.setView([coords.lat, coords.lng], quality.zoom);
+        locationMapMarker.setLatLng([coords.lat, coords.lng]);
+      }
+      showLocationStatus(quality.level, quality.message);
+      updateAccuracyDisplay(coords.accuracy, false);
+      state.gpsLocked = true;
+      state.lastGpsAccuracy = coords.accuracy;
+      revalidateSubmitButton();
+      if (typeof releaseTextLocationMode === 'function') releaseTextLocationMode();
+    }
+  } catch (err) {
+    if (statusEl) statusEl.textContent = '❌ ' + (err.message || 'GPS unavailable');
+  }
 }
 
 
@@ -6047,6 +6858,9 @@ function updateAccuracyDisplay(accuracyMeters, isManual) {
 // porque el GPS aún no había cargado.
 
 function revalidateSubmitButton() {
+  // ✨ TIER 3 CAP 3: location es ahora primer paso. Re-revalidamos su botón
+  if (typeof revalidateLocationNext === 'function') revalidateLocationNext();
+  
   const btn = document.getElementById('submit-btn');
   const hint = document.getElementById('submit-hint');
   if (!btn) return;
@@ -6129,16 +6943,155 @@ function forceTextLocationMode() {
   };
   
   label.textContent = requiredMsgs[lang] || requiredMsgs.en;
-  label.style.color = '#fbbf24';  // amarillo de advertencia
+  label.style.color = '#fbbf24';
   label.style.fontWeight = '700';
   input.style.borderColor = '#fbbf24';
   input.focus();
+  
+  // ✨ TIER 3 CAP 2 FIX 2.2: BLOQUEAR mapa para evitar falsas señales
+  state.mapLockedForFalseSignal = true;
+  if (typeof locationMap !== 'undefined' && locationMap) {
+    try {
+      locationMap.off('click');
+      if (locationMapMarker && locationMapMarker.dragging) locationMapMarker.dragging.disable();
+      let lockOverlay = document.getElementById('map-lock-overlay');
+      const mapEl = document.getElementById('location-map');
+      if (mapEl && !lockOverlay) {
+        lockOverlay = document.createElement('div');
+        lockOverlay.id = 'map-lock-overlay';
+        lockOverlay.style.cssText = 'position:absolute; inset:0; background:rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:1000; pointer-events:auto; cursor:not-allowed;';
+        const lockMsgs = {
+          en: '🔒 Map locked — describe location below',
+          es: '🔒 Mapa bloqueado — describe ubicación abajo',
+          fr: '🔒 Carte verrouillée — décrivez ci-dessous',
+          ar: '🔒 الخريطة مقفلة — صف الموقع أدناه',
+          zh: '🔒 地图已锁定 — 在下方描述位置',
+          ru: '🔒 Карта заблокирована — опишите ниже'
+        };
+        const retryBtnMsgs = { en:'🔄 Retry GPS', es:'🔄 Reintentar GPS', fr:'🔄 Réessayer GPS', ar:'🔄 إعادة المحاولة', zh:'🔄 重试 GPS', ru:'🔄 Повтор GPS' };
+        lockOverlay.innerHTML = '<div style="background:rgba(0,0,0,0.85); color:#fbbf24; padding:10px 18px; border-radius:8px; font-family:DM Sans,sans-serif; font-size:13px; font-weight:600; text-align:center; max-width:80%;">' + (lockMsgs[lang] || lockMsgs.en) + '<br><button onclick="retryGpsManual()" style="margin-top:8px; background:#fbbf24; color:#000; border:none; padding:6px 14px; border-radius:6px; font-family:DM Sans,sans-serif; font-size:11px; font-weight:700; cursor:pointer;">' + (retryBtnMsgs[lang] || retryBtnMsgs.en) + '</button></div>';
+        mapEl.style.position = 'relative';
+        mapEl.appendChild(lockOverlay);
+      }
+    } catch (e) {}
+  }
+}
+
+function releaseTextLocationMode() {
+  const label = document.getElementById('text-location-label');
+  const input = document.getElementById('textLocation');
+  if (label) {
+    label.style.color = '';
+    label.style.fontWeight = '';
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    const optMsgs = {
+      en:'Location description (optional)', es:'Descripción de la ubicación (opcional)',
+      fr:'Description du lieu (optionnel)', ar:'وصف الموقع (اختياري)',
+      zh:'位置描述（可选）', ru:'Описание места (необязательно)'
+    };
+    label.textContent = optMsgs[lang] || optMsgs.en;
+  }
+  if (input) input.style.borderColor = '';
+  state.mapLockedForFalseSignal = false;
+  const lockOverlay = document.getElementById('map-lock-overlay');
+  if (lockOverlay) lockOverlay.remove();
+  if (typeof locationMap !== 'undefined' && locationMap && locationMapMarker) {
+    try { locationMapMarker.dragging.enable(); } catch (e) {}
+  }
 }
 
 // Handler de input de texto — revalida submit en cada keystroke
 function onTextLocationInput() {
   revalidateSubmitButton();
 }
+
+// ===== TIER 3 CAP 4: NOMINATIM AUTOCOMPLETE ✨ =====
+let nominatimDebounceTimer = null;
+let lastNominatimQuery = '';
+let nominatimSelectedFromList = false;
+
+async function onLocationAutocomplete(query) {
+  const listEl = document.getElementById('location-autocomplete-list');
+  if (!listEl) return;
+  
+  if (nominatimSelectedFromList) {
+    nominatimSelectedFromList = false;
+    return;
+  }
+  
+  if (!query || query.trim().length < 4) {
+    listEl.style.display = 'none';
+    return;
+  }
+  
+  if (query.trim() === lastNominatimQuery) return;
+  lastNominatimQuery = query.trim();
+  
+  if (nominatimDebounceTimer) clearTimeout(nominatimDebounceTimer);
+  nominatimDebounceTimer = setTimeout(async () => {
+    await fetchNominatim(query.trim());
+  }, 500);
+}
+
+async function fetchNominatim(query) {
+  const listEl = document.getElementById('location-autocomplete-list');
+  if (!listEl) return;
+  
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const searchingMsgs = { en:'Searching...', es:'Buscando...', fr:'Recherche...', ar:'جاري البحث...', zh:'搜索中...', ru:'Поиск...' };
+  listEl.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text2); text-align:center;">⏳ ' + (searchingMsgs[lang] || searchingMsgs.en) + '</div>';
+  listEl.style.display = 'block';
+  
+  try {
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&q=' + 
+                encodeURIComponent(query) + '&limit=8&accept-language=' + lang;
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('Nominatim ' + res.status);
+    const results = await res.json();
+    
+    if (!results || results.length === 0) {
+      const noResMsgs = { en:'No locations found', es:'No se encontraron ubicaciones', fr:'Aucun lieu trouvé', ar:'لم يتم العثور على مواقع', zh:'未找到位置', ru:'Местоположения не найдены' };
+      listEl.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text2); text-align:center;">' + (noResMsgs[lang] || noResMsgs.en) + '</div>';
+      return;
+    }
+    
+    listEl.innerHTML = results.map(r => {
+      const lat = parseFloat(r.lat);
+      const lng = parseFloat(r.lon);
+      const displayName = (r.display_name || '').substring(0, 100).replace(/'/g, "\\'");
+      const shortName = (r.display_name || '').split(',')[0].substring(0, 50);
+      const fullName = (r.display_name || '').substring(0, 80);
+      return `<div onclick="selectNominatimResult(${lat}, ${lng}, '${displayName}')" style="padding:10px 12px; border-bottom:1px solid var(--border); cursor:pointer; font-size:12px; color:var(--text);" onmouseover="this.style.background='var(--bg2)'" onmouseout="this.style.background=''">
+        <div style="font-weight:600;">📍 ${shortName}</div>
+        <div style="font-size:10px; color:var(--text2); margin-top:2px;">${fullName}</div>
+      </div>`;
+    }).join('');
+  } catch (err) {
+    const errMsgs = { en:'Search unavailable', es:'Búsqueda no disponible', fr:'Recherche indisponible', ar:'البحث غير متاح', zh:'搜索不可用', ru:'Поиск недоступен' };
+    listEl.innerHTML = '<div style="padding:10px; font-size:11px; color:var(--text2); text-align:center;">⚠️ ' + (errMsgs[lang] || errMsgs.en) + '</div>';
+    console.warn('FRIDA: Nominatim error:', err.message);
+  }
+}
+
+function selectNominatimResult(lat, lng, displayName) {
+  nominatimSelectedFromList = true;
+  const input = document.getElementById('textLocation');
+  if (input) input.value = displayName;
+  
+  if (typeof locationMap !== 'undefined' && locationMap && locationMapMarker && !state.mapLockedForFalseSignal) {
+    locationMap.setView([lat, lng], 14);
+    locationMapMarker.setLatLng([lat, lng]);
+    state.gpsLocked = true;
+    state.lastGpsAccuracy = 5000;  // de geocoding, no GPS real
+  }
+  
+  const listEl = document.getElementById('location-autocomplete-list');
+  if (listEl) listEl.style.display = 'none';
+  
+  revalidateSubmitButton();
+  console.log('FRIDA: 📍 Nominatim selected →', lat, lng);
+}
+// ===== FIN CAP 4 =====
 
 </script>
 </body>
@@ -7276,6 +8229,208 @@ Object.keys(bloque9Keys).forEach(lang => {
   else i18n[lang] = bloque9Keys[lang];
 });
 
+// ===== TIER 3: i18n complementos ✨ =====
+const tier3Keys = {
+  en: {
+    // Cap 3 — reorder flow
+    step_q_loc_first: 'Step 1: Location',
+    loc_next_btn: 'Continue →',
+    // Cap 5 — multi-puntos
+    survey_q_road_pin: '📍 Tap the map to add blocked roads (you can add multiple)',
+    road_block_clear: 'Clear all',
+    survey_q_injuries_points: '📍 Mark locations where you see people needing help (max 5)',
+    injuries_clear: 'Clear all',
+    // Cap 6 — observer
+    observer_title: 'Observer Mode',
+    observer_subtitle: 'Help confirm or refute existing reports',
+    observer_intro: "Click on any marker to confirm (✓) or dispute (✗). 3+ confirmations boost the report's credibility.",
+    observer_legend: '🔴 Critical · 🟠 Partial · 🟢 Minimal · 🩹 Needs help',
+    observer_back: '← Back to home',
+    observer_max_actions: 'Max 5 confirms per session',
+    observer_already_acted: 'You already acted on this report',
+    observer_confirmed: 'Confirmation recorded',
+    observer_disputed: 'Dispute recorded',
+    observer_attended_confirmed: 'Point confirmed as attended by 3+ observers',
+    observer_attended_progress: 'Confirmation received',
+    // Cap 8 — mesh
+    qr_relay_already: 'Report already in your local data',
+    // Cap 9 — lifecycle (etiquetas dinámicas)
+    lc_emergency: '🚨 Emergency',
+    lc_active: '⚡ Crisis Active',
+    lc_recovery: '🛠️ Recovery',
+    lc_closed: '⚫ Closed',
+    // Cap 10 — export
+    export_no_data: 'No reports to export',
+    // Cap 11 — QR freeze
+    qr_freeze_warning: '⚠️ Keep this screen open until someone scans the QR. Tap "Download" to save the image and share it.',
+    qr_download: '⬇ Download',
+    qr_no_image: 'No QR to download',
+    // Cap 4 — Nominatim
+    loc_searching: 'Searching...',
+    loc_no_results: 'No locations found',
+    loc_search_error: 'Search unavailable'
+  },
+  es: {
+    step_q_loc_first: 'Paso 1: Ubicación',
+    loc_next_btn: 'Continuar →',
+    survey_q_road_pin: '📍 Toca el mapa para añadir vialidades cerradas (puedes añadir varias)',
+    road_block_clear: 'Borrar todo',
+    survey_q_injuries_points: '📍 Marca puntos donde haya personas que necesiten ayuda (máx 5)',
+    injuries_clear: 'Borrar todo',
+    observer_title: 'Modo Observador',
+    observer_subtitle: 'Ayuda a confirmar o refutar reportes existentes',
+    observer_intro: 'Toca cualquier marcador para confirmar (✓) o refutar (✗). 3+ confirmaciones suben la credibilidad.',
+    observer_legend: '🔴 Crítico · 🟠 Parcial · 🟢 Mínimo · 🩹 Necesita ayuda',
+    observer_back: '← Volver al inicio',
+    observer_max_actions: 'Máx 5 confirmaciones por sesión',
+    observer_already_acted: 'Ya actuaste sobre este reporte',
+    observer_confirmed: 'Confirmación registrada',
+    observer_disputed: 'Refutación registrada',
+    observer_attended_confirmed: 'Punto confirmado como atendido por 3+ observadores',
+    observer_attended_progress: 'Confirmación recibida',
+    qr_relay_already: 'El reporte ya está en tus datos locales',
+    lc_emergency: '🚨 Emergencia',
+    lc_active: '⚡ Crisis Activa',
+    lc_recovery: '🛠️ Recuperación',
+    lc_closed: '⚫ Cerrado',
+    export_no_data: 'No hay reportes para exportar',
+    qr_freeze_warning: '⚠️ Mantén esta pantalla abierta hasta que alguien escanee el QR. Toca "Descargar" para guardar la imagen y compartirla.',
+    qr_download: '⬇ Descargar',
+    qr_no_image: 'No hay QR para descargar',
+    loc_searching: 'Buscando...',
+    loc_no_results: 'No se encontraron ubicaciones',
+    loc_search_error: 'Búsqueda no disponible'
+  },
+  fr: {
+    step_q_loc_first: 'Étape 1: Lieu',
+    loc_next_btn: 'Continuer →',
+    survey_q_road_pin: '📍 Touchez la carte pour ajouter des routes bloquées (multiples possibles)',
+    road_block_clear: 'Tout effacer',
+    survey_q_injuries_points: '📍 Marquez les points où des personnes ont besoin daide (max 5)',
+    injuries_clear: 'Tout effacer',
+    observer_title: 'Mode Observateur',
+    observer_subtitle: 'Aidez à confirmer ou réfuter les rapports',
+    observer_intro: 'Touchez un marqueur pour confirmer (✓) ou contester (✗). 3+ confirmations augmentent la crédibilité.',
+    observer_legend: '🔴 Critique · 🟠 Partiel · 🟢 Minimal · 🩹 Besoin daide',
+    observer_back: '← Retour',
+    observer_max_actions: 'Max 5 confirmations par session',
+    observer_already_acted: 'Vous avez déjà agi sur ce rapport',
+    observer_confirmed: 'Confirmation enregistrée',
+    observer_disputed: 'Contestation enregistrée',
+    observer_attended_confirmed: 'Point confirmé comme traité par 3+ observateurs',
+    observer_attended_progress: 'Confirmation reçue',
+    qr_relay_already: 'Le rapport est déjà dans vos données locales',
+    lc_emergency: '🚨 Urgence',
+    lc_active: '⚡ Crise Active',
+    lc_recovery: '🛠️ Récupération',
+    lc_closed: '⚫ Fermé',
+    export_no_data: 'Aucun rapport à exporter',
+    qr_freeze_warning: '⚠️ Gardez cet écran ouvert. Touchez "Télécharger" pour sauvegarder et partager limage.',
+    qr_download: '⬇ Télécharger',
+    qr_no_image: 'Aucun QR à télécharger',
+    loc_searching: 'Recherche...',
+    loc_no_results: 'Aucun lieu trouvé',
+    loc_search_error: 'Recherche indisponible'
+  },
+  ar: {
+    step_q_loc_first: 'الخطوة 1: الموقع',
+    loc_next_btn: 'متابعة ←',
+    survey_q_road_pin: '📍 اضغط على الخريطة لإضافة طرق مغلقة (يمكن إضافة عدة)',
+    road_block_clear: 'مسح الكل',
+    survey_q_injuries_points: '📍 حدد أماكن يحتاج فيها الناس مساعدة (5 كحد أقصى)',
+    injuries_clear: 'مسح الكل',
+    observer_title: 'وضع المراقب',
+    observer_subtitle: 'ساعد في تأكيد أو رفض التقارير',
+    observer_intro: 'اضغط على أي علامة للتأكيد (✓) أو الرفض (✗). 3+ تأكيدات ترفع المصداقية.',
+    observer_legend: '🔴 حرج · 🟠 جزئي · 🟢 بسيط · 🩹 يحتاج مساعدة',
+    observer_back: '← العودة',
+    observer_max_actions: '5 تأكيدات كحد أقصى',
+    observer_already_acted: 'لقد تصرفت بشأن هذا التقرير',
+    observer_confirmed: 'تم تسجيل التأكيد',
+    observer_disputed: 'تم تسجيل الرفض',
+    observer_attended_confirmed: 'تم تأكيد النقطة كمعالجة',
+    observer_attended_progress: 'تم استلام التأكيد',
+    qr_relay_already: 'التقرير موجود بالفعل',
+    lc_emergency: '🚨 طوارئ',
+    lc_active: '⚡ أزمة نشطة',
+    lc_recovery: '🛠️ تعافي',
+    lc_closed: '⚫ مغلق',
+    export_no_data: 'لا توجد تقارير للتصدير',
+    qr_freeze_warning: '⚠️ احتفظ بهذه الشاشة مفتوحة. اضغط "تنزيل" لحفظ الصورة.',
+    qr_download: '⬇ تنزيل',
+    qr_no_image: 'لا يوجد QR للتنزيل',
+    loc_searching: 'جاري البحث...',
+    loc_no_results: 'لم يتم العثور على مواقع',
+    loc_search_error: 'البحث غير متاح'
+  },
+  zh: {
+    step_q_loc_first: '步骤 1: 位置',
+    loc_next_btn: '继续 →',
+    survey_q_road_pin: '📍 点击地图添加封堵路段（可添加多个）',
+    road_block_clear: '清除全部',
+    survey_q_injuries_points: '📍 标记需要帮助的人的位置（最多 5 个）',
+    injuries_clear: '清除全部',
+    observer_title: '观察者模式',
+    observer_subtitle: '帮助确认或反驳现有报告',
+    observer_intro: '点击任何标记以确认 (✓) 或反驳 (✗)。3+ 个确认提高可信度。',
+    observer_legend: '🔴 严重 · 🟠 部分 · 🟢 轻微 · 🩹 需要帮助',
+    observer_back: '← 返回',
+    observer_max_actions: '每会话最多 5 个确认',
+    observer_already_acted: '您已对此报告采取行动',
+    observer_confirmed: '确认已记录',
+    observer_disputed: '异议已记录',
+    observer_attended_confirmed: '点已由 3+ 个观察者确认为已处理',
+    observer_attended_progress: '已收到确认',
+    qr_relay_already: '报告已在您的本地数据中',
+    lc_emergency: '🚨 紧急',
+    lc_active: '⚡ 危机持续',
+    lc_recovery: '🛠️ 恢复',
+    lc_closed: '⚫ 已关闭',
+    export_no_data: '没有可导出的报告',
+    qr_freeze_warning: '⚠️ 保持此屏幕打开。点击"下载"以保存图像。',
+    qr_download: '⬇ 下载',
+    qr_no_image: '没有可下载的 QR',
+    loc_searching: '搜索中...',
+    loc_no_results: '未找到位置',
+    loc_search_error: '搜索不可用'
+  },
+  ru: {
+    step_q_loc_first: 'Шаг 1: Место',
+    loc_next_btn: 'Продолжить →',
+    survey_q_road_pin: '📍 Нажмите на карту, чтобы добавить заблокированные дороги (несколько)',
+    road_block_clear: 'Очистить всё',
+    survey_q_injuries_points: '📍 Отметьте места, где людям нужна помощь (макс 5)',
+    injuries_clear: 'Очистить всё',
+    observer_title: 'Режим наблюдателя',
+    observer_subtitle: 'Помогите подтвердить или опровергнуть отчёты',
+    observer_intro: 'Нажмите на маркер для подтверждения (✓) или оспаривания (✗). 3+ подтверждения повышают достоверность.',
+    observer_legend: '🔴 Критично · 🟠 Частично · 🟢 Минимально · 🩹 Нужна помощь',
+    observer_back: '← Назад',
+    observer_max_actions: 'Макс 5 подтверждений',
+    observer_already_acted: 'Вы уже действовали с этим отчётом',
+    observer_confirmed: 'Подтверждение записано',
+    observer_disputed: 'Оспаривание записано',
+    observer_attended_confirmed: 'Точка подтверждена как обработанная',
+    observer_attended_progress: 'Подтверждение получено',
+    qr_relay_already: 'Отчёт уже в ваших локальных данных',
+    lc_emergency: '🚨 ЧС',
+    lc_active: '⚡ Кризис',
+    lc_recovery: '🛠️ Восстановление',
+    lc_closed: '⚫ Закрыто',
+    export_no_data: 'Нет отчётов для экспорта',
+    qr_freeze_warning: '⚠️ Держите этот экран открытым. Нажмите "Скачать" чтобы сохранить.',
+    qr_download: '⬇ Скачать',
+    qr_no_image: 'Нет QR для скачивания',
+    loc_searching: 'Поиск...',
+    loc_no_results: 'Местоположения не найдены',
+    loc_search_error: 'Поиск недоступен'
+  }
+};
+Object.keys(tier3Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], tier3Keys[lang]);
+  else i18n[lang] = tier3Keys[lang];
+});
+
 // Mapeos para tCrisis y tRegion
 const CRISIS_VALUE_MAP = {
   'Earthquake': 'crisis_v_earthquake',
@@ -7392,6 +8547,36 @@ function setLanguage(lang) {
     if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
     if (typeof refreshEventsTabs === 'function') refreshEventsTabs();  // ✨ Bloque 2.6: tabs eventos
     if (typeof refreshAllEventsDropdown === 'function') refreshAllEventsDropdown();  // ✨ Bloque 4: dropdown agrupado
+    
+    // ✨ TIER 3 CAP 2.3: re-render profile screen si está visible
+    const profileScreen = document.getElementById('step-profile');
+    if (profileScreen && profileScreen.classList.contains('active')) {
+      const p = loadUserProfile();
+      const stats = document.getElementById('profile-stats');
+      if (stats) {
+        stats.innerHTML = `<div style="display:grid; grid-template-columns:repeat(2,1fr); gap:10px; font-size:12px;">
+          <div><div style="color:var(--text2); font-size:10px; text-transform:uppercase;">${t('profile_reports')}</div><div style="font-size:18px; font-weight:700;">${p.reportsCount}</div></div>
+          <div><div style="color:var(--text2); font-size:10px; text-transform:uppercase;">${t('profile_surveys')}</div><div style="font-size:18px; font-weight:700;">${p.surveysCount}</div></div>
+          <div><div style="color:var(--text2); font-size:10px; text-transform:uppercase;">${t('profile_observer')}</div><div style="font-size:18px; font-weight:700;">${p.observerReports}</div></div>
+          <div><div style="color:var(--text2); font-size:10px; text-transform:uppercase;">${t('profile_langs')}</div><div style="font-size:18px; font-weight:700;">${(p.languagesUsed || []).length}</div></div>
+        </div>`;
+      }
+      const grid = document.getElementById('profile-badges-grid');
+      if (grid && typeof BADGE_CATALOG !== 'undefined') {
+        grid.innerHTML = Object.keys(BADGE_CATALOG).map(key => {
+          const badge = BADGE_CATALOG[key];
+          const unlocked = badge.condition(p);
+          const opacity = unlocked ? '1' : '0.3';
+          const border = unlocked ? '2px solid #52B788' : '1px solid var(--border)';
+          const bg = unlocked ? 'rgba(82,183,136,0.05)' : 'var(--bg3)';
+          return `<div style="background:${bg}; border:${border}; padding:12px 8px; border-radius:10px; text-align:center; opacity:${opacity};">
+            <div style="font-size:32px; line-height:1; margin-bottom:6px;">${badge.emoji}</div>
+            <div style="font-size:11px; font-weight:700; color:var(--text); margin-bottom:3px;">${t(badge.nameKey)}</div>
+            <div style="font-size:9px; color:var(--text2); line-height:1.3;">${t(badge.descKey)}</div>
+          </div>`;
+        }).join('');
+      }
+    }
     
     // Re-poblar la tabla de reportes — ✨ BLOQUE 2.6: usar refreshReportsTable
     //  para respetar la paginación (10/expandido) en lugar de inline.
@@ -7842,7 +9027,14 @@ function refreshAllEventsDropdown() {
     Earthquake: '🌍', Flood: '💧', Hurricane: '🌀',
     Wildfire: '🔥', Conflict: '⚫', Other: '⚠️'
   };
-  const sortedGroupKeys = Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length);
+  // ✨ TIER 3 CAP 2.5: ordenar GRUPOS por severidad máxima desc
+  const sortedGroupKeys = Object.keys(groups).sort((a, b) => {
+    const sevs = (severityOrder || { critical:4, high:3, medium:2, low:1, unknown:0 });
+    const maxA = Math.max.apply(null, groups[a].map(e => sevs[getEventSeverity(e.id).level] || 0));
+    const maxB = Math.max.apply(null, groups[b].map(e => sevs[getEventSeverity(e.id).level] || 0));
+    if (maxA !== maxB) return maxB - maxA;
+    return groups[b].length - groups[a].length;
+  });
   
   let html = '';
   sortedGroupKeys.forEach(key => {
@@ -7934,6 +9126,7 @@ window.addEventListener('DOMContentLoaded', () => {
     refreshPriorityZones();   // ✨ Punto 5: Priority Ranking
     refreshSatelliteValidations();  // ✨ Punto 8: Satellite Cross-Validation
     if (typeof refreshProfileBadgeCount === 'function') refreshProfileBadgeCount();  // ✨ BLOQUE 7
+    if (typeof initFingerprint === 'function') initFingerprint();  // ✨ TIER 3 CAP 1
   }, 700);
 });
 
