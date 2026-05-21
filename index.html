@@ -284,6 +284,15 @@ html[dir="rtl"] .options-grid {
               📦 <span data-i18n="download_apk">APK</span>
             </button>
           </div>
+          <!-- ✨ FIX v36: panel de testing (solo se muestra si query string ?test=1) -->
+          <div id="test-mode-panel" style="display:none; margin-top:14px; padding:10px; background:rgba(244,162,97,0.1); border:1px dashed #F4A261; border-radius:6px; font-size:10px; color:#F4A261;">
+            🧪 TEST MODE
+            <div style="display:flex; gap:6px; justify-content:center; margin-top:6px; flex-wrap:wrap;">
+              <button onclick="fridaResetRatelimit()" style="background:transparent; border:1px solid #F4A261; color:#F4A261; padding:3px 8px; border-radius:4px; font-size:10px; cursor:pointer;">Reset rate limit</button>
+              <button onclick="fridaForceBotScore(20)" style="background:transparent; border:1px solid #F4A261; color:#F4A261; padding:3px 8px; border-radius:4px; font-size:10px; cursor:pointer;">Force bot</button>
+              <button onclick="fridaForceBotScore(null)" style="background:transparent; border:1px solid #F4A261; color:#F4A261; padding:3px 8px; border-radius:4px; font-size:10px; cursor:pointer;">Off</button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -1267,6 +1276,36 @@ function checkQrDoneButton() {
 const RATELIMIT_KEY = 'frida-ratelimit';
 const RATELIMIT_MAX_PER_HOUR = 5;
 
+// ✨ FIX v36: helper de testing — resetear ratelimit desde consola
+// Uso: en consola escribir `fridaResetRatelimit()` para borrar el cooldown
+window.fridaResetRatelimit = function() {
+  try {
+    localStorage.removeItem(RATELIMIT_KEY);
+    console.log('FRIDA: 🧪 Ratelimit reset — you can submit reports again immediately');
+    return true;
+  } catch (e) {
+    console.warn('FRIDA: reset failed:', e.message);
+    return false;
+  }
+};
+
+// ✨ FIX v36: helper de testing para forzar detección de bot
+// Uso desde consola:
+//   fridaForceBotScore(20)  → siguiente reporte se marcará como bot
+//   fridaForceBotScore(45)  → siguiente reporte será sospechoso
+//   fridaForceBotScore(80)  → siguiente reporte será humano normal
+//   fridaForceBotScore(null) → desactivar el forzado, usar detección real
+window.fridaForceBotScore = function(score) {
+  if (score === null || score === undefined) {
+    delete window._fridaForceHumanScore;
+    console.log('FRIDA: 🧪 Bot score force disabled — using real detection');
+  } else {
+    window._fridaForceHumanScore = score;
+    console.log('FRIDA: 🧪 Next report will use humanScore=' + score + 
+      ' (' + (score < 30 ? 'BOT detected' : score < 60 ? 'suspicious' : 'human normal') + ')');
+  }
+};
+
 function checkRatelimit() {
   try {
     const raw = localStorage.getItem(RATELIMIT_KEY);
@@ -1376,6 +1415,11 @@ function trackStepTransition() {
 // 30-60: sospechoso, requiere corroboración
 // >60: comportamiento humano normal
 function calculateHumanScore() {
+  // ✨ FIX v36: si el modo testing está activo, devolver score forzado
+  if (window._fridaForceHumanScore !== undefined) {
+    return window._fridaForceHumanScore;
+  }
+  
   const m = window._behaviorMetrics;
   if (!m) return 50;  // default neutral si no se inicializó
   
@@ -1994,23 +2038,97 @@ function refreshObserverMap() {
     window.observerMarkers.push(marker);
   });
   
-  // Añadir puntos de heridos de surveys existentes (con badge "needs help")
+  // ✨ FIX v36: Añadir puntos de heridos con DOBLE votación:
+  //   - existenceConfirmations: confirma que SÍ hay heridos ahí (3+ valida el punto)
+  //   - attendedConfirmations: confirma que YA fueron atendidos (3+ marca como resuelto)
   (state.surveys || []).forEach(s => {
     if (s.answers && s.answers.injuries_points) {
       s.answers.injuries_points.forEach(p => {
+        const existConf = (p.existenceConfirmations || []).length;
+        const attendConf = (p.attendedConfirmations || []).length;
+        
+        // Color del marker según estado
+        let emoji = '🩹';
+        if (attendConf >= 3) emoji = '✅';        // ya atendido
+        else if (existConf >= 3) emoji = '🚨';    // existencia confirmada, pendiente
+        else emoji = '🩹';                         // sin verificar aún
+        
         const icon = L.divIcon({
           className: 'observer-injury-marker',
-          html: '<div style="font-size:18px;">🩹</div>',
-          iconSize: [18, 18], iconAnchor: [9, 18]
+          html: '<div style="font-size:22px;">' + emoji + '</div>',
+          iconSize: [22, 22], iconAnchor: [11, 22]
         });
         const marker = L.marker([p.lat, p.lng], { icon: icon }).addTo(window.observerMap);
-        const conf = (p.attendedConfirmations || []).length;
-        const status = conf >= 3 ? '✅ ATTENDED (' + conf + ' confirms)' : '⏳ Awaiting help (' + conf + '/3 confirms)';
-        marker.bindPopup('<div style="font-size:11px;">🩹 Injury point<br>' + status + '<br><button onclick="observerConfirmAttended(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer;">✓ Attended</button></div>');
+        
+        let existStatus, attendStatus;
+        if (existConf >= 3) existStatus = '✅ Verified (' + existConf + ')';
+        else existStatus = '⏳ Unverified (' + existConf + '/3)';
+        if (attendConf >= 3) attendStatus = '✅ Attended (' + attendConf + ')';
+        else attendStatus = '⏳ Not yet (' + attendConf + '/3)';
+        
+        const popupHtml = '<div style="font-size:11px; min-width:180px;">' +
+          '<b>🩹 Injury point</b><br>' +
+          '<div style="margin-top:6px; padding:4px 0; border-top:1px solid #eee;">' +
+            '<b>Existence:</b> ' + existStatus + '<br>' +
+            '<button onclick="observerConfirmInjuryExists(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#3b82f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">🔍 Confirm exists</button>' +
+          '</div>' +
+          '<div style="margin-top:6px; padding:4px 0; border-top:1px solid #eee;">' +
+            '<b>Status:</b> ' + attendStatus + '<br>' +
+            '<button onclick="observerConfirmAttended(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">✓ Mark attended</button>' +
+          '</div>' +
+        '</div>';
+        marker.bindPopup(popupHtml);
         window.observerMarkers.push(marker);
       });
     }
   });
+}
+
+// ✨ FIX v36: votación de "existence" — confirma que el herido SÍ está ahí
+function observerConfirmInjuryExists(surveyId, lat, lng) {
+  const fp = getFingerprintSync();
+  if (!fp) { alert('Fingerprint not ready'); return; }
+  
+  const p = loadUserProfile();
+  if (!p.observerActions) p.observerActions = { confirms: {}, disputes: {}, attended: {}, existence: {} };
+  if (!p.observerActions.existence) p.observerActions.existence = {};
+  
+  // Max 5 confirmaciones de existencia por usuario (anti-spam)
+  const totalExist = Object.keys(p.observerActions.existence).length;
+  const pointKey = surveyId + '|' + lat.toFixed(5) + '|' + lng.toFixed(5);
+  if (totalExist >= MAX_POINTS_PER_CATEGORY && !p.observerActions.existence[pointKey]) {
+    alert((t('observer_max_actions') || 'Max 5 confirms per session'));
+    return;
+  }
+  if (p.observerActions.existence[pointKey]) {
+    alert((t('observer_already_acted') || 'Already confirmed'));
+    return;
+  }
+  
+  p.observerActions.existence[pointKey] = new Date().toISOString();
+  saveUserProfile(p);
+  
+  // Aplicar voto al survey
+  const survey = state.surveys.find(s => s.id === surveyId);
+  if (!survey || !survey.answers || !survey.answers.injuries_points) return;
+  const point = survey.answers.injuries_points.find(pt => 
+    Math.abs(pt.lat - lat) < 0.00001 && Math.abs(pt.lng - lng) < 0.00001
+  );
+  if (!point) return;
+  
+  if (!point.existenceConfirmations) point.existenceConfirmations = [];
+  if (point.existenceConfirmations.includes(fp)) {
+    alert('Already confirmed');
+    return;
+  }
+  point.existenceConfirmations.push(fp);
+  refreshObserverMap();
+  
+  if (point.existenceConfirmations.length >= 3) {
+    alert('🚨 ' + (t('observer_injury_verified') || 'Injury point verified by 3+ observers — emergency teams notified'));
+  } else {
+    alert('🔍 ' + (t('observer_injury_progress') || 'Confirmation ' + point.existenceConfirmations.length + '/3 received'));
+  }
 }
 
 // Acciones de observer (con límites anti-spam y reputation tracking)
@@ -2514,8 +2632,9 @@ function nextStep(step) {
     document.getElementById('step-profile').classList.add('active');
   } else if (step === 'observer') {
     // ✨ TIER 3 CAP 6: pantalla observer
+    // ✨ FIX v36: NO llamar showObserverScreen aquí (causaba recursión infinita).
+    // El init del mapa ahora se dispara desde showObserverScreen DIRECTO.
     document.getElementById('step-observer').classList.add('active');
-    if (typeof showObserverScreen === 'function') showObserverScreen();
   } else {
     document.getElementById('step-' + step).classList.add('active');
     if (step === 7) {
@@ -9589,7 +9708,7 @@ if (typeof currentLang !== 'undefined') {
 // Register Service Worker for offline functionality
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('./service-worker.js')
       .then(reg => {
         console.log('FRIDA: Service Worker registered. App works offline.');
         // Check for updates
@@ -10074,6 +10193,16 @@ window.addEventListener('DOMContentLoaded', () => {
     if (typeof refreshProfileBadgeCount === 'function') refreshProfileBadgeCount();  // ✨ BLOQUE 7
     if (typeof initFingerprint === 'function') initFingerprint();  // ✨ TIER 3 CAP 1
     if (typeof initBehaviorTracking === 'function') initBehaviorTracking();  // ✨ FIX v34 anti-bot
+    
+    // ✨ FIX v36: activar test mode si ?test=1 en URL
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('test') === '1') {
+        const panel = document.getElementById('test-mode-panel');
+        if (panel) panel.style.display = 'block';
+        console.log('FRIDA: 🧪 TEST MODE active');
+      }
+    } catch (e) {}
   }, 700);
 });
 
