@@ -247,40 +247,54 @@ html[dir="rtl"] .options-grid {
   <div class="citizen-wrapper">
 
     <div id="step-0" class="form-step active">
-      <div class="emergency-screen">
-        <div class="emergency-label" data-i18n="system_label">FRIDA · Crisis Response System</div>
-        <button class="emergency-btn" onclick="initPanicReport(); nextStep(1)">
-          <span class="emergency-icon">🚨</span>
-          <span data-i18n="emergency_btn">ARE YOU IN AN EMERGENCY?</span>
-        </button>
+      <div class="emergency-screen" style="display:flex; flex-direction:column; min-height:100vh; padding:0;">
         
-        <!-- ✨ BLOQUE 7: botón secundario Observer Help (modo ciudadano remoto) -->
-        <!-- ✨ TIER 3 CAP 6: ya NO usa flujo emergencia — abre pantalla observer -->
-        <button class="observer-btn" onclick="showObserverScreen()" style="width:100%; max-width:280px; padding:14px; margin:0 auto 12px; display:block; background:rgba(82,183,136,0.1); border:1px solid #52B788; color:#52B788; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;">
-          <span style="font-size:18px; margin-right:6px;">👁️</span>
-          <span data-i18n="observer_btn">Report what you've seen (Observer mode)</span>
-        </button>
-        
-        <div class="signal-status">
-          <div class="signal-dot"></div>
-          <span data-i18n="signal_active">System active · GPS enabled</span>
+        <!-- ZONA 1: Header minimal (logo, idioma, status) -->
+        <div style="padding:12px 16px; border-bottom:1px solid rgba(255,255,255,0.05); display:flex; justify-content:space-between; align-items:center;">
+          <div class="emergency-label" style="margin:0; font-size:11px; opacity:0.6;" data-i18n="system_label">FRIDA · Crisis Response System</div>
+          <div class="signal-status" style="margin:0; padding:0; background:none; border:none;">
+            <div class="signal-dot"></div>
+            <span style="font-size:10px; opacity:0.7;" data-i18n="signal_active">System active</span>
+          </div>
         </div>
         
-        <!-- ✨ BLOQUE 7: link sutil al perfil con badges -->
-        <div style="margin-top:24px; text-align:center; display:flex; flex-direction:column; gap:8px; align-items:center;">
-          <button onclick="showProfileScreen()" style="background:transparent; border:none; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; text-decoration:underline;">
-            <span id="profile-badge-count">🏅 0</span> <span data-i18n="profile_link">My profile & badges</span>
+        <!-- ZONA 2: ACCIÓN PRINCIPAL — Botón rojo gigante centrado -->
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:30px 16px;">
+          <button class="emergency-btn" onclick="initPanicReport(); nextStep(1)" style="width:240px; height:240px;">
+            <span class="emergency-icon" style="font-size:48px;">🚨</span>
+            <span data-i18n="emergency_btn" style="font-size:22px; font-weight:800; letter-spacing:1px;">EMERGENCY</span>
           </button>
-          <!-- ✨ BLOQUE 8: link para escanear QR de otro usuario sin internet -->
-          <button onclick="showQrScanModal()" style="background:transparent; border:none; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer; text-decoration:underline;">
-            🌉 <span data-i18n="qr_scan_link">Scan someone's offline report</span>
-          </button>
-          <!-- ✨ SPRINT 4 CAP 4: install PWA + descargar APK -->
-          <div style="display:flex; gap:10px; justify-content:center; margin-top:8px;">
-            <button id="pwa-install-btn" onclick="triggerPwaInstall()" style="background:rgba(82,183,136,0.15); border:1px solid #52B788; color:#52B788; padding:6px 12px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:11px; font-weight:600; cursor:pointer;">
-              📲 <span data-i18n="install_pwa">Install App</span>
+          <div style="margin-top:14px; text-align:center; font-size:12px; color:var(--text2); max-width:280px; line-height:1.5;" data-i18n="emergency_sublabel">Tap if you need urgent help</div>
+        </div>
+        
+        <!-- ZONA 3: Acciones secundarias (Observer + QR scan) -->
+        <div style="padding:16px; border-top:1px solid rgba(255,255,255,0.05);">
+          <div style="font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; text-align:center; margin-bottom:10px;" data-i18n="citizen_actions_label">Other actions</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; max-width:400px; margin:0 auto;">
+            <button class="observer-btn" onclick="showObserverScreen()" style="padding:14px 10px; background:rgba(82,183,136,0.1); border:1px solid #52B788; color:#52B788; border-radius:10px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-size:22px;">👁️</span>
+              <span data-i18n="observer_btn">I want to help</span>
             </button>
-            <button onclick="downloadApk()" style="background:transparent; border:1px solid var(--border); color:var(--text2); padding:6px 12px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer;">
+            <button onclick="showQrScanModal()" style="padding:14px 10px; background:rgba(82,183,136,0.05); border:1px solid var(--border); color:var(--text2); border-radius:10px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:6px;">
+              <span style="font-size:22px;">🌉</span>
+              <span data-i18n="qr_scan_link">Scan offline QR</span>
+            </button>
+          </div>
+        </div>
+        
+        <!-- ZONA 4: Footer minimal (técnico, casi invisible) -->
+        <div style="padding:14px 16px; border-top:1px solid rgba(255,255,255,0.04); background:rgba(0,0,0,0.3);">
+          <div style="font-size:9px; color:var(--text2); text-transform:uppercase; letter-spacing:1px; text-align:center; margin-bottom:8px; opacity:0.6;" data-i18n="technical_options_label">App</div>
+          <div style="display:flex; gap:8px; justify-content:center; flex-wrap:wrap; align-items:center;">
+            <button onclick="showProfileScreen()" style="background:transparent; border:none; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer; padding:4px 8px; opacity:0.7;">
+              <span id="profile-badge-count">🏅 0</span> <span data-i18n="profile_link">Profile</span>
+            </button>
+            <span style="opacity:0.3;">·</span>
+            <button id="pwa-install-btn" onclick="triggerPwaInstall()" style="background:transparent; border:none; color:#52B788; font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer; padding:4px 8px;">
+              📲 <span data-i18n="install_pwa">Install</span>
+            </button>
+            <span style="opacity:0.3;">·</span>
+            <button onclick="downloadApk()" style="background:transparent; border:none; color:var(--text2); font-family:'DM Sans',sans-serif; font-size:11px; cursor:pointer; padding:4px 8px; opacity:0.7;">
               📦 <span data-i18n="download_apk">APK</span>
             </button>
           </div>
@@ -709,17 +723,17 @@ html[dir="rtl"] .options-grid {
       <span style="background:#F4A261; color:#000; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.5px;" data-i18n="demo_banner_label">DEMO · TRL 4</span>
       <span style="font-size:12px; color:var(--text2); flex:1;" data-i18n="demo_banner_desc">FRIDA is a working prototype validated in lab with real backend (Supabase + PostGIS), multi-user real-time sync, offline-first. Production roadmap: YOLOv8 model, Sentinel-2/MAXAR integration, JWT auth, multi-region deployment.</span>
     </div>
-    <div class="dashboard-header">
+    
+    <!-- ✨ REDISEÑO v38: header limpio sin botones export (ahora al fondo) -->
+    <div class="dashboard-header" style="margin-bottom:16px;">
       <div>
         <div class="dashboard-title" data-i18n="dash_title">UNDP Crisis Dashboard</div>
         <div class="dashboard-subtitle" data-i18n="dash_sub">FRIDA · Real-time damage assessment · Updated just now</div>
       </div>
-      <button class="export-btn" onclick="exportCSV()" data-i18n="export_btn">⬇ Export CSV</button>
-      <!-- ✨ BLOQUE 9: Export GeoJSON (UNDP-compliant) -->
-      <button class="export-btn" onclick="exportGeoJSON()" data-i18n="export_geojson" style="margin-left:6px;">⬇ Export GeoJSON</button>
-      <!-- ✨ SPRINT 4 / CAP 1: botón de routing respetando bloqueos -->
-      <button class="export-btn" onclick="openRoutingPanel()" data-i18n="routing_btn" style="margin-left:6px; background:rgba(82,183,136,0.15); border-color:#52B788; color:#52B788;">🗺️ Plan Route</button>
     </div>
+    
+    <!-- ✨ REDISEÑO v38: sección KPIs primero -->
+    <div style="font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; opacity:0.7;" data-i18n="dashboard_kpis_section">Key indicators</div>
     <div class="kpi-grid">
       <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">0</div><div class="kpi-label" data-i18n="kpi_total">Total Reports</div></div>
       <div class="kpi-card critical"><div class="kpi-value" id="kpi-critical">0</div><div class="kpi-label" data-i18n="kpi_critical">Critical Zones</div></div>
@@ -807,7 +821,21 @@ html[dir="rtl"] .options-grid {
         </tbody>
       </table>
     </div>
+    
+    <!-- ✨ REDISEÑO v38: sección Tools al fondo -->
+    <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
+      <div style="font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; opacity:0.7;" data-i18n="dashboard_tools_section">Tools</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="export-btn" onclick="exportCSV()" data-i18n="export_btn">⬇ Export CSV</button>
+        <button class="export-btn" onclick="exportGeoJSON()" data-i18n="export_geojson">⬇ Export GeoJSON</button>
+      </div>
+    </div>
   </div>
+  
+  <!-- ✨ REDISEÑO v38: Routing como FAB flotante para acceso rápido (solo en dashboard) -->
+  <button id="routing-fab" onclick="openRoutingPanel()" style="display:none; position:fixed; bottom:20px; right:20px; padding:14px 22px; border-radius:28px; background:#52B788; color:#fff; border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; z-index:9000; box-shadow:0 4px 16px rgba(82,183,136,0.4); align-items:center; gap:8px;">
+    🗺️ <span data-i18n="routing_btn">Plan Route</span>
+  </button>
 </div>
 
 <script>
@@ -873,6 +901,12 @@ function showScreen(id, btn) {
   document.getElementById(id).classList.add('active');
   if (btn) btn.classList.add('active');
   if (id === 'map-screen') setTimeout(initMap, 150);
+  
+  // ✨ REDISEÑO v38: routing FAB SOLO visible en dashboard
+  const routingFab = document.getElementById('routing-fab');
+  if (routingFab) {
+    routingFab.style.display = (id === 'dashboard-screen') ? 'flex' : 'none';
+  }
 }
 
 // ===== FORM =====
@@ -1462,14 +1496,38 @@ function applyBehaviorScore(report) {
   report.humanScore = score;
   
   if (score < 30) {
-    report.credibility = Math.max(0, Math.floor((report.credibility || 50) * 0.3));
+    // ✨ MEJORA v37: penalty SEVERO y ESCALABLE (cuanto más bot detectado, peor)
+    // Cada reporte bot reduce credibility a 10% del original (no 30% como antes)
+    report.credibility = Math.max(0, Math.floor((report.credibility || 50) * 0.1));
     report.effectiveCredibility = report.credibility;
     report.flagged = true;
     report.flaggedReason = 'bot_behavior_detected';
-    console.warn('FRIDA: 🤖 Bot behavior detected (score=' + score + '), credibility penalized');
+    console.warn('FRIDA: 🤖 Bot behavior detected (score=' + score + '), credibility set to 10%');
     
     const p = loadUserProfile();
-    p.reputationScore = Math.max(0, (p.reputationScore || 50) - 20);
+    p.flaggedReports = (p.flaggedReports || 0) + 1;
+    
+    // Penalty acumulativo: cada vez que detectamos bot, la siguiente penalización es peor
+    // 1er bot detectado: -20 reputación
+    // 2do bot: -30 reputación
+    // 3er bot: -50 reputación
+    // 4to+: -80 reputación (efectivamente blacklist)
+    let repPenalty = 20;
+    if (p.flaggedReports >= 4) repPenalty = 80;
+    else if (p.flaggedReports === 3) repPenalty = 50;
+    else if (p.flaggedReports === 2) repPenalty = 30;
+    
+    p.reputationScore = Math.max(0, (p.reputationScore || 50) - repPenalty);
+    console.warn('FRIDA: 🤖 Reputation penalty: -' + repPenalty + ' (total flags: ' + p.flaggedReports + ')');
+    
+    // Si reputación llega a 0, marcar el reporte como rechazado completamente
+    if (p.reputationScore === 0) {
+      report.credibility = 0;
+      report.effectiveCredibility = 0;
+      report.flaggedReason = 'bot_blacklisted';
+      console.warn('FRIDA: 🚫 User reputation = 0, all reports from this device will be auto-rejected');
+    }
+    
     saveUserProfile(p);
   } else if (score < 60) {
     // Sospechoso: cred queda baja hasta corroboración
@@ -1484,57 +1542,124 @@ function applyBehaviorScore(report) {
 
 const PROFILE_KEY = 'frida-user-profile';
 
+// ✨ MEJORA v37: badges con NIVELES (Bronze/Silver/Gold)
+// getLevel(p) devuelve 0=no, 1=bronze, 2=silver, 3=gold
 const BADGE_CATALOG = {
   first_responder: {
-    emoji: '🌱', 
-    nameKey: 'badge_first_responder', 
+    emoji: '🌱',
+    nameKey: 'badge_first_responder',
     descKey: 'badge_first_responder_desc',
-    condition: (p) => p.reportsCount >= 1
+    // binario: 1 reporte = unlock
+    condition: (p) => p.reportsCount >= 1,
+    getLevel: (p) => p.reportsCount >= 1 ? 1 : 0,
+    levels: ['', '🌱']
   },
   verified_citizen: {
-    emoji: '🛡️', 
-    nameKey: 'badge_verified_citizen', 
+    emoji: '🛡️',
+    nameKey: 'badge_verified_citizen',
     descKey: 'badge_verified_citizen_desc',
-    condition: (p) => p.highCredibilityReports >= 5
+    // 5 = bronze, 20 = silver, 50 = gold
+    condition: (p) => p.highCredibilityReports >= 5,
+    getLevel: (p) => {
+      const n = p.highCredibilityReports || 0;
+      if (n >= 50) return 3;
+      if (n >= 20) return 2;
+      if (n >= 5) return 1;
+      return 0;
+    },
+    levels: ['', '🛡️', '🛡️', '🛡️']
   },
   community_mapper: {
-    emoji: '🗺️', 
-    nameKey: 'badge_community_mapper', 
+    emoji: '🗺️',
+    nameKey: 'badge_community_mapper',
     descKey: 'badge_community_mapper_desc',
-    condition: (p) => p.surveysCount >= 10
+    // 10 = bronze, 25 = silver, 50 = gold
+    condition: (p) => p.surveysCount >= 10,
+    getLevel: (p) => {
+      const n = p.surveysCount || 0;
+      if (n >= 50) return 3;
+      if (n >= 25) return 2;
+      if (n >= 10) return 1;
+      return 0;
+    },
+    levels: ['', '🗺️', '🗺️', '🗺️']
   },
   crisis_helper: {
-    emoji: '🤝', 
-    nameKey: 'badge_crisis_helper', 
+    emoji: '🤝',
+    nameKey: 'badge_crisis_helper',
     descKey: 'badge_crisis_helper_desc',
-    condition: (p) => p.observerReports >= 3
+    // 3 = bronze, 10 = silver, 25 = gold
+    condition: (p) => p.observerReports >= 3,
+    getLevel: (p) => {
+      const n = p.observerReports || 0;
+      if (n >= 25) return 3;
+      if (n >= 10) return 2;
+      if (n >= 3) return 1;
+      return 0;
+    },
+    levels: ['', '🤝', '🤝', '🤝']
   },
-  multilingual: {
-    emoji: '🌍', 
-    nameKey: 'badge_multilingual', 
-    descKey: 'badge_multilingual_desc',
-    condition: (p) => (p.languagesUsed || []).length >= 2
-  },
+  // ✨ MEJORA v37: badge "Multilingual" ELIMINADO (la app traduce sola, no es logro real)
   champion: {
-    emoji: '🏆', 
-    nameKey: 'badge_champion', 
+    emoji: '🏆',
+    nameKey: 'badge_champion',
     descKey: 'badge_champion_desc',
+    // 3 badges = bronze, 5 badges = gold (no hay silver intermedio porque solo hay 5 badges base)
     condition: (p) => {
-      // Suma badges desbloqueados (excluyendo champion mismo)
       let count = 0;
-      ['first_responder','verified_citizen','community_mapper','crisis_helper','multilingual','bridge'].forEach(k => {
+      ['first_responder','verified_citizen','community_mapper','crisis_helper','bridge'].forEach(k => {
         if (BADGE_CATALOG[k].condition(p)) count++;
       });
       return count >= 3;
-    }
+    },
+    getLevel: (p) => {
+      let count = 0;
+      ['first_responder','verified_citizen','community_mapper','crisis_helper','bridge'].forEach(k => {
+        if (BADGE_CATALOG[k].condition(p)) count++;
+      });
+      if (count >= 5) return 3;
+      if (count >= 3) return 1;
+      return 0;
+    },
+    levels: ['', '🏆', '', '🏆']
   },
   bridge: {
     emoji: '🌉',
     nameKey: 'badge_bridge',
     descKey: 'badge_bridge_desc',
-    condition: (p) => (p.bridgeRelays || 0) >= 1
+    // 1 = bronze, 10 = silver, 100 = gold (la escalable como pediste)
+    condition: (p) => (p.bridgeRelays || 0) >= 1,
+    getLevel: (p) => {
+      const n = p.bridgeRelays || 0;
+      if (n >= 100) return 3;
+      if (n >= 10) return 2;
+      if (n >= 1) return 1;
+      return 0;
+    },
+    levels: ['', '🌉', '🌉', '🌉']
   }
 };
+
+// Helper para color de nivel (Bronze/Silver/Gold)
+function getLevelColor(level) {
+  if (level === 3) return '#FFD700';  // gold
+  if (level === 2) return '#C0C0C0';  // silver
+  if (level === 1) return '#CD7F32';  // bronze
+  return '#444';                      // locked
+}
+
+function getLevelLabel(level) {
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  const labels = {
+    en: ['', 'Bronze', 'Silver', 'Gold'],
+    es: ['', 'Bronce', 'Plata', 'Oro'],
+    fr: ['', 'Bronze', 'Argent', 'Or'],
+    ar: ['', 'برونزي', 'فضي', 'ذهبي'],
+    zh: ['', '铜', '银', '金'],
+    ru: ['', 'Бронза', 'Серебро', 'Золото']
+  };
+  return (labels[lang] || labels.en)[level] || '';
+}
 
 // Carga el perfil del usuario (o crea uno nuevo)
 function loadUserProfile() {
@@ -1673,16 +1798,22 @@ function showProfileScreen() {
     </div>`;
   }
   
-  // Grid de badges
+  // ✨ MEJORA v37: grid con niveles Bronze/Silver/Gold
   const grid = document.getElementById('profile-badges-grid');
   if (grid) {
     const html = Object.keys(BADGE_CATALOG).map(key => {
       const badge = BADGE_CATALOG[key];
-      const unlocked = badge.condition(p);
+      const level = (typeof badge.getLevel === 'function') ? badge.getLevel(p) : (badge.condition(p) ? 1 : 0);
+      const unlocked = level > 0;
       const opacity = unlocked ? '1' : '0.3';
-      const border = unlocked ? '2px solid #52B788' : '1px solid var(--border)';
+      const levelColor = getLevelColor(level);
+      const border = unlocked ? '2px solid ' + levelColor : '1px solid var(--border)';
       const bg = unlocked ? 'rgba(82,183,136,0.05)' : 'var(--bg3)';
-      return `<div style="background:${bg}; border:${border}; padding:12px 8px; border-radius:10px; text-align:center; opacity:${opacity};">
+      const levelLabel = unlocked ? getLevelLabel(level) : '';
+      const levelBadge = unlocked ? '<div style="position:absolute; top:6px; right:6px; background:' + levelColor + '; color:#000; font-size:9px; font-weight:700; padding:2px 6px; border-radius:8px;">' + levelLabel + '</div>' : '';
+      
+      return `<div style="position:relative; background:${bg}; border:${border}; padding:12px 8px; border-radius:10px; text-align:center; opacity:${opacity};">
+        ${levelBadge}
         <div style="font-size:32px; line-height:1; margin-bottom:6px;">${badge.emoji}</div>
         <div style="font-size:11px; font-weight:700; color:var(--text); margin-bottom:3px;">${t(badge.nameKey)}</div>
         <div style="font-size:9px; color:var(--text2); line-height:1.3;">${t(badge.descKey)}</div>
@@ -1706,6 +1837,88 @@ function initObserverReport() {
 function showObserverScreen() {
   nextStep('observer');
   
+  // ✨ MEJORA v37: chequear ubicación del usuario antes de mostrar mapa interactivo
+  // Solo permitimos interactuar si el usuario está DENTRO de un evento activo.
+  checkObserverProximity().then(canInteract => {
+    if (!canInteract) {
+      const mapEl = document.getElementById('observer-map');
+      if (mapEl) {
+        mapEl.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; padding:30px; color:#fbbf24; text-align:center; font-size:13px; line-height:1.5;">' + 
+          (t('observer_out_of_range') || '⚠️ You must be within the event area to use Observer Mode here.') + 
+          '<br><br><span style="color:#888; font-size:11px;">' + 
+          (t('observer_anti_spam_explain') || 'This prevents misinformation from far away.') + 
+          '</span></div>';
+        mapEl.style.background = '#1a1a1a';
+      }
+      return;
+    }
+    
+    // Sí puede interactuar — proceder normal
+    initObserverMap();
+  });
+}
+
+// ✨ MEJORA v37 / FIX v38: helper que verifica si el usuario está cerca de algún evento activo
+async function checkObserverProximity() {
+  // ✨ FIX v38: si NO hay eventos activos, también bloqueamos (no había nada que verificar antes y eso era el bug)
+  const activeEvents = (state.events || []).filter(e => e.status !== 'closed' && e.status !== 'isolated');
+  if (activeEvents.length === 0) {
+    console.warn('FRIDA: 👁️ Observer denied — no active events available to verify');
+    return false;
+  }
+  
+  // Obtener GPS del usuario (rápido, con timeout corto)
+  let userLat = null, userLng = null;
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(
+        p => resolve(p),
+        e => reject(e),
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      );
+    });
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+  } catch (e) {
+    console.warn('FRIDA: 👁️ Observer denied — no GPS available to verify proximity');
+    return false;
+  }
+  
+  // ¿Está dentro del bounding box de algún evento activo?
+  for (let i = 0; i < activeEvents.length; i++) {
+    const ev = activeEvents[i];
+    const reportsInEvent = (state.reports || []).filter(r => r.eventId === ev.id && r.coords);
+    
+    let radius = 5000;
+    let centerLat = ev.centerLat;
+    let centerLng = ev.centerLng;
+    
+    if (reportsInEvent.length > 0) {
+      const lats = reportsInEvent.map(r => r.coords.lat);
+      const lngs = reportsInEvent.map(r => r.coords.lng);
+      const maxLat = Math.max.apply(null, lats);
+      const minLat = Math.min.apply(null, lats);
+      const maxLng = Math.max.apply(null, lngs);
+      const minLng = Math.min.apply(null, lngs);
+      centerLat = (maxLat + minLat) / 2;
+      centerLng = (maxLng + minLng) / 2;
+      const diagonal = haversineMeters(maxLat, maxLng, minLat, minLng);
+      radius = Math.max(5000, diagonal / 2 + 5000);
+    }
+    
+    const distToEvent = haversineMeters(userLat, userLng, centerLat, centerLng);
+    if (distToEvent <= radius) {
+      console.log('FRIDA: 👁️ Observer access granted — within event "' + ev.name + '" (' + Math.round(distToEvent) + 'm from center, radius ' + Math.round(radius) + 'm)');
+      return true;
+    }
+  }
+  
+  console.warn('FRIDA: 👁️ Observer denied — user not within any active event area');
+  return false;
+}
+
+// Inicialización del mapa observer (separada para llamar después del proximity check)
+function initObserverMap() {
   // ✨ FIX v34: esperar render completo del DOM antes de inicializar Leaflet.
   // Leaflet requiere que el contenedor tenga dimensiones reales (no display:none).
   // Usamos requestAnimationFrame para esperar al siguiente paint, después setTimeout
@@ -1777,7 +1990,16 @@ function getConfirmedRoadBlocks() {
     if (!s.answers || !s.answers.road_blocks) return;
     s.answers.road_blocks.forEach(p => {
       if (typeof p.lat === 'number' && typeof p.lng === 'number') {
-        allPoints.push({ lat: p.lat, lng: p.lng, surveyId: s.id, addedAt: p.addedAt });
+        // ✨ MEJORA v37: filtrar puntos marcados como "ya libre" por 3+ observadores
+        const clearedVotes = (p.clearedConfirmations || []).length;
+        if (clearedVotes >= 3) {
+          // Bloqueo removido por votación, ya no contar
+          return;
+        }
+        allPoints.push({ 
+          lat: p.lat, lng: p.lng, surveyId: s.id, addedAt: p.addedAt,
+          originalPoint: p, clearedVotes: clearedVotes
+        });
       }
     });
   });
@@ -1799,13 +2021,17 @@ function getConfirmedRoadBlocks() {
     clusters.push(cluster);
   });
   
-  // Solo retornar los CONFIRMADOS (3+ reportes)
   return clusters
     .filter(c => c.length >= ROAD_BLOCK_MIN_CONFIRMS)
     .map(c => {
       const avgLat = c.reduce((s, p) => s + p.lat, 0) / c.length;
       const avgLng = c.reduce((s, p) => s + p.lng, 0) / c.length;
-      return { lat: avgLat, lng: avgLng, confirms: c.length };
+      // Pasar las referencias para que observer pueda votar "cleared"
+      return { 
+        lat: avgLat, lng: avgLng, confirms: c.length,
+        points: c.map(p => ({ surveyId: p.surveyId, lat: p.lat, lng: p.lng, originalPoint: p.originalPoint })),
+        clearedVotes: Math.min.apply(null, c.map(p => p.clearedVotes))
+      };
     });
 }
 
@@ -1976,30 +2202,138 @@ async function computeAndDrawRoute() {
     return;
   }
   
-  // Dibujar línea de ruta
-  if (routingLine) routingMap.removeLayer(routingLine);
-  const latlngs = result.coordinates.map(c => [c[1], c[0]]);  // OSRM: [lng,lat] → leaflet: [lat,lng]
+  // ✨ MEJORA v37: limpiar líneas previas (puede haber más de una)
+  if (window._routingLines) {
+    window._routingLines.forEach(ln => { try { routingMap.removeLayer(ln); } catch(e){} });
+  }
+  window._routingLines = [];
+  if (routingLine) { try { routingMap.removeLayer(routingLine); } catch(e){} routingLine = null; }
   
-  const hasBlocks = result.intersectsBlocks.length > 0;
-  routingLine = L.polyline(latlngs, {
-    color: hasBlocks ? '#ef4444' : '#52B788',
-    weight: 5,
-    opacity: 0.85
-  }).addTo(routingMap);
+  const latlngs = result.coordinates.map(c => [c[1], c[0]]);
+  const blocks = result.intersectsBlocks || [];
   
-  routingMap.fitBounds(routingLine.getBounds(), { padding: [30, 30] });
+  // ✨ MEJORA v37: pintar segmentos por color
+  // Para cada segmento de la ruta, ver si está cerca de algún bloqueo:
+  //   - si está cerca → rojo
+  //   - si no → verde
+  const RED_PROXIMITY = ROAD_BLOCK_PROXIMITY_METERS;  // 50m
+  const segmentColors = [];
   
-  // Mensaje en panel
+  for (let i = 0; i < latlngs.length - 1; i++) {
+    const [aLat, aLng] = latlngs[i];
+    const [bLat, bLng] = latlngs[i + 1];
+    let isBlocked = false;
+    const allBlocks = getConfirmedRoadBlocks();
+    for (let j = 0; j < allBlocks.length; j++) {
+      const block = allBlocks[j];
+      const dist = distancePointToSegment(block.lat, block.lng, aLat, aLng, bLat, bLng);
+      if (dist < RED_PROXIMITY) {
+        isBlocked = true;
+        break;
+      }
+    }
+    segmentColors.push(isBlocked ? 'blocked' : 'clear');
+  }
+  
+  // Agrupar segmentos consecutivos del mismo color en polylines
+  let currentGroup = { color: segmentColors[0], coords: [latlngs[0]] };
+  const groups = [currentGroup];
+  for (let i = 0; i < segmentColors.length; i++) {
+    if (segmentColors[i] === currentGroup.color) {
+      currentGroup.coords.push(latlngs[i + 1]);
+    } else {
+      // cambio de color — crear nuevo grupo
+      const newGroup = { color: segmentColors[i], coords: [latlngs[i], latlngs[i + 1]] };
+      groups.push(newGroup);
+      currentGroup = newGroup;
+    }
+  }
+  
+  // Dibujar cada grupo
+  groups.forEach(g => {
+    const color = g.color === 'blocked' ? '#ef4444' : '#52B788';
+    const line = L.polyline(g.coords, { color: color, weight: 5, opacity: 0.85 }).addTo(routingMap);
+    window._routingLines.push(line);
+  });
+  
+  // Fit bounds a la ruta completa
+  const fullLine = L.polyline(latlngs);
+  routingMap.fitBounds(fullLine.getBounds(), { padding: [30, 30] });
+  
   const km = (result.distanceMeters / 1000).toFixed(1);
   const min = Math.round(result.durationSeconds / 60);
+  const blockedSegments = groups.filter(g => g.color === 'blocked').length;
+  
   let msg = '';
-  if (hasBlocks) {
-    msg = '🚧 ' + (t('routing_blocked_warning') || 'Route crosses ' + result.intersectsBlocks.length + ' confirmed block(s)') + 
-          ' · ' + km + ' km · ' + min + ' min';
+  if (blocks.length > 0) {
+    msg = '🚧 ' + (t('routing_blocked_warning') || 'Route crosses ' + blocks.length + ' confirmed block(s)') + 
+          ' · ' + km + ' km · ' + min + ' min · ' + blockedSegments + ' blocked segment(s)';
   } else {
     msg = '✅ ' + (t('routing_clear') || 'Clear route') + ' · ' + km + ' km · ' + min + ' min';
   }
   if (status) status.innerHTML = msg;
+  
+  // ✨ MEJORA v37: intentar ruta alternativa SI hay bloqueos
+  // OSRM permite ?alternatives=true en la query — añade hasta 3 rutas alternativas
+  if (blocks.length > 0) {
+    tryAlternativeRoute(from, to, status);
+  }
+}
+
+// ✨ MEJORA v37: calcular ruta alternativa via OSRM con alternatives=true
+async function tryAlternativeRoute(from, to, statusEl) {
+  const url = OSRM_BASE + '/' + from.lng + ',' + from.lat + ';' + to.lng + ',' + to.lat + 
+              '?overview=full&geometries=geojson&alternatives=true';
+  
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.routes || data.routes.length < 2) return;
+    
+    // Probar cada alternativa, quedarse con la que pase MENOS por bloqueos
+    const blocks = getConfirmedRoadBlocks();
+    let bestAlt = null;
+    let bestAltBlocks = Infinity;
+    
+    for (let r = 1; r < data.routes.length; r++) {
+      const altRoute = data.routes[r];
+      const altCoords = altRoute.geometry.coordinates;
+      let altBlockCount = 0;
+      blocks.forEach(block => {
+        for (let i = 0; i < altCoords.length - 1; i++) {
+          const [aLng, aLat] = altCoords[i];
+          const [bLng, bLat] = altCoords[i + 1];
+          if (distancePointToSegment(block.lat, block.lng, aLat, aLng, bLat, bLng) < ROAD_BLOCK_PROXIMITY_METERS) {
+            altBlockCount++;
+            break;
+          }
+        }
+      });
+      if (altBlockCount < bestAltBlocks) {
+        bestAltBlocks = altBlockCount;
+        bestAlt = altRoute;
+      }
+    }
+    
+    // Si encontramos una alternativa MEJOR (menos bloqueos), pintarla en amarillo punteado
+    if (bestAlt && bestAltBlocks === 0) {
+      const altLatlngs = bestAlt.geometry.coordinates.map(c => [c[1], c[0]]);
+      const altLine = L.polyline(altLatlngs, {
+        color: '#F4A261', weight: 4, opacity: 0.8, dashArray: '8, 8'
+      }).addTo(routingMap);
+      window._routingLines.push(altLine);
+      
+      const altKm = (bestAlt.distance / 1000).toFixed(1);
+      const altMin = Math.round(bestAlt.duration / 60);
+      if (statusEl) {
+        statusEl.innerHTML += '<br>↪️ ' + (t('routing_alternative_found') || 'Alternative route available') +
+                              ' · ' + altKm + ' km · ' + altMin + ' min (yellow dashed)';
+      }
+    }
+  } catch (err) {
+    console.warn('FRIDA: alternative route fetch failed:', err.message);
+  }
 }
 
 function resetRoutingPanel() {
@@ -2007,6 +2341,11 @@ function resetRoutingPanel() {
   if (routingFromMarker) { routingMap.removeLayer(routingFromMarker); routingFromMarker = null; }
   if (routingToMarker)   { routingMap.removeLayer(routingToMarker);   routingToMarker = null; }
   if (routingLine)       { routingMap.removeLayer(routingLine);       routingLine = null; }
+  // ✨ MEJORA v37: limpiar las líneas múltiples
+  if (window._routingLines) {
+    window._routingLines.forEach(ln => { try { routingMap.removeLayer(ln); } catch(e){} });
+    window._routingLines = [];
+  }
   drawConfirmedBlocksOnRoutingMap();
 }
 
@@ -2024,9 +2363,19 @@ function refreshObserverMap() {
   window.observerMarkers.forEach(m => { try { window.observerMap.removeLayer(m); } catch(e){} });
   window.observerMarkers = [];
   
-  // Añadir reportes existentes
+  // ✨ MEJORA v37: helper para chequear si un reporte/survey es de evento cerrado
+  const closedEventIds = new Set();
+  (state.events || []).forEach(ev => {
+    if (ev.status === 'closed') closedEventIds.add(ev.id);
+  });
+  const isFromClosedEvent = function(item) {
+    return item && item.eventId && closedEventIds.has(item.eventId);
+  };
+  
+  // Añadir reportes existentes (excluyendo de eventos cerrados)
   (state.reports || []).forEach(r => {
     if (!r.coords) return;
+    if (isFromClosedEvent(r)) return;  // ✨ MEJORA v37: oculto si evento cerrado
     const dmgColor = r.damage === 'complete' ? '#E63946' : r.damage === 'partial' ? '#F4A261' : '#52B788';
     const icon = L.divIcon({
       className: 'observer-report-marker',
@@ -2034,7 +2383,41 @@ function refreshObserverMap() {
       iconSize: [14, 14], iconAnchor: [7, 7]
     });
     const marker = L.marker([r.coords.lat, r.coords.lng], { icon: icon }).addTo(window.observerMap);
-    marker.bindPopup('<div style="font-size:11px;"><b>' + r.crisis + '</b><br>' + r.infra + ' · ' + r.damage + '<br>Cred: ' + (r.credibility||0) + '%<br><button onclick="observerConfirmReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer;">✓ Confirm</button> <button onclick="observerDisputeReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer;">✗ Dispute</button></div>');
+    
+    // ✨ MEJORA v37: popup traducible
+    const confirmTxt = t('observer_btn_confirm') || '✓ Confirm';
+    const disputeTxt = t('observer_btn_dispute') || '✗ Dispute';
+    const credTxt = t('observer_label_cred') || 'Cred';
+    
+    marker.bindPopup('<div style="font-size:11px;"><b>' + r.crisis + '</b><br>' + 
+      r.infra + ' · ' + r.damage + '<br>' + credTxt + ': ' + (r.credibility||0) + '%<br>' +
+      '<button onclick="observerConfirmReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer;">' + confirmTxt + '</button> ' +
+      '<button onclick="observerDisputeReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer;">' + disputeTxt + '</button></div>');
+    window.observerMarkers.push(marker);
+  });
+  
+  // ✨ MEJORA v37: Mostrar bloqueos de vialidades CONFIRMADOS con opción de "ya libre"
+  const blocks = getConfirmedRoadBlocks();
+  blocks.forEach(b => {
+    const icon = L.divIcon({
+      className: 'observer-block-marker',
+      html: '<div style="font-size:22px;">🚧</div>',
+      iconSize: [22, 22], iconAnchor: [11, 22]
+    });
+    const marker = L.marker([b.lat, b.lng], { icon: icon }).addTo(window.observerMap);
+    
+    const blockTitle = t('observer_block_title') || '🚧 Confirmed road block';
+    const confirmsLabel = t('observer_block_confirms') || 'confirms';
+    const clearStatus = t('observer_block_cleared_status') || 'Cleared votes';
+    const clearBtn = t('observer_block_clear_btn') || '✓ Already cleared';
+    
+    marker.bindPopup('<div style="font-size:11px; min-width:170px;">' +
+      '<b>' + blockTitle + '</b><br>' +
+      b.confirms + ' ' + confirmsLabel + '<br>' +
+      '<div style="margin-top:6px; padding-top:6px; border-top:1px solid #ccc;">' +
+        '<b>' + clearStatus + ':</b> ' + (b.clearedVotes || 0) + '/3<br>' +
+        '<button onclick="observerMarkBlockCleared(' + b.lat + ',' + b.lng + ')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">' + clearBtn + '</button>' +
+      '</div></div>');
     window.observerMarkers.push(marker);
   });
   
@@ -2042,6 +2425,7 @@ function refreshObserverMap() {
   //   - existenceConfirmations: confirma que SÍ hay heridos ahí (3+ valida el punto)
   //   - attendedConfirmations: confirma que YA fueron atendidos (3+ marca como resuelto)
   (state.surveys || []).forEach(s => {
+    if (isFromClosedEvent(s)) return;  // ✨ MEJORA v37
     if (s.answers && s.answers.injuries_points) {
       s.answers.injuries_points.forEach(p => {
         const existConf = (p.existenceConfirmations || []).length;
@@ -2060,21 +2444,32 @@ function refreshObserverMap() {
         });
         const marker = L.marker([p.lat, p.lng], { icon: icon }).addTo(window.observerMap);
         
+        // ✨ FIX v38: todos los textos del popup traducidos vía t()
+        const verifiedLbl = t('observer_verified_short') || 'Verified';
+        const unverifiedLbl = t('observer_unverified_short') || 'Unverified';
+        const attendedLbl = t('observer_attended_short') || 'Attended';
+        const notYetLbl = t('observer_notyet_short') || 'Not yet';
+        const injuryTitle = t('observer_injury_title') || '🩹 Injury point';
+        const existenceLbl = t('observer_existence_label') || 'Existence';
+        const statusLbl = t('observer_status_label') || 'Status';
+        const confirmExistsBtn = t('observer_confirm_exists_btn') || '🔍 Confirm exists';
+        const markAttendedBtn = t('observer_mark_attended_btn') || '✓ Mark attended';
+        
         let existStatus, attendStatus;
-        if (existConf >= 3) existStatus = '✅ Verified (' + existConf + ')';
-        else existStatus = '⏳ Unverified (' + existConf + '/3)';
-        if (attendConf >= 3) attendStatus = '✅ Attended (' + attendConf + ')';
-        else attendStatus = '⏳ Not yet (' + attendConf + '/3)';
+        if (existConf >= 3) existStatus = '✅ ' + verifiedLbl + ' (' + existConf + ')';
+        else existStatus = '⏳ ' + unverifiedLbl + ' (' + existConf + '/3)';
+        if (attendConf >= 3) attendStatus = '✅ ' + attendedLbl + ' (' + attendConf + ')';
+        else attendStatus = '⏳ ' + notYetLbl + ' (' + attendConf + '/3)';
         
         const popupHtml = '<div style="font-size:11px; min-width:180px;">' +
-          '<b>🩹 Injury point</b><br>' +
+          '<b>' + injuryTitle + '</b><br>' +
           '<div style="margin-top:6px; padding:4px 0; border-top:1px solid #eee;">' +
-            '<b>Existence:</b> ' + existStatus + '<br>' +
-            '<button onclick="observerConfirmInjuryExists(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#3b82f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">🔍 Confirm exists</button>' +
+            '<b>' + existenceLbl + ':</b> ' + existStatus + '<br>' +
+            '<button onclick="observerConfirmInjuryExists(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#3b82f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">' + confirmExistsBtn + '</button>' +
           '</div>' +
           '<div style="margin-top:6px; padding:4px 0; border-top:1px solid #eee;">' +
-            '<b>Status:</b> ' + attendStatus + '<br>' +
-            '<button onclick="observerConfirmAttended(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">✓ Mark attended</button>' +
+            '<b>' + statusLbl + ':</b> ' + attendStatus + '<br>' +
+            '<button onclick="observerConfirmAttended(\'' + s.id + '\',' + p.lat + ',' + p.lng + ')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">' + markAttendedBtn + '</button>' +
           '</div>' +
         '</div>';
         marker.bindPopup(popupHtml);
@@ -2082,6 +2477,47 @@ function refreshObserverMap() {
       });
     }
   });
+}
+
+// ✨ MEJORA v37: votación "ya libre" — observer marca bloqueo de vialidad como removido
+function observerMarkBlockCleared(blockLat, blockLng) {
+  const fp = getFingerprintSync();
+  if (!fp) { alert('Fingerprint not ready'); return; }
+  
+  // Encontrar TODOS los puntos del cluster (a <30m de blockLat/blockLng)
+  let pointsModified = 0;
+  (state.surveys || []).forEach(s => {
+    if (!s.answers || !s.answers.road_blocks) return;
+    s.answers.road_blocks.forEach(p => {
+      if (typeof p.lat !== 'number' || typeof p.lng !== 'number') return;
+      if (haversineMeters(p.lat, p.lng, blockLat, blockLng) > 30) return;
+      
+      if (!p.clearedConfirmations) p.clearedConfirmations = [];
+      if (!p.clearedConfirmations.includes(fp)) {
+        p.clearedConfirmations.push(fp);
+        pointsModified++;
+      }
+    });
+  });
+  
+  if (pointsModified === 0) {
+    alert((t('observer_already_acted') || 'Already voted'));
+    return;
+  }
+  
+  // Verificar si ahora se removió por votación
+  const stillPresent = getConfirmedRoadBlocks().find(b => 
+    Math.abs(b.lat - blockLat) < 0.0003 && Math.abs(b.lng - blockLng) < 0.0003
+  );
+  
+  refreshObserverMap();
+  
+  if (!stillPresent) {
+    alert('✅ ' + (t('observer_block_removed') || 'Block confirmed as cleared by 3+ observers and removed'));
+  } else {
+    const votes = stillPresent.clearedVotes;
+    alert('🔄 ' + (t('observer_block_clear_progress') || 'Cleared vote ' + votes + '/3 received'));
+  }
 }
 
 // ✨ FIX v36: votación de "existence" — confirma que el herido SÍ está ahí
@@ -2615,6 +3051,18 @@ function trackBridgeRelay() {
 // ===== FIN BLOQUE 8 — QR MESH SYNC =====
 
 function nextStep(step) {
+  // ✨ MEJORA v37: track del historial de navegación para botón "Back"
+  if (!state.stepHistory) state.stepHistory = [];
+  // Solo añadir si es distinto del actual (evitar duplicados en historial)
+  const currentActive = document.querySelector('.form-step.active');
+  if (currentActive) {
+    const currentId = currentActive.id.replace('step-', '');
+    if (currentId !== String(step) && !state.skipHistoryPush) {
+      state.stepHistory.push(currentId);
+    }
+  }
+  state.skipHistoryPush = false;
+  
   // ✨ FIX v34: tracking de comportamiento humano (anti-bot)
   if (typeof trackStepTransition === 'function') trackStepTransition();
   
@@ -2646,12 +3094,22 @@ function nextStep(step) {
     }
     // ✨ BLOQUE 1 / FIX 1.2: al entrar al step foto, asegurar botón deshabilitado
     if (step === 5) {
+      // ✨ MEJORA v37: en Conflict Mode, saltar foto automáticamente (UX más limpio)
+      if (state.conflictMode === true) {
+        console.log('FRIDA: 🛡️ Conflict Mode active — skipping photo step automatically');
+        state.photoSkipped = true;
+        sendPartialReport({ step: 'photo', value: 'skipped_conflict_mode' });
+        setTimeout(() => nextStep(6), 200);
+        return;
+      }
       setTimeout(() => {
         if (typeof disablePhotoNextButton === 'function') disablePhotoNextButton();
       }, 50);
     }
   }
   window.scrollTo(0, 0);
+  // ✨ MEJORA v37: actualizar visibilidad botón Back
+  if (typeof updateBackButtonVisibility === 'function') updateBackButtonVisibility();
 }
 
 // Multi-Event Management (Layer 10): captura el tipo de crisis y sigue al flujo.
@@ -6635,6 +7093,104 @@ function proceedFromPhoto() {
 
 // ✨ TIER 3 CAP 3: Location es ahora el PRIMER paso del wizard.
 // Este botón avanza a step-2 (crisis type). Submit final está en step-6.
+// ✨ MEJORA v37: regresar al paso anterior preservando el flujo y datos.
+// Los datos del formulario están en state.* y NO se borran al cambiar de step,
+// así que solo necesitamos navegar — el usuario puede corregir y volver a avanzar.
+function previousStep() {
+  if (!state.stepHistory || state.stepHistory.length === 0) {
+    return;
+  }
+  
+  const prev = state.stepHistory.pop();
+  state.skipHistoryPush = true;
+  nextStep(prev);
+  updateBackButtonVisibility();
+  
+  // ✨ FIX v38: restaurar el estado visual de los botones según state.*
+  // Cuando regresas a un step donde ya seleccionaste algo, marcar ese botón como selected.
+  setTimeout(() => {
+    restoreStepSelection(prev);
+  }, 100);
+}
+
+// ✨ FIX v38: re-aplicar la clase 'selected' a botones según state actual
+function restoreStepSelection(stepId) {
+  const stepEl = document.getElementById('step-' + stepId);
+  if (!stepEl) return;
+  
+  // Mapa: step → campo de state que tiene el valor previo
+  const stepFieldMap = {
+    '1': 'confirmed',      // emergencia confirmada
+    '2': 'crisisType',     // tipo de crisis
+    '3': 'infra',          // infraestructura
+    '4': 'damage',         // nivel de daño
+    '6': 'debris'          // escombros
+  };
+  
+  const field = stepFieldMap[String(stepId)];
+  if (!field) return;
+  
+  const value = state[field];
+  if (!value) return;
+  
+  // Buscar todos los botones option-btn del step y marcar el que coincida
+  const buttons = stepEl.querySelectorAll('.option-btn');
+  buttons.forEach(btn => {
+    // Inspeccionar el onclick para determinar qué valor selecciona
+    const onclickStr = btn.getAttribute('onclick') || '';
+    
+    // Patrones que buscamos en el onclick para mapear botón → valor:
+    //   setData('crisisType','Earthquake')
+    //   setData('debris','yes')
+    //   handleCrisisSelection('Earthquake')
+    //   sendPartialReport({step:'confirmed',value:'yes'})
+    
+    let buttonValue = null;
+    
+    // Patrón setData('field','value')
+    const setDataMatch = onclickStr.match(/setData\(['"]([^'"]+)['"],\s*['"]([^'"]+)['"]\)/);
+    if (setDataMatch && setDataMatch[1] === field) {
+      buttonValue = setDataMatch[2];
+    }
+    // Patrón handleCrisisSelection('value')
+    if (field === 'crisisType') {
+      const csMatch = onclickStr.match(/handleCrisisSelection\(['"]([^'"]+)['"]\)/);
+      if (csMatch) buttonValue = csMatch[1];
+    }
+    // Patrón sendPartialReport({step:'confirmed',value:'yes'})
+    if (field === 'confirmed') {
+      const cMatch = onclickStr.match(/step:'confirmed',\s*value:['"]([^'"]+)['"]/);
+      if (cMatch) buttonValue = cMatch[1];
+    }
+    
+    if (buttonValue === value) {
+      btn.classList.add('selected');
+    } else {
+      btn.classList.remove('selected');
+    }
+  });
+}
+
+function updateBackButtonVisibility() {
+  const fab = document.getElementById('back-fab');
+  if (!fab) return;
+  
+  // Ocultar back FAB en pantallas donde no tiene sentido regresar:
+  //   - step-0 (pantalla inicial)
+  //   - step-success (ya enviaste)
+  //   - step-profile, step-observer (pantallas estáticas, tienen su propio botón Back)
+  const currentActive = document.querySelector('.form-step.active');
+  if (!currentActive) { fab.style.display = 'none'; return; }
+  
+  const id = currentActive.id;
+  const hideOn = ['step-0', 'step-success', 'step-profile', 'step-observer', 'step-event-select'];
+  if (hideOn.includes(id) || (state.stepHistory || []).length === 0) {
+    fab.style.display = 'none';
+  } else {
+    fab.style.display = 'flex';
+  }
+}
+
 function proceedFromLocation() {
   const btn = document.getElementById('location-next-btn');
   if (btn && btn.disabled) return;
@@ -8037,6 +8593,12 @@ function selectNominatimResult(lat, lng, displayName) {
 </script>
 
 <!-- ✨ SPRINT 4 CAP 1: Modal de routing -->
+<!-- ✨ MEJORA v37: FAB botón regresar (visible solo en steps del flujo) -->
+<!-- ✨ FIX v38: estilo rojo como el botón "Volver al inicio" del observer -->
+<button id="back-fab" onclick="previousStep()" style="display:none; position:fixed; bottom:20px; left:20px; padding:12px 20px; border-radius:24px; background:#E63946; color:#fff; border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; z-index:9000; box-shadow:0 4px 12px rgba(230,57,70,0.4); align-items:center; justify-content:center; gap:6px;" title="Back" aria-label="Back">
+  ← <span data-i18n="back_btn">Back</span>
+</button>
+
 <div id="routing-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:99999; padding:24px; box-sizing:border-box; overflow-y:auto;">
   <div style="max-width:520px; margin:0 auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
@@ -9488,6 +10050,298 @@ Object.keys(sprint4Keys).forEach(lang => {
   else i18n[lang] = sprint4Keys[lang];
 });
 
+// ===== v37 i18n: popups observer, etc ✨ =====
+const v37Keys = {
+  en: {
+    observer_btn_confirm: '✓ Confirm', observer_btn_dispute: '✗ Dispute',
+    observer_label_cred: 'Cred',
+    observer_block_title: '🚧 Confirmed road block', observer_block_confirms: 'confirms',
+    observer_block_cleared_status: 'Cleared votes',
+    observer_block_clear_btn: '✓ Already cleared',
+    observer_block_removed: 'Block confirmed as cleared and removed',
+    observer_block_clear_progress: 'Cleared vote received',
+    observer_injury_verified: 'Injury point verified — emergency teams notified',
+    observer_injury_progress: 'Confirmation received',
+    emergency_btn: 'IF YOU ARE IN AN EMERGENCY, PRESS THIS BUTTON',
+    survey_q_injuries_points: '📍 Mark locations where you see injured/dead people (max 5)',
+    observer_out_of_range: '⚠️ You must be within the event area to use Observer Mode here.',
+    badge_bridge_bronze: 'Bridge · Bronze',
+    badge_bridge_silver: 'Bridge · Silver',
+    badge_bridge_gold: 'Bridge · Gold',
+    badge_verified_silver: 'Verified · Silver',
+    badge_verified_gold: 'Verified · Gold',
+    badge_mapper_silver: 'Mapper · Silver',
+    badge_mapper_gold: 'Mapper · Gold',
+    badge_helper_silver: 'Helper · Silver',
+    badge_helper_gold: 'Helper · Gold'
+  },
+  es: {
+    observer_btn_confirm: '✓ Confirmar', observer_btn_dispute: '✗ Refutar',
+    observer_label_cred: 'Cred',
+    observer_block_title: '🚧 Vialidad cerrada confirmada', observer_block_confirms: 'confirmaciones',
+    observer_block_cleared_status: 'Votos de "ya libre"',
+    observer_block_clear_btn: '✓ Ya está libre',
+    observer_block_removed: 'Bloqueo confirmado como libre y removido del mapa',
+    observer_block_clear_progress: 'Voto de "ya libre" recibido',
+    observer_injury_verified: 'Punto de herido verificado — equipos de emergencia notificados',
+    observer_injury_progress: 'Confirmación recibida',
+    emergency_btn: 'SI ESTÁS EN UNA EMERGENCIA, PULSA ESTE BOTÓN',
+    survey_q_injuries_points: '📍 Marca lugares donde veas heridos/muertos (máx 5)',
+    observer_out_of_range: '⚠️ Debes estar dentro del área del evento para usar Modo Observador aquí.',
+    badge_bridge_bronze: 'Puente · Bronce',
+    badge_bridge_silver: 'Puente · Plata',
+    badge_bridge_gold: 'Puente · Oro',
+    badge_verified_silver: 'Verificado · Plata',
+    badge_verified_gold: 'Verificado · Oro',
+    badge_mapper_silver: 'Mapeador · Plata',
+    badge_mapper_gold: 'Mapeador · Oro',
+    badge_helper_silver: 'Ayudante · Plata',
+    badge_helper_gold: 'Ayudante · Oro'
+  },
+  fr: {
+    observer_btn_confirm: '✓ Confirmer', observer_btn_dispute: '✗ Réfuter',
+    observer_label_cred: 'Cred',
+    observer_block_title: '🚧 Blocage confirmé', observer_block_confirms: 'confirmations',
+    observer_block_cleared_status: 'Votes "dégagé"',
+    observer_block_clear_btn: '✓ Déjà dégagé',
+    observer_block_removed: 'Blocage confirmé dégagé et retiré',
+    observer_block_clear_progress: 'Vote reçu',
+    observer_injury_verified: 'Point blessé vérifié',
+    observer_injury_progress: 'Confirmation reçue',
+    emergency_btn: 'SI VOUS ÊTES EN URGENCE, APPUYEZ ICI',
+    survey_q_injuries_points: '📍 Marquez les blessés/morts (max 5)',
+    observer_out_of_range: '⚠️ Vous devez être dans la zone de l\'événement.',
+    badge_bridge_bronze: 'Pont · Bronze',
+    badge_bridge_silver: 'Pont · Argent',
+    badge_bridge_gold: 'Pont · Or',
+    badge_verified_silver: 'Vérifié · Argent',
+    badge_verified_gold: 'Vérifié · Or',
+    badge_mapper_silver: 'Cartographe · Argent',
+    badge_mapper_gold: 'Cartographe · Or',
+    badge_helper_silver: 'Aide · Argent',
+    badge_helper_gold: 'Aide · Or'
+  },
+  ar: {
+    observer_btn_confirm: '✓ تأكيد', observer_btn_dispute: '✗ رفض',
+    observer_label_cred: 'مصداقية',
+    observer_block_title: '🚧 إغلاق طريق مؤكد', observer_block_confirms: 'تأكيدات',
+    observer_block_cleared_status: 'أصوات الإزالة',
+    observer_block_clear_btn: '✓ تمت الإزالة',
+    observer_block_removed: 'تمت إزالة الإغلاق',
+    observer_block_clear_progress: 'تم استلام التصويت',
+    observer_injury_verified: 'تم التحقق من نقطة الإصابة',
+    observer_injury_progress: 'تم الاستلام',
+    emergency_btn: 'إذا كنت في حالة طوارئ، اضغط هنا',
+    survey_q_injuries_points: '📍 حدد الجرحى/القتلى (5 كحد أقصى)',
+    observer_out_of_range: '⚠️ يجب أن تكون داخل منطقة الحدث.',
+    badge_bridge_bronze: 'جسر · برونزي',
+    badge_bridge_silver: 'جسر · فضي',
+    badge_bridge_gold: 'جسر · ذهبي',
+    badge_verified_silver: 'موثوق · فضي',
+    badge_verified_gold: 'موثوق · ذهبي',
+    badge_mapper_silver: 'رسام · فضي',
+    badge_mapper_gold: 'رسام · ذهبي',
+    badge_helper_silver: 'مساعد · فضي',
+    badge_helper_gold: 'مساعد · ذهبي'
+  },
+  zh: {
+    observer_btn_confirm: '✓ 确认', observer_btn_dispute: '✗ 反驳',
+    observer_label_cred: '可信度',
+    observer_block_title: '🚧 已确认封路', observer_block_confirms: '确认',
+    observer_block_cleared_status: '清除投票',
+    observer_block_clear_btn: '✓ 已清除',
+    observer_block_removed: '封路已确认清除',
+    observer_block_clear_progress: '已收到清除投票',
+    observer_injury_verified: '伤员点已验证',
+    observer_injury_progress: '已收到确认',
+    emergency_btn: '紧急情况时请按此按钮',
+    survey_q_injuries_points: '📍 标记伤员/死者位置（最多 5 个）',
+    observer_out_of_range: '⚠️ 您必须在事件区域内。',
+    badge_bridge_bronze: '桥梁 · 铜',
+    badge_bridge_silver: '桥梁 · 银',
+    badge_bridge_gold: '桥梁 · 金',
+    badge_verified_silver: '认证 · 银',
+    badge_verified_gold: '认证 · 金',
+    badge_mapper_silver: '测绘 · 银',
+    badge_mapper_gold: '测绘 · 金',
+    badge_helper_silver: '助手 · 银',
+    badge_helper_gold: '助手 · 金'
+  },
+  ru: {
+    observer_btn_confirm: '✓ Подтвердить', observer_btn_dispute: '✗ Оспорить',
+    observer_label_cred: 'Достов.',
+    observer_block_title: '🚧 Подтв. блокировка', observer_block_confirms: 'подтверждений',
+    observer_block_cleared_status: 'Голоса "убрано"',
+    observer_block_clear_btn: '✓ Уже убрано',
+    observer_block_removed: 'Блокировка убрана',
+    observer_block_clear_progress: 'Голос получен',
+    observer_injury_verified: 'Точка ранения подтверждена',
+    observer_injury_progress: 'Получено подтверждение',
+    emergency_btn: 'ЕСЛИ ВЫ В ЧС, НАЖМИТЕ ЭТУ КНОПКУ',
+    survey_q_injuries_points: '📍 Отметьте раненых/погибших (макс 5)',
+    observer_out_of_range: '⚠️ Вы должны быть в зоне события.',
+    badge_bridge_bronze: 'Мост · Бронза',
+    badge_bridge_silver: 'Мост · Серебро',
+    badge_bridge_gold: 'Мост · Золото',
+    badge_verified_silver: 'Проверен · Серебро',
+    badge_verified_gold: 'Проверен · Золото',
+    badge_mapper_silver: 'Картограф · Серебро',
+    badge_mapper_gold: 'Картограф · Золото',
+    badge_helper_silver: 'Помощник · Серебро',
+    badge_helper_gold: 'Помощник · Золото'
+  }
+};
+Object.keys(v37Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], v37Keys[lang]);
+  else i18n[lang] = v37Keys[lang];
+});
+
+// ===== v38 i18n: popups observer + back btn + rediseno ✨ =====
+const v38Keys = {
+  en: {
+    back_btn: 'Back',
+    emergency_btn: 'EMERGENCY',
+    emergency_sublabel: 'Tap if you need urgent help',
+    observer_title: 'Help from afar',
+    observer_subtitle: 'Confirm or refute reports from people on the ground',
+    observer_btn: 'I want to help',
+    observer_verified_short: 'Verified',
+    observer_unverified_short: 'Unverified',
+    observer_attended_short: 'Attended',
+    observer_notyet_short: 'Not yet',
+    observer_injury_title: '🩹 Injury point',
+    observer_existence_label: 'Existence',
+    observer_status_label: 'Status',
+    observer_confirm_exists_btn: '🔍 Confirm exists',
+    observer_mark_attended_btn: '✓ Mark attended',
+    observer_anti_spam_explain: 'This prevents misinformation from far away.',
+    citizen_actions_label: 'Other actions',
+    technical_options_label: 'App',
+    dashboard_kpis_section: 'Key indicators',
+    dashboard_data_section: 'Reports & events',
+    dashboard_tools_section: 'Tools'
+  },
+  es: {
+    back_btn: 'Volver',
+    emergency_btn: 'EMERGENCIA',
+    emergency_sublabel: 'Pulsa si necesitas ayuda urgente',
+    observer_title: 'Ayuda desde lejos',
+    observer_subtitle: 'Confirma o refuta reportes de personas en el lugar',
+    observer_btn: 'Quiero ayudar',
+    observer_verified_short: 'Verificado',
+    observer_unverified_short: 'Sin verificar',
+    observer_attended_short: 'Atendido',
+    observer_notyet_short: 'Aún no',
+    observer_injury_title: '🩹 Punto de herido',
+    observer_existence_label: 'Existencia',
+    observer_status_label: 'Estado',
+    observer_confirm_exists_btn: '🔍 Confirmar que existe',
+    observer_mark_attended_btn: '✓ Marcar atendido',
+    observer_anti_spam_explain: 'Esto evita desinformación desde lejos.',
+    citizen_actions_label: 'Otras acciones',
+    technical_options_label: 'App',
+    dashboard_kpis_section: 'Indicadores clave',
+    dashboard_data_section: 'Reportes y eventos',
+    dashboard_tools_section: 'Herramientas'
+  },
+  fr: {
+    back_btn: 'Retour',
+    emergency_btn: 'URGENCE',
+    emergency_sublabel: 'Appuyez si vous avez besoin d\'aide urgente',
+    observer_title: 'Aide à distance',
+    observer_subtitle: 'Confirmez ou réfutez les rapports',
+    observer_btn: 'Je veux aider',
+    observer_verified_short: 'Vérifié',
+    observer_unverified_short: 'Non vérifié',
+    observer_attended_short: 'Traité',
+    observer_notyet_short: 'Pas encore',
+    observer_injury_title: '🩹 Point blessé',
+    observer_existence_label: 'Existence',
+    observer_status_label: 'Statut',
+    observer_confirm_exists_btn: '🔍 Confirmer',
+    observer_mark_attended_btn: '✓ Marquer traité',
+    observer_anti_spam_explain: 'Ceci prévient la désinformation à distance.',
+    citizen_actions_label: 'Autres actions',
+    technical_options_label: 'App',
+    dashboard_kpis_section: 'Indicateurs clés',
+    dashboard_data_section: 'Rapports et événements',
+    dashboard_tools_section: 'Outils'
+  },
+  ar: {
+    back_btn: 'رجوع',
+    emergency_btn: 'طوارئ',
+    emergency_sublabel: 'اضغط إذا كنت بحاجة لمساعدة عاجلة',
+    observer_title: 'مساعدة من بعيد',
+    observer_subtitle: 'تأكيد أو رفض التقارير',
+    observer_btn: 'أريد المساعدة',
+    observer_verified_short: 'موثوق',
+    observer_unverified_short: 'غير موثوق',
+    observer_attended_short: 'تمت معالجته',
+    observer_notyet_short: 'ليس بعد',
+    observer_injury_title: '🩹 نقطة إصابة',
+    observer_existence_label: 'الوجود',
+    observer_status_label: 'الحالة',
+    observer_confirm_exists_btn: '🔍 تأكيد الوجود',
+    observer_mark_attended_btn: '✓ تم المعالجة',
+    observer_anti_spam_explain: 'هذا يمنع المعلومات المضللة عن بُعد.',
+    citizen_actions_label: 'إجراءات أخرى',
+    technical_options_label: 'التطبيق',
+    dashboard_kpis_section: 'المؤشرات الرئيسية',
+    dashboard_data_section: 'التقارير والأحداث',
+    dashboard_tools_section: 'الأدوات'
+  },
+  zh: {
+    back_btn: '返回',
+    emergency_btn: '紧急',
+    emergency_sublabel: '如需紧急帮助，请按此按钮',
+    observer_title: '远程帮助',
+    observer_subtitle: '确认或反驳现场人员的报告',
+    observer_btn: '我要帮助',
+    observer_verified_short: '已验证',
+    observer_unverified_short: '未验证',
+    observer_attended_short: '已处理',
+    observer_notyet_short: '尚未',
+    observer_injury_title: '🩹 伤员点',
+    observer_existence_label: '存在',
+    observer_status_label: '状态',
+    observer_confirm_exists_btn: '🔍 确认存在',
+    observer_mark_attended_btn: '✓ 标记已处理',
+    observer_anti_spam_explain: '此功能可防止远程误报。',
+    citizen_actions_label: '其他操作',
+    technical_options_label: '应用',
+    dashboard_kpis_section: '关键指标',
+    dashboard_data_section: '报告和事件',
+    dashboard_tools_section: '工具'
+  },
+  ru: {
+    back_btn: 'Назад',
+    emergency_btn: 'ЧС',
+    emergency_sublabel: 'Нажмите если нужна срочная помощь',
+    observer_title: 'Помощь издалека',
+    observer_subtitle: 'Подтвердите или опровергните отчёты',
+    observer_btn: 'Хочу помочь',
+    observer_verified_short: 'Проверено',
+    observer_unverified_short: 'Не проверено',
+    observer_attended_short: 'Обработано',
+    observer_notyet_short: 'Ещё нет',
+    observer_injury_title: '🩹 Точка ранения',
+    observer_existence_label: 'Существование',
+    observer_status_label: 'Статус',
+    observer_confirm_exists_btn: '🔍 Подтвердить',
+    observer_mark_attended_btn: '✓ Отметить обработано',
+    observer_anti_spam_explain: 'Это предотвращает дезинформацию издалека.',
+    citizen_actions_label: 'Другие действия',
+    technical_options_label: 'Прил.',
+    dashboard_kpis_section: 'Ключевые показатели',
+    dashboard_data_section: 'Отчёты и события',
+    dashboard_tools_section: 'Инструменты'
+  }
+};
+Object.keys(v38Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], v38Keys[lang]);
+  else i18n[lang] = v38Keys[lang];
+});
+
 // Mapeos para tCrisis y tRegion
 const CRISIS_VALUE_MAP = {
   'Earthquake': 'crisis_v_earthquake',
@@ -9604,6 +10458,11 @@ function setLanguage(lang) {
     if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
     if (typeof refreshEventsTabs === 'function') refreshEventsTabs();  // ✨ Bloque 2.6: tabs eventos
     if (typeof refreshAllEventsDropdown === 'function') refreshAllEventsDropdown();  // ✨ Bloque 4: dropdown agrupado
+    
+    // ✨ FIX v38: refrescar observer map para que los popups se reconstruyan con idioma nuevo
+    if (typeof refreshObserverMap === 'function' && window.observerMap) {
+      refreshObserverMap();
+    }
     
     // ✨ FIX v34 Cap 12: re-render del display de éxito (crisis · location · fecha)
     if (state.lastSuccessEvent) {
