@@ -88,6 +88,7 @@ html[dir="rtl"] .options-grid {
   .logo { display:flex; align-items:center; gap:8px; font-weight:700; font-size:16px; letter-spacing:-0.5px; }
   .logo-dot { width:9px; height:9px; background:var(--red); border-radius:50%; animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.4);opacity:0.7} }
+  @keyframes pulse-blue { 0%,100%{box-shadow:0 0 0 4px rgba(59,130,246,0.4);} 50%{box-shadow:0 0 0 12px rgba(59,130,246,0.0);} }
 
   .nav-right { display:flex; align-items:center; gap:8px; }
   .lang-select { background:var(--bg3); border:1px solid var(--border); color:var(--text2); font-family:'DM Sans',sans-serif; font-size:12px; padding:6px 10px; border-radius:8px; cursor:pointer; }
@@ -718,6 +719,14 @@ html[dir="rtl"] .options-grid {
 <!-- DASHBOARD -->
 <div id="dashboard-screen" class="screen">
   <div class="dashboard-wrapper">
+    <!-- ✨ FIX v43: banner cuando hay más reportes en DB de los que caben en memoria -->
+    <div id="memory-policy-banner" style="display:none; background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.4); border-radius:8px; padding:8px 12px; margin-bottom:14px; font-size:11px; color:#3b82f6;">
+      <span>🧠 <span data-i18n="memory_banner_label">Showing your zone</span>:</span> 
+      <span id="memory-policy-count">0</span> 
+      <span data-i18n="memory_banner_of">of</span> 
+      <span id="memory-policy-total">0</span> 
+      <span data-i18n="memory_banner_total">total reports in database. Connect to internet for full view.</span>
+    </div>
     <!-- ✨ BLOQUE 9: banner de transparencia técnica para evaluadores UNDP -->
     <div style="background:linear-gradient(90deg, rgba(244,162,97,0.15), rgba(82,183,136,0.15)); border:1px solid rgba(244,162,97,0.4); border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
       <span style="background:#F4A261; color:#000; padding:3px 8px; border-radius:4px; font-size:10px; font-weight:700; letter-spacing:0.5px;" data-i18n="demo_banner_label">DEMO · TRL 4</span>
@@ -2197,16 +2206,10 @@ function initObserverMap() {
       }
       
       if (!window.observerMap) {
-        // Centrar en la zona con más reportes recientes
+        // ✨ FIX v43: centrar PRIMERO en la ubicación del observador si tiene GPS
+        // En lugar de centrar en reportes lejanos. El usuario verá su entorno.
         let centerLat = 19.43, centerLng = -99.13, zoom = 5;
-        if (state.reports && state.reports.length > 0) {
-          const recent = state.reports.filter(r => r.coords).slice(-10);
-          if (recent.length > 0) {
-            const avgLat = recent.reduce((s, r) => s + r.coords.lat, 0) / recent.length;
-            const avgLng = recent.reduce((s, r) => s + r.coords.lng, 0) / recent.length;
-            centerLat = avgLat; centerLng = avgLng; zoom = 12;
-          }
-        }
+        let hasUserLocation = false;
         
         try {
           window.observerMap = L.map(mapEl).setView([centerLat, centerLng], zoom);
@@ -2219,6 +2222,40 @@ function initObserverMap() {
           mapEl.innerHTML = '<div style="padding:20px; color:#888; text-align:center;">⚠️ Map failed to load. Please reload page.</div>';
           return;
         }
+        
+        // Intentar centrar en GPS del usuario
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            const uLat = pos.coords.latitude;
+            const uLng = pos.coords.longitude;
+            window.observerMap.setView([uLat, uLng], 14);
+            
+            // Añadir marker visible "Tú estás aquí"
+            const youAreHereIcon = L.divIcon({
+              className: 'you-are-here-marker',
+              html: '<div style="background:#3b82f6; width:18px; height:18px; border-radius:50%; border:3px solid #fff; box-shadow:0 0 0 4px rgba(59,130,246,0.4); animation:pulse-blue 2s infinite;"></div>',
+              iconSize: [18, 18],
+              iconAnchor: [9, 9]
+            });
+            const youMarker = L.marker([uLat, uLng], { icon: youAreHereIcon, zIndexOffset: 1000 }).addTo(window.observerMap);
+            youMarker.bindPopup('<div style="font-size:11px;"><b>📍 ' + (t('observer_you_are_here') || 'You are here') + '</b><br>±' + Math.round(pos.coords.accuracy) + 'm</div>');
+            window._observerYouAreHere = youMarker;
+            console.log('FRIDA: 👁️ Map centered on user location');
+          },
+          err => {
+            // Si no hay GPS, fallback: centrar en reportes recientes
+            console.warn('FRIDA: 👁️ No GPS for centering, using reports center');
+            if (state.reports && state.reports.length > 0) {
+              const recent = state.reports.filter(r => r.coords).slice(-10);
+              if (recent.length > 0) {
+                const avgLat = recent.reduce((s, r) => s + r.coords.lat, 0) / recent.length;
+                const avgLng = recent.reduce((s, r) => s + r.coords.lng, 0) / recent.length;
+                window.observerMap.setView([avgLat, avgLng], 12);
+              }
+            }
+          },
+          { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+        );
       } else {
         // ya existe — solo refrescar tamaño
         window.observerMap.invalidateSize();
@@ -2457,7 +2494,7 @@ async function refreshRoutingUI() {
       
       return `<div style="padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; margin-bottom:8px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
-          <div style="font-weight:600; font-size:13px; color:var(--text);">${ev.name || 'Event'}</div>
+          <div style="font-weight:600; font-size:13px; color:var(--text);">${(typeof getEventDisplayName === 'function') ? getEventDisplayName(ev) : (ev.name || 'Event')}</div>
           <div style="font-size:10px; color:${lcInfo.color}; padding:2px 6px; background:rgba(255,255,255,0.05); border-radius:4px;">${lcInfo.label}</div>
         </div>
         <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">${repCount} ${t('route_reports_label') || 'reports'}${distStr ? ' · ' + distStr + ' ' + (t('route_away_label') || 'away') : ''}</div>
@@ -8506,6 +8543,68 @@ function refreshSatelliteValidations() {
 
 // Carga todos los reportes guardados en IndexedDB y los muestra en la UI.
 // Se ejecuta una vez al inicio. Si la DB está vacía, no hace nada visible.
+// ✨ FIX v43: política de viewport para limitar memoria.
+// Estrategia: priorizar
+//   1. Los 100 más recientes (siempre)
+//   2. Los reportes del propio usuario (siempre, sin importar fecha)
+//   3. Los más cercanos a la ubicación del usuario hasta llenar el límite
+// Esto permite que en celulares con poca RAM la app no se cuelgue, y el usuario
+// ve lo relevante para SU zona sin descargar 500K reportes.
+async function applyMemoryViewportPolicy(allReports, maxLimit) {
+  const RECENT_COUNT = Math.floor(maxLimit * 0.4);  // 40% reportes recientes
+  const OWN_REPORTS_KEEP_ALL = true;                // 100% propios
+  const NEARBY_RADIUS_M = 50000;                    // 50km del usuario
+  
+  // 1. Más recientes
+  const sortedByDate = [...allReports].sort((a, b) => {
+    const ta = new Date(b.timestamp || 0).getTime();
+    const tb = new Date(a.timestamp || 0).getTime();
+    return ta - tb;
+  });
+  const recent = sortedByDate.slice(0, RECENT_COUNT);
+  const recentIds = new Set(recent.map(r => r.id));
+  
+  // 2. Propios del usuario (fingerprint match)
+  let ownReports = [];
+  try {
+    const fp = (typeof getFingerprintSync === 'function') ? getFingerprintSync() : null;
+    if (fp) {
+      ownReports = allReports.filter(r => 
+        r.fingerprint === fp && !recentIds.has(r.id)
+      );
+      ownReports.forEach(r => recentIds.add(r.id));
+    }
+  } catch (e) {}
+  
+  // 3. Cercanos al usuario (intentar GPS)
+  let nearbyReports = [];
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, 
+        { enableHighAccuracy: false, timeout: 3000, maximumAge: 300000 });
+    });
+    const uLat = pos.coords.latitude, uLng = pos.coords.longitude;
+    
+    const candidates = allReports.filter(r => 
+      r.coords && !recentIds.has(r.id) &&
+      haversineMeters(uLat, uLng, r.coords.lat, r.coords.lng) <= NEARBY_RADIUS_M
+    );
+    
+    const remainingSlots = maxLimit - recent.length - ownReports.length;
+    if (remainingSlots > 0) {
+      // Tomar los más recientes de los cercanos
+      candidates.sort((a, b) => new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime());
+      nearbyReports = candidates.slice(0, remainingSlots);
+    }
+  } catch (e) {
+    console.warn('FRIDA: 🧠 No GPS for viewport policy — using only recent + own');
+  }
+  
+  const finalList = [...recent, ...ownReports, ...nearbyReports];
+  console.log('FRIDA: 🧠 Viewport policy: ' + recent.length + ' recent + ' + ownReports.length + ' own + ' + nearbyReports.length + ' nearby = ' + finalList.length + ' total');
+  return finalList;
+}
+
 async function loadReportsFromDB() {
   try {
     const saved = await dbGetAll();
@@ -8515,21 +8614,29 @@ async function loadReportsFromDB() {
       return;
     }
     
-    console.log('FRIDA: Loading', saved.length, 'saved reports from IndexedDB');
+    // ✨ FIX v43: limit memoria — si hay muchísimos reportes (>500) y estás OFFLINE,
+    // cargar solo los más relevantes (recientes + zona del usuario) para no saturar
+    // RAM/DOM. En conexión se descargarían bajo demanda con viewport queries.
+    let toLoad = saved;
+    const OFFLINE_MEMORY_LIMIT = 500;
     
-    // Resetear estado para evitar duplicados si se llama dos veces
+    if (saved.length > OFFLINE_MEMORY_LIMIT) {
+      console.log('FRIDA: 🧠 Memory limit reached — applying viewport policy (' + saved.length + ' total, max ' + OFFLINE_MEMORY_LIMIT + ' in RAM)');
+      toLoad = await applyMemoryViewportPolicy(saved, OFFLINE_MEMORY_LIMIT);
+    }
+    
+    console.log('FRIDA: Loading', toLoad.length, 'reports from IndexedDB (of', saved.length, 'total)');
+    
     state.reports = [];
-    saved.forEach(r => state.reports.push(r));
+    toLoad.forEach(r => state.reports.push(r));
+    state._totalReportsInDB = saved.length;  // tracking para mostrar al usuario
     
-    // ✨ Punto 3: Aplicar validación temporal ANTES de renderizar
     if (typeof applyTemporalValidationToAll === 'function') {
       applyTemporalValidationToAll();
     }
     
-    // Reconstruir UI desde los datos persistidos (ahora con badges aplicados)
-    saved.forEach(report => {
+    toLoad.forEach(report => {
       try {
-        // ✨ BLOQUE 2.6: NO añadir a tabla directo (rompería paginación) — usamos refreshReportsTable al final
         if (typeof addMarkerToMap === 'function') addMarkerToMap(report);
         if (typeof updateKPIs === 'function') updateKPIs(report);
       } catch (e) {
@@ -8537,15 +8644,21 @@ async function loadReportsFromDB() {
       }
     });
     
-    // ✨ BLOQUE 2.6: una sola pasada de render con paginación correcta
     if (typeof refreshReportsTable === 'function') refreshReportsTable();
     
-    console.log('FRIDA: Restored', saved.length, 'reports to UI');
+    console.log('FRIDA: Restored', toLoad.length, 'reports to UI');
     
-    // Refrescar analytics ahora que tenemos todos los reportes en state.reports
+    // ✨ FIX v43: mostrar banner de memoria si aplica
+    if (saved.length > OFFLINE_MEMORY_LIMIT) {
+      const banner = document.getElementById('memory-policy-banner');
+      const countEl = document.getElementById('memory-policy-count');
+      const totalEl = document.getElementById('memory-policy-total');
+      if (banner) banner.style.display = 'block';
+      if (countEl) countEl.textContent = toLoad.length;
+      if (totalEl) totalEl.textContent = saved.length;
+    }
+    
     if (typeof refreshAnalyticsUI === 'function') refreshAnalyticsUI();
-    
-    // ✨ Density Triangulation: detectar clusters de los reportes cargados
     if (typeof refreshDamageClusters === 'function') refreshDamageClusters();
     
     // ✨ Punto 5: aplicar Priority Ranking sobre clusters detectados
@@ -11130,7 +11243,11 @@ const v42Keys = {
     route_reports_label: 'reports',
     route_away_label: 'away',
     showmore_template: 'Show more',
-    showless_template: 'Show less'
+    showless_template: 'Show less',
+    observer_you_are_here: 'You are here',
+    memory_banner_label: 'Showing your zone',
+    memory_banner_of: 'of',
+    memory_banner_total: 'total reports in database. Connect to internet for full view.'
   },
   es: {
     observer_btn_event_resolved: '🏁 Evento resuelto',
@@ -11142,7 +11259,11 @@ const v42Keys = {
     route_reports_label: 'reportes',
     route_away_label: 'de distancia',
     showmore_template: 'Ver más',
-    showless_template: 'Ver menos'
+    showless_template: 'Ver menos',
+    observer_you_are_here: 'Estás aquí',
+    memory_banner_label: 'Mostrando tu zona',
+    memory_banner_of: 'de',
+    memory_banner_total: 'reportes totales en la base de datos. Conéctate a internet para ver todo.'
   },
   fr: {
     observer_btn_event_resolved: '🏁 Événement résolu',
@@ -11154,7 +11275,11 @@ const v42Keys = {
     route_reports_label: 'rapports',
     route_away_label: 'de distance',
     showmore_template: 'Voir plus',
-    showless_template: 'Voir moins'
+    showless_template: 'Voir moins',
+    observer_you_are_here: 'Vous êtes ici',
+    memory_banner_label: 'Affichage de votre zone',
+    memory_banner_of: 'sur',
+    memory_banner_total: 'rapports au total. Connectez-vous pour tout voir.'
   },
   ar: {
     observer_btn_event_resolved: '🏁 الحدث تم حله',
@@ -11166,7 +11291,11 @@ const v42Keys = {
     route_reports_label: 'تقارير',
     route_away_label: 'بعيد',
     showmore_template: 'عرض المزيد',
-    showless_template: 'عرض أقل'
+    showless_template: 'عرض أقل',
+    observer_you_are_here: 'أنت هنا',
+    memory_banner_label: 'عرض منطقتك',
+    memory_banner_of: 'من',
+    memory_banner_total: 'تقرير في قاعدة البيانات. اتصل بالإنترنت لرؤية الكل.'
   },
   zh: {
     observer_btn_event_resolved: '🏁 事件已解决',
@@ -11178,7 +11307,11 @@ const v42Keys = {
     route_reports_label: '报告',
     route_away_label: '距离',
     showmore_template: '显示更多',
-    showless_template: '显示更少'
+    showless_template: '显示更少',
+    observer_you_are_here: '您在这里',
+    memory_banner_label: '显示您的区域',
+    memory_banner_of: '总计',
+    memory_banner_total: '报告。连接互联网查看全部。'
   },
   ru: {
     observer_btn_event_resolved: '🏁 Событие разрешено',
@@ -11190,7 +11323,11 @@ const v42Keys = {
     route_reports_label: 'отчётов',
     route_away_label: 'расстояние',
     showmore_template: 'Ещё',
-    showless_template: 'Меньше'
+    showless_template: 'Меньше',
+    observer_you_are_here: 'Вы здесь',
+    memory_banner_label: 'Показано в вашей зоне',
+    memory_banner_of: 'из',
+    memory_banner_total: 'всего отчётов. Подключитесь для полного просмотра.'
   }
 };
 Object.keys(v42Keys).forEach(lang => {
@@ -11631,7 +11768,6 @@ const fridaAnalytics = {
     const container = document.getElementById('priority-zones-container');
     if (!list || !container) return;
 
-    // Solo mostrar priority zones cuando hay suficientes reportes para que sea significativo
     if (this.allReports.length < 5) {
       container.style.display = 'none';
       return;
@@ -11644,9 +11780,17 @@ const fridaAnalytics = {
     }
 
     container.style.display = 'block';
-    list.innerHTML = priorities.map((p, i) => {
+    
+    // ✨ FIX v43: paginación 3 inicial + 10 incremental
+    const SECONDARY_INITIAL = 3;
+    const SECONDARY_INCREMENT = 10;
+    const limit = state.priorityListLimit || SECONDARY_INITIAL;
+    const total = priorities.length;
+    const prioritiesToShow = priorities.slice(0, limit);
+    const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+    
+    list.innerHTML = prioritiesToShow.map((p, i) => {
       const badgeClass = p.severity === 'critical' ? 'badge-critical' : p.severity === 'moderate' ? 'badge-moderate' : 'badge-low';
-      // ✨ BLOQUE 2: badge labels traducidos
       const badgeLabel = p.severity === 'critical' ? t('sev_critical') : p.severity === 'moderate' ? t('sev_moderate') : t('sev_low');
       const rank = String(i + 1).padStart(2, '0');
       return `<div class="priority-item">
@@ -11663,6 +11807,24 @@ const fridaAnalytics = {
         <div class="priority-badge ${badgeClass}">${badgeLabel}</div>
       </div>`;
     }).join('');
+    
+    // ✨ FIX v43: botón show more/less
+    if (total > SECONDARY_INITIAL) {
+      let pagHtml = '<div style="padding:8px; text-align:center; margin-top:6px;">';
+      if (total > limit) {
+        const remaining = total - limit;
+        const inc = Math.min(SECONDARY_INCREMENT, remaining);
+        const moreLabels = { en: `▼ Show ${inc} more`, es: `▼ Ver ${inc} más`, fr: `▼ Voir ${inc} de plus`, ar: `▼ عرض ${inc} المزيد`, zh: `▼ 显示 ${inc} 个`, ru: `▼ Ещё ${inc}` };
+        pagHtml += `<button onclick="state.priorityListLimit=(state.priorityListLimit||3)+${SECONDARY_INCREMENT}; FRIDA_ANALYTICS.refreshPriorityList()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${moreLabels[lang]||moreLabels.en}</button>`;
+        pagHtml += `<span style="color:var(--text2); font-size:10px;">${limit}/${total}</span>`;
+      } else {
+        const lessLabels = { en: '▲ Show less', es: '▲ Ver menos', fr: '▲ Voir moins', ar: '▲ عرض أقل', zh: '▲ 显示更少', ru: '▲ Меньше' };
+        pagHtml += `<button onclick="state.priorityListLimit=3; FRIDA_ANALYTICS.refreshPriorityList()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${lessLabels[lang]||lessLabels.en}</button>`;
+        pagHtml += `<span style="color:var(--text2); font-size:10px;">${total}/${total}</span>`;
+      }
+      pagHtml += '</div>';
+      list.innerHTML += pagHtml;
+    }
   }
 };
 
