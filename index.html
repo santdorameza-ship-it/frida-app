@@ -1340,6 +1340,51 @@ window.fridaForceBotScore = function(score) {
   }
 };
 
+// ✨ FIX v39: helper de testing para simular 3 confirmaciones de observer en un reporte.
+// Desde un solo dispositivo solo puedes votar 1 vez (correcto anti-spam), pero para
+// demo/testing necesitas ver el efecto del bonus +5 que se activa a partir de 3 confirmaciones.
+// Uso: en consola: fridaSimulate3Confirms('report-id-here')
+window.fridaSimulate3Confirms = function(reportId) {
+  if (!reportId) {
+    if (typeof state !== 'undefined' && state.reports && state.reports.length > 0) {
+      reportId = state.reports[state.reports.length - 1].id;
+      console.log('FRIDA: 🧪 No id given, using last report:', reportId);
+    } else {
+      console.warn('FRIDA: 🧪 No reportId given and no reports available');
+      return;
+    }
+  }
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report) {
+    console.warn('FRIDA: 🧪 Report not found:', reportId);
+    return;
+  }
+  if (!report.observerConfirms) report.observerConfirms = [];
+  
+  // Inyectar 2 fingerprints fake + el actual (si no está)
+  const fakeFps = ['test-fake-fp-001', 'test-fake-fp-002'];
+  fakeFps.forEach(fp => {
+    if (!report.observerConfirms.includes(fp)) report.observerConfirms.push(fp);
+  });
+  
+  // Recalcular credibility: +2 por cada confirmación + 5 extra al llegar a 3
+  const oldCred = report.credibility || 0;
+  let newCred = oldCred;
+  const newVotes = fakeFps.length;
+  newCred = Math.min(100, newCred + (newVotes * 2));
+  if (report.observerConfirms.length >= 3 && oldCred < newCred) {
+    newCred = Math.min(100, newCred + 5);
+  }
+  report.credibility = newCred;
+  report.effectiveCredibility = newCred;
+  
+  console.log('FRIDA: 🧪 Simulated 3 confirms. Credibility: ' + oldCred + '% → ' + newCred + '%');
+  
+  if (typeof refreshObserverMap === 'function') refreshObserverMap();
+  if (typeof refreshReportsTable === 'function') refreshReportsTable();
+  return { reportId: reportId, before: oldCred, after: newCred };
+};
+
 function checkRatelimit() {
   try {
     const raw = localStorage.getItem(RATELIMIT_KEY);
@@ -1856,6 +1901,31 @@ function showObserverScreen() {
     // Sí puede interactuar — proceder normal
     initObserverMap();
   });
+}
+
+// ✨ FIX v39: cache del resultado de proximity (válido por 60s)
+// Se invalida cada vez que se cambia de pantalla observer.
+let _observerProximityCache = { result: null, timestamp: 0, ttlMs: 60000 };
+
+// ✨ FIX v39: requireObserverProximity() — wrapper para llamar ANTES de cada
+// acción del observer (confirm/dispute/mark-attended/etc). Si no califica,
+// bloquea la acción y muestra alert.
+async function requireObserverProximity() {
+  // Si hay cache fresco, usarlo (evita pedir GPS en cada click)
+  const now = Date.now();
+  if (_observerProximityCache.result !== null && 
+      (now - _observerProximityCache.timestamp) < _observerProximityCache.ttlMs) {
+    return _observerProximityCache.result;
+  }
+  
+  // Re-evaluar
+  const ok = await checkObserverProximity();
+  _observerProximityCache = { result: ok, timestamp: now, ttlMs: 60000 };
+  
+  if (!ok) {
+    alert('⚠️ ' + (t('observer_out_of_range') || 'You must be within the event area to interact here.'));
+  }
+  return ok;
 }
 
 // ✨ MEJORA v37 / FIX v38: helper que verifica si el usuario está cerca de algún evento activo
@@ -2480,7 +2550,11 @@ function refreshObserverMap() {
 }
 
 // ✨ MEJORA v37: votación "ya libre" — observer marca bloqueo de vialidad como removido
-function observerMarkBlockCleared(blockLat, blockLng) {
+async function observerMarkBlockCleared(blockLat, blockLng) {
+  // ✨ FIX v39: validar proximidad antes de cada acción
+  const inRange = await requireObserverProximity();
+  if (!inRange) return;
+  
   const fp = getFingerprintSync();
   if (!fp) { alert('Fingerprint not ready'); return; }
   
@@ -2521,7 +2595,11 @@ function observerMarkBlockCleared(blockLat, blockLng) {
 }
 
 // ✨ FIX v36: votación de "existence" — confirma que el herido SÍ está ahí
-function observerConfirmInjuryExists(surveyId, lat, lng) {
+async function observerConfirmInjuryExists(surveyId, lat, lng) {
+  // ✨ FIX v39: validar proximidad
+  const inRange = await requireObserverProximity();
+  if (!inRange) return;
+  
   const fp = getFingerprintSync();
   if (!fp) { alert('Fingerprint not ready'); return; }
   
@@ -2568,7 +2646,11 @@ function observerConfirmInjuryExists(surveyId, lat, lng) {
 }
 
 // Acciones de observer (con límites anti-spam y reputation tracking)
-function observerConfirmReport(reportId) {
+async function observerConfirmReport(reportId) {
+  // ✨ FIX v39: validar proximidad antes de cada acción (no solo al abrir pantalla)
+  const inRange = await requireObserverProximity();
+  if (!inRange) return;
+  
   const fp = getFingerprintSync();
   if (!fp) { alert('Fingerprint not ready'); return; }
   
@@ -2591,27 +2673,41 @@ function observerConfirmReport(reportId) {
   p.observerReports = (p.observerReports || 0) + 1;
   saveUserProfile(p);
   
-  // Subir confirmación a Supabase (campo validation o similar)
   const report = state.reports.find(r => r.id === reportId);
   if (report) {
     if (!report.observerConfirms) report.observerConfirms = [];
     if (!report.observerConfirms.includes(fp)) {
       report.observerConfirms.push(fp);
-      // Bonus pequeño al credibility por cada observer confirm
+      
+      // ✨ FIX v39: bonus gradual desde el PRIMER voto (no esperar a 3+)
+      // Esto permite que los evaluadores y usuarios vean el cambio en tiempo real.
+      // Aún así, el peso del voto es bajo (+2) y el bonus principal sigue siendo 3+ (+5 extra).
+      report.credibility = Math.min(100, (report.credibility || 0) + 2);
       if (report.observerConfirms.length >= 3) {
-        report.credibility = Math.min(100, (report.credibility || 0) + 5);
+        report.credibility = Math.min(100, report.credibility + 5);
       }
+      report.effectiveCredibility = report.credibility;
+      
       if (typeof supabaseSaveReport === 'function' && navigator.onLine) {
         supabaseSaveReport(report).catch(() => {});
       }
     }
   }
   
-  alert('✓ ' + (t('observer_confirmed') || 'Confirmation recorded'));
+  // ✨ FIX v39: re-render mapa y tabla para mostrar cambio
+  if (typeof refreshObserverMap === 'function') refreshObserverMap();
+  if (typeof refreshReportsTable === 'function') refreshReportsTable();
+  
+  alert('✓ ' + (t('observer_confirmed') || 'Confirmation recorded') + 
+        ' (+' + (report && report.observerConfirms.length >= 3 ? 7 : 2) + '% credibility)');
   if (typeof checkAndUnlockBadges === 'function') checkAndUnlockBadges();
 }
 
-function observerDisputeReport(reportId) {
+async function observerDisputeReport(reportId) {
+  // ✨ FIX v39: validar proximidad
+  const inRange = await requireObserverProximity();
+  if (!inRange) return;
+  
   const fp = getFingerprintSync();
   if (!fp) return;
   
@@ -2631,20 +2727,34 @@ function observerDisputeReport(reportId) {
     if (!report.observerDisputes) report.observerDisputes = [];
     if (!report.observerDisputes.includes(fp)) {
       report.observerDisputes.push(fp);
+      
+      // ✨ FIX v39: penalty gradual desde el primer dispute
+      report.credibility = Math.max(0, (report.credibility || 0) - 5);
       if (report.observerDisputes.length >= 3) {
-        report.credibility = Math.max(0, (report.credibility || 0) - 15);
+        report.credibility = Math.max(0, report.credibility - 15);
       }
+      report.effectiveCredibility = report.credibility;
+      
       if (typeof supabaseSaveReport === 'function' && navigator.onLine) {
         supabaseSaveReport(report).catch(() => {});
       }
     }
   }
   
-  alert('⚠️ ' + (t('observer_disputed') || 'Dispute recorded'));
+  // ✨ FIX v39: re-render
+  if (typeof refreshObserverMap === 'function') refreshObserverMap();
+  if (typeof refreshReportsTable === 'function') refreshReportsTable();
+  
+  alert('⚠️ ' + (t('observer_disputed') || 'Dispute recorded') + 
+        ' (-' + (report && report.observerDisputes.length >= 3 ? 20 : 5) + '% credibility)');
 }
 
 // Confirma que un punto de herido ya fue atendido (votación 3+ usuarios)
-function observerConfirmAttended(surveyId, lat, lng) {
+async function observerConfirmAttended(surveyId, lat, lng) {
+  // ✨ FIX v39: validar proximidad
+  const inRange = await requireObserverProximity();
+  if (!inRange) return;
+  
   const fp = getFingerprintSync();
   if (!fp) return;
   
