@@ -2460,7 +2460,7 @@ async function refreshRoutingUI() {
           <div style="font-weight:600; font-size:13px; color:var(--text);">${ev.name || 'Event'}</div>
           <div style="font-size:10px; color:${lcInfo.color}; padding:2px 6px; background:rgba(255,255,255,0.05); border-radius:4px;">${lcInfo.label}</div>
         </div>
-        <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">${repCount} reports${distStr ? ' · ' + distStr + ' away' : ''}</div>
+        <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">${repCount} ${t('route_reports_label') || 'reports'}${distStr ? ' · ' + distStr + ' ' + (t('route_away_label') || 'away') : ''}</div>
         <button onclick="routeToEvent('${ev.id}')" style="width:100%; background:#52B788; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer;">
           ${t('route_planner_route_btn') || 'Route me there →'}
         </button>
@@ -8429,7 +8429,15 @@ function renderSatelliteValidationsDashboard(validations) {
   const section = document.getElementById('satellite-validations-section');
   if (section) section.style.display = 'block';
   
-  container.innerHTML = validations.map((v, idx) => {
+  // ✨ FIX v42: paginación incremental 3+10
+  const SECONDARY_INITIAL = 3;
+  const SECONDARY_INCREMENT = 10;
+  const sLimit = state.satelliteLimit || SECONDARY_INITIAL;
+  const totalSat = validations.length;
+  const validationsToShow = validations.slice(0, sLimit);
+  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
+  
+  container.innerHTML = validationsToShow.map((v, idx) => {
     return `<div class="sat-validation-card" style="background:var(--bg3); border:1px solid var(--border); border-left:4px solid ${v.statusColor}; padding:14px; border-radius:10px; margin-bottom:10px;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
         <div>
@@ -8453,6 +8461,24 @@ function renderSatelliteValidationsDashboard(validations) {
       </div>
     </div>`;
   }).join('');
+  
+  // ✨ FIX v42: botón show more/less satellite
+  if (totalSat > SECONDARY_INITIAL) {
+    let pagHtml = '<div style="padding:8px; text-align:center; margin-top:6px;">';
+    if (totalSat > sLimit) {
+      const remaining = totalSat - sLimit;
+      const inc = Math.min(SECONDARY_INCREMENT, remaining);
+      const moreLabels = { en: `▼ Show ${inc} more`, es: `▼ Ver ${inc} más`, fr: `▼ Voir ${inc} de plus`, ar: `▼ عرض ${inc} المزيد`, zh: `▼ 显示 ${inc} 个`, ru: `▼ Ещё ${inc}` };
+      pagHtml += `<button onclick="state.satelliteLimit=(state.satelliteLimit||3)+${SECONDARY_INCREMENT}; if(typeof refreshSatelliteValidations==='function')refreshSatelliteValidations()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${moreLabels[lang]||moreLabels.en}</button>`;
+      pagHtml += `<span style="color:var(--text2); font-size:10px;">${sLimit}/${totalSat}</span>`;
+    } else {
+      const lessLabels = { en: '▲ Show less', es: '▲ Ver menos', fr: '▲ Voir moins', ar: '▲ عرض أقل', zh: '▲ 显示更少', ru: '▲ Меньше' };
+      pagHtml += `<button onclick="state.satelliteLimit=3; if(typeof refreshSatelliteValidations==='function')refreshSatelliteValidations()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${lessLabels[lang]||lessLabels.en}</button>`;
+      pagHtml += `<span style="color:var(--text2); font-size:10px;">${totalSat}/${totalSat}</span>`;
+    }
+    pagHtml += '</div>';
+    container.innerHTML += pagHtml;
+  }
 }
 
 // Función orquestadora
@@ -11090,6 +11116,86 @@ const v40Keys = {
 Object.keys(v40Keys).forEach(lang => {
   if (i18n[lang]) Object.assign(i18n[lang], v40Keys[lang]);
   else i18n[lang] = v40Keys[lang];
+});
+
+// ===== v42 i18n ✨ =====
+const v42Keys = {
+  en: {
+    observer_btn_event_resolved: '🏁 Event resolved',
+    event_resolved_closed: 'Event closed by 3+ observers',
+    event_resolve_vote: 'Resolve vote received',
+    routing_btn: '🚗 Quick Route',
+    route_planner_title: '🚗 Quick Route',
+    route_planner_events_label: '🚨 Active emergencies',
+    route_reports_label: 'reports',
+    route_away_label: 'away',
+    showmore_template: 'Show more',
+    showless_template: 'Show less'
+  },
+  es: {
+    observer_btn_event_resolved: '🏁 Evento resuelto',
+    event_resolved_closed: 'Evento cerrado por 3+ observadores',
+    event_resolve_vote: 'Voto de resolución recibido',
+    routing_btn: '🚗 Ruta Rápida',
+    route_planner_title: '🚗 Ruta Rápida',
+    route_planner_events_label: '🚨 Emergencias activas',
+    route_reports_label: 'reportes',
+    route_away_label: 'de distancia',
+    showmore_template: 'Ver más',
+    showless_template: 'Ver menos'
+  },
+  fr: {
+    observer_btn_event_resolved: '🏁 Événement résolu',
+    event_resolved_closed: 'Événement clos par 3+ observateurs',
+    event_resolve_vote: 'Vote de résolution reçu',
+    routing_btn: '🚗 Route Rapide',
+    route_planner_title: '🚗 Route Rapide',
+    route_planner_events_label: '🚨 Urgences actives',
+    route_reports_label: 'rapports',
+    route_away_label: 'de distance',
+    showmore_template: 'Voir plus',
+    showless_template: 'Voir moins'
+  },
+  ar: {
+    observer_btn_event_resolved: '🏁 الحدث تم حله',
+    event_resolved_closed: 'تم إغلاق الحدث بواسطة 3+ مراقبين',
+    event_resolve_vote: 'تم استلام تصويت الحل',
+    routing_btn: '🚗 طريق سريع',
+    route_planner_title: '🚗 طريق سريع',
+    route_planner_events_label: '🚨 حالات الطوارئ النشطة',
+    route_reports_label: 'تقارير',
+    route_away_label: 'بعيد',
+    showmore_template: 'عرض المزيد',
+    showless_template: 'عرض أقل'
+  },
+  zh: {
+    observer_btn_event_resolved: '🏁 事件已解决',
+    event_resolved_closed: '事件已由 3+ 观察者关闭',
+    event_resolve_vote: '已收到解决投票',
+    routing_btn: '🚗 快速路线',
+    route_planner_title: '🚗 快速路线',
+    route_planner_events_label: '🚨 活跃紧急情况',
+    route_reports_label: '报告',
+    route_away_label: '距离',
+    showmore_template: '显示更多',
+    showless_template: '显示更少'
+  },
+  ru: {
+    observer_btn_event_resolved: '🏁 Событие разрешено',
+    event_resolved_closed: 'Событие закрыто 3+ наблюдателями',
+    event_resolve_vote: 'Голос за разрешение получен',
+    routing_btn: '🚗 Быстрый маршрут',
+    route_planner_title: '🚗 Быстрый маршрут',
+    route_planner_events_label: '🚨 Активные ЧС',
+    route_reports_label: 'отчётов',
+    route_away_label: 'расстояние',
+    showmore_template: 'Ещё',
+    showless_template: 'Меньше'
+  }
+};
+Object.keys(v42Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], v42Keys[lang]);
+  else i18n[lang] = v42Keys[lang];
 });
 
 // Mapeos para tCrisis y tRegion
