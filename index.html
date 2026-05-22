@@ -1982,8 +1982,13 @@ function initObserverReport() {
 function showObserverScreen() {
   nextStep('observer');
   
-  // ✨ MEJORA v37: chequear ubicación del usuario antes de mostrar mapa interactivo
-  // Solo permitimos interactuar si el usuario está DENTRO de un evento activo.
+  // ✨ FIX v41: mostrar banner de proximidad SIEMPRE (incluso si autoriza)
+  // Para que el usuario sepa por qué tiene/no tiene acceso.
+  if (typeof showObserverProximityBanner === 'function') {
+    showObserverProximityBanner();
+  }
+  
+  // Chequear si puede interactuar
   checkObserverProximity().then(canInteract => {
     if (!canInteract) {
       const mapEl = document.getElementById('observer-map');
@@ -1997,8 +2002,6 @@ function showObserverScreen() {
       }
       return;
     }
-    
-    // Sí puede interactuar — proceder normal
     initObserverMap();
   });
 }
@@ -2010,26 +2013,103 @@ let _observerProximityCache = { result: null, timestamp: 0, ttlMs: 60000 };
 // ✨ FIX v39: requireObserverProximity() — wrapper para llamar ANTES de cada
 // acción del observer (confirm/dispute/mark-attended/etc). Si no califica,
 // bloquea la acción y muestra alert.
-async function requireObserverProximity() {
-  // Si hay cache fresco, usarlo (evita pedir GPS en cada click)
-  const now = Date.now();
-  if (_observerProximityCache.result !== null && 
-      (now - _observerProximityCache.timestamp) < _observerProximityCache.ttlMs) {
-    return _observerProximityCache.result;
-  }
-  
-  // Re-evaluar
-  const ok = await checkObserverProximity();
-  _observerProximityCache = { result: ok, timestamp: now, ttlMs: 60000 };
+async function requireObserverProximity(targetLat, targetLng) {
+  // ✨ FIX v41: SIN cache + chequeo target específico si se proporciona.
+  // Esto previene "estoy cerca de algún evento → puedo votar reportes lejanos".
+  const ok = await checkObserverProximity(targetLat, targetLng);
+  _observerProximityCache = { result: ok, timestamp: Date.now(), ttlMs: 0 };
   
   if (!ok) {
-    alert('⚠️ ' + (t('observer_out_of_range') || 'You must be within the event area to interact here.'));
+    alert('⚠️ ' + (t('observer_out_of_range') || 'You must be within 10 km of this specific report/point to interact with it.'));
   }
   return ok;
 }
 
+// ✨ FIX v41: helper que muestra un banner visible con el estado de proximidad
+// Se llama cuando se abre la pantalla observer.
+async function showObserverProximityBanner() {
+  let banner = document.getElementById('observer-proximity-banner');
+  if (!banner) {
+    const observerStep = document.getElementById('step-observer');
+    if (!observerStep) return;
+    banner = document.createElement('div');
+    banner.id = 'observer-proximity-banner';
+    banner.style.cssText = 'margin:10px 0; padding:10px 12px; border-radius:8px; font-family:DM Sans,sans-serif; font-size:11px; line-height:1.4;';
+    // Insertar al principio del step-observer
+    observerStep.insertBefore(banner, observerStep.firstChild);
+  }
+  
+  banner.innerHTML = '<div style="color:#aaa;">🔍 Verifying your location...</div>';
+  banner.style.background = '#1a1a1a';
+  banner.style.border = '1px solid #333';
+  
+  const activeEvents = (state.events || []).filter(e => e.status !== 'closed' && e.status !== 'isolated');
+  if (activeEvents.length === 0) {
+    banner.innerHTML = '<div style="color:#fbbf24;">⚠️ No active events to verify against. Observer actions blocked.</div>';
+    banner.style.background = 'rgba(251,191,36,0.1)';
+    banner.style.border = '1px solid rgba(251,191,36,0.4)';
+    return;
+  }
+  
+  let userLat, userLng, gpsAcc;
+  try {
+    const pos = await new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, 
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+    });
+    userLat = pos.coords.latitude;
+    userLng = pos.coords.longitude;
+    gpsAcc = Math.round(pos.coords.accuracy);
+  } catch (e) {
+    banner.innerHTML = '<div style="color:#ef4444;">❌ GPS unavailable. All observer actions will be denied.</div>';
+    banner.style.background = 'rgba(239,68,68,0.1)';
+    banner.style.border = '1px solid rgba(239,68,68,0.4)';
+    return;
+  }
+  
+  // Encontrar el evento más cercano y el rango
+  const MIN_RADIUS_M = 10000;
+  const EXTRA_MARGIN_M = 5000;
+  let bestDist = Infinity, bestEv = null, bestRadius = 0, bestIn = false;
+  
+  for (const ev of activeEvents) {
+    const reps = (state.reports || []).filter(r => r.eventId === ev.id && r.coords);
+    let radius = MIN_RADIUS_M, cLat = ev.centerLat, cLng = ev.centerLng;
+    if (reps.length >= 2) {
+      const lats = reps.map(r => r.coords.lat), lngs = reps.map(r => r.coords.lng);
+      const mxLat = Math.max.apply(null, lats), mnLat = Math.min.apply(null, lats);
+      const mxLng = Math.max.apply(null, lngs), mnLng = Math.min.apply(null, lngs);
+      cLat = (mxLat + mnLat) / 2; cLng = (mxLng + mnLng) / 2;
+      const diag = haversineMeters(mxLat, mxLng, mnLat, mnLng);
+      radius = Math.max(MIN_RADIUS_M, diag / 2 + EXTRA_MARGIN_M);
+    }
+    const dist = haversineMeters(userLat, userLng, cLat, cLng);
+    if (dist < bestDist) {
+      bestDist = dist; bestEv = ev; bestRadius = radius;
+      bestIn = (dist <= radius);
+    }
+  }
+  
+  const distKm = (bestDist / 1000).toFixed(1);
+  const radKm = (bestRadius / 1000).toFixed(1);
+  
+  if (bestIn) {
+    banner.innerHTML = '<div style="color:#52B788;">✅ <b>Authorized.</b> You are ' + distKm + ' km from "' + (bestEv.name || 'event') + '" (allowed radius: ' + radKm + ' km).</div>' +
+      '<div style="color:#888; font-size:10px; margin-top:4px;">Your location: ' + userLat.toFixed(4) + ', ' + userLng.toFixed(4) + ' · GPS accuracy: ±' + gpsAcc + 'm</div>';
+    banner.style.background = 'rgba(82,183,136,0.1)';
+    banner.style.border = '1px solid rgba(82,183,136,0.4)';
+  } else {
+    banner.innerHTML = '<div style="color:#ef4444;">❌ <b>Denied.</b> You are ' + distKm + ' km from "' + (bestEv ? bestEv.name : 'closest event') + '" (allowed radius: ' + radKm + ' km).</div>' +
+      '<div style="color:#888; font-size:10px; margin-top:4px;">Your location: ' + userLat.toFixed(4) + ', ' + userLng.toFixed(4) + ' · GPS accuracy: ±' + gpsAcc + 'm</div>';
+    banner.style.background = 'rgba(239,68,68,0.1)';
+    banner.style.border = '1px solid rgba(239,68,68,0.4)';
+  }
+}
+
 // ✨ MEJORA v37 / FIX v38: helper que verifica si el usuario está cerca de algún evento activo
-async function checkObserverProximity() {
+async function checkObserverProximity(targetLat, targetLng) {
+  // ✨ FIX v41: si se pasa target específico, verificar contra ESE target.
+  // Si no se pasa, verificar contra el evento activo más cercano (modo "abrir pantalla").
   const activeEvents = (state.events || []).filter(e => e.status !== 'closed' && e.status !== 'isolated');
   if (activeEvents.length === 0) {
     console.warn('FRIDA: 👁️ Observer denied — no active events');
@@ -2050,8 +2130,22 @@ async function checkObserverProximity() {
     return false;
   }
   
-  // ✨ FIX v40: radio mínimo 10km + bounding box solo si hay 2+ reportes
-  const MIN_RADIUS_M = 10000;
+  const MIN_RADIUS_M = 10000;  // 10km radio máximo de interacción
+  
+  // ✨ FIX v41: si se pasa target específico (lat/lng del reporte o punto), verificar SOLO contra ese
+  if (typeof targetLat === 'number' && typeof targetLng === 'number') {
+    const dist = haversineMeters(userLat, userLng, targetLat, targetLng);
+    if (dist <= MIN_RADIUS_M) {
+      console.log('FRIDA: 👁️ GRANTED — target is ' + Math.round(dist) + 'm away (limit ' + MIN_RADIUS_M + 'm)');
+      return true;
+    } else {
+      console.warn('FRIDA: 👁️ DENIED — target is ' + Math.round(dist) + 'm away (limit ' + MIN_RADIUS_M + 'm). You can only interact with reports within 10 km of your location.');
+      return false;
+    }
+  }
+  
+  // Modo "abrir pantalla": permitir si está cerca de AL MENOS UN evento
+  // (no contamina, solo decide si mostrar el mapa o el mensaje de bloqueo)
   const EXTRA_MARGIN_M = 5000;
   let bestDist = Infinity, bestEv = null;
   
@@ -2072,7 +2166,7 @@ async function checkObserverProximity() {
     if (dist < bestDist) { bestDist = dist; bestEv = { name: ev.name, radius: radius }; }
     
     if (dist <= radius) {
-      console.log('FRIDA: 👁️ GRANTED — "' + ev.name + '" ' + Math.round(dist) + 'm (radius ' + Math.round(radius) + 'm)');
+      console.log('FRIDA: 👁️ GRANTED (open screen) — "' + ev.name + '" ' + Math.round(dist) + 'm (radius ' + Math.round(radius) + 'm)');
       return true;
     }
   }
@@ -2636,11 +2730,33 @@ function refreshObserverMap() {
     const confirmTxt = t('observer_btn_confirm') || '✓ Confirm';
     const disputeTxt = t('observer_btn_dispute') || '✗ Dispute';
     const credTxt = t('observer_label_cred') || 'Cred';
+    const resolvedTxt = t('observer_btn_event_resolved') || '🏁 Event resolved';
+    
+    // ✨ FIX v41: si el evento NO tiene heridos/bloqueos, añadir botón "evento resuelto"
+    let resolvedBtn = '';
+    if (r.eventId) {
+      const ev = (state.events || []).find(e => e.id === r.eventId);
+      if (ev && ev.status !== 'closed') {
+        const evSurveys = (state.surveys || []).filter(s => s.eventId === ev.id);
+        let hasNeeds = false;
+        evSurveys.forEach(s => {
+          if (s.answers && (
+            (s.answers.injuries_points && s.answers.injuries_points.length > 0) ||
+            (s.answers.road_blocks && s.answers.road_blocks.length > 0)
+          )) hasNeeds = true;
+        });
+        if (!hasNeeds) {
+          const votes = (ev.resolvedConfirmations || []).length;
+          resolvedBtn = '<br><button onclick="observerMarkEventResolved(\'' + ev.id + '\')" style="margin-top:6px; padding:4px 8px; background:#3b82f6; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:10px;">' + resolvedTxt + ' (' + votes + '/3)</button>';
+        }
+      }
+    }
     
     marker.bindPopup('<div style="font-size:11px;"><b>' + r.crisis + '</b><br>' + 
       r.infra + ' · ' + r.damage + '<br>' + credTxt + ': ' + (r.credibility||0) + '%<br>' +
       '<button onclick="observerConfirmReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#52B788; color:#fff; border:none; border-radius:4px; cursor:pointer;">' + confirmTxt + '</button> ' +
-      '<button onclick="observerDisputeReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer;">' + disputeTxt + '</button></div>');
+      '<button onclick="observerDisputeReport(\'' + r.id + '\')" style="margin-top:4px; padding:4px 8px; background:#ef4444; color:#fff; border:none; border-radius:4px; cursor:pointer;">' + disputeTxt + '</button>' +
+      resolvedBtn + '</div>');
     window.observerMarkers.push(marker);
   });
   
@@ -2729,8 +2845,8 @@ function refreshObserverMap() {
 
 // ✨ MEJORA v37: votación "ya libre" — observer marca bloqueo de vialidad como removido
 async function observerMarkBlockCleared(blockLat, blockLng) {
-  // ✨ FIX v39: validar proximidad antes de cada acción
-  const inRange = await requireObserverProximity();
+  // ✨ FIX v41: validar contra el bloqueo específico
+  const inRange = await requireObserverProximity(blockLat, blockLng);
   if (!inRange) return;
   
   const fp = getFingerprintSync();
@@ -2774,8 +2890,8 @@ async function observerMarkBlockCleared(blockLat, blockLng) {
 
 // ✨ FIX v36: votación de "existence" — confirma que el herido SÍ está ahí
 async function observerConfirmInjuryExists(surveyId, lat, lng) {
-  // ✨ FIX v39: validar proximidad
-  const inRange = await requireObserverProximity();
+  // ✨ FIX v41: validar contra el punto del herido
+  const inRange = await requireObserverProximity(lat, lng);
   if (!inRange) return;
   
   const fp = getFingerprintSync();
@@ -2825,8 +2941,13 @@ async function observerConfirmInjuryExists(surveyId, lat, lng) {
 
 // Acciones de observer (con límites anti-spam y reputation tracking)
 async function observerConfirmReport(reportId) {
-  // ✨ FIX v39: validar proximidad antes de cada acción (no solo al abrir pantalla)
-  const inRange = await requireObserverProximity();
+  // ✨ FIX v41: chequear proximidad contra LA UBICACIÓN ESPECÍFICA del reporte
+  const reportTarget = state.reports.find(r => r.id === reportId);
+  if (!reportTarget || !reportTarget.coords) {
+    alert('⚠️ Report has no coordinates');
+    return;
+  }
+  const inRange = await requireObserverProximity(reportTarget.coords.lat, reportTarget.coords.lng);
   if (!inRange) return;
   
   const fp = getFingerprintSync();
@@ -2878,8 +2999,13 @@ async function observerConfirmReport(reportId) {
 }
 
 async function observerDisputeReport(reportId) {
-  // ✨ FIX v39: validar proximidad
-  const inRange = await requireObserverProximity();
+  // ✨ FIX v41: chequear proximidad contra LA UBICACIÓN del reporte
+  const reportTarget = state.reports.find(r => r.id === reportId);
+  if (!reportTarget || !reportTarget.coords) {
+    alert('⚠️ Report has no coordinates');
+    return;
+  }
+  const inRange = await requireObserverProximity(reportTarget.coords.lat, reportTarget.coords.lng);
   if (!inRange) return;
   
   const fp = getFingerprintSync();
@@ -2923,8 +3049,8 @@ async function observerDisputeReport(reportId) {
 
 // Confirma que un punto de herido ya fue atendido (votación 3+ usuarios)
 async function observerConfirmAttended(surveyId, lat, lng) {
-  // ✨ FIX v39: validar proximidad
-  const inRange = await requireObserverProximity();
+  // ✨ FIX v41: validar contra el punto del herido específico
+  const inRange = await requireObserverProximity(lat, lng);
   if (!inRange) return;
   
   const fp = getFingerprintSync();
@@ -5037,11 +5163,11 @@ function autoCloseStaleEvents() {
   }
 }
 
-// ✨ FIX v40: chequear si todos los heridos y bloqueos del evento están atendidos
+// ✨ FIX v41: chequear si todos los heridos y bloqueos del evento están atendidos
+// O si el evento (sin heridos/bloqueos) tiene 3+ votos "resolved" de observadores
 function allEventNeedsResolved(ev) {
   if (!ev) return false;
   const surveys = (state.surveys || []).filter(s => s.eventId === ev.id);
-  if (surveys.length === 0) return false;
   
   let totalNeeds = 0, resolvedNeeds = 0;
   surveys.forEach(s => {
@@ -5059,7 +5185,52 @@ function allEventNeedsResolved(ev) {
       });
     }
   });
-  return (totalNeeds > 0 && resolvedNeeds === totalNeeds);
+  
+  // Caso A: hay heridos/bloqueos y todos están atendidos
+  if (totalNeeds > 0 && resolvedNeeds === totalNeeds) return true;
+  
+  // ✨ FIX v41: Caso B — evento sin heridos/bloqueos (solo reportes de daño).
+  // Se cierra cuando 3+ observers distintos voten "evento resuelto".
+  if (totalNeeds === 0) {
+    const resolveVotes = (ev.resolvedConfirmations || []).length;
+    if (resolveVotes >= 3) return true;
+  }
+  
+  return false;
+}
+
+// ✨ FIX v41: votar "evento resuelto" — para eventos que NO tienen heridos/bloqueos
+async function observerMarkEventResolved(eventId) {
+  const ev = (state.events || []).find(e => e.id === eventId);
+  if (!ev) { alert('Event not found'); return; }
+  
+  // Verificar proximidad respecto al centro del evento
+  const inRange = await requireObserverProximity(ev.centerLat, ev.centerLng);
+  if (!inRange) return;
+  
+  const fp = getFingerprintSync();
+  if (!fp) { alert('Fingerprint not ready'); return; }
+  
+  if (!ev.resolvedConfirmations) ev.resolvedConfirmations = [];
+  if (ev.resolvedConfirmations.includes(fp)) {
+    alert((t('observer_already_acted') || 'You already voted to resolve this event'));
+    return;
+  }
+  
+  ev.resolvedConfirmations.push(fp);
+  console.log('FRIDA: 🏁 Resolve vote for "' + ev.name + '": ' + ev.resolvedConfirmations.length + '/3');
+  
+  // ¿Llegamos a 3? Auto-cerrar
+  if (ev.resolvedConfirmations.length >= 3) {
+    autoCloseStaleEvents();
+    alert('🏁 ' + (t('event_resolved_closed') || 'Event closed by 3+ observers'));
+  } else {
+    alert('🏁 ' + (t('event_resolve_vote') || 'Resolve vote ' + ev.resolvedConfirmations.length + '/3 received'));
+  }
+  
+  if (typeof refreshObserverMap === 'function') refreshObserverMap();
+  if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
+  if (typeof recalcAllKPIs === 'function') recalcAllKPIs();
 }
 
 // Llamar autoCloseStaleEvents cada 5 minutos
@@ -6181,7 +6352,14 @@ function renderClustersDashboard(clusters) {
   };
   const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
   
-  container.innerHTML = clusters.map(c => {
+  // ✨ FIX v41: paginación incremental 3 inicial + 10
+  const SECONDARY_INITIAL = 3;
+  const SECONDARY_INCREMENT = 10;
+  const cLimit = state.clustersLimit || SECONDARY_INITIAL;
+  const totalClusters = clusters.length;
+  const clustersToShow = clusters.slice(0, cLimit);
+  
+  container.innerHTML = clustersToShow.map(c => {
     const sevLabel = (severityLabels[c.severityLevel] || severityLabels.low)[lang] || c.severityLevel;
     const coordsStr = c.centerLat.toFixed(4) + ', ' + c.centerLng.toFixed(4);
     
@@ -6219,6 +6397,24 @@ function renderClustersDashboard(clusters) {
       <div style="margin-top:6px; font-size:10px; color:var(--text2); font-family:'DM Mono',monospace;">📍 ${coordsStr}</div>
     </div>`;
   }).join('');
+  
+  // ✨ FIX v41: botón show more/less clusters
+  if (totalClusters > SECONDARY_INITIAL) {
+    let pagHtml = '<div style="padding:8px; text-align:center; margin-top:6px;">';
+    if (totalClusters > cLimit) {
+      const remaining = totalClusters - cLimit;
+      const inc = Math.min(SECONDARY_INCREMENT, remaining);
+      const moreLabels = { en: `▼ Show ${inc} more`, es: `▼ Ver ${inc} más`, fr: `▼ Voir ${inc} de plus`, ar: `▼ عرض ${inc} المزيد`, zh: `▼ 显示 ${inc} 个`, ru: `▼ Ещё ${inc}` };
+      pagHtml += `<button onclick="state.clustersLimit=(state.clustersLimit||3)+${SECONDARY_INCREMENT}; if(typeof refreshDamageClusters==='function')refreshDamageClusters()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${moreLabels[lang]||moreLabels.en}</button>`;
+      pagHtml += `<span style="color:var(--text2); font-size:10px;">${cLimit}/${totalClusters}</span>`;
+    } else {
+      const lessLabels = { en: '▲ Show less', es: '▲ Ver menos', fr: '▲ Voir moins', ar: '▲ عرض أقل', zh: '▲ 显示更少', ru: '▲ Меньше' };
+      pagHtml += `<button onclick="state.clustersLimit=3; if(typeof refreshDamageClusters==='function')refreshDamageClusters()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${lessLabels[lang]||lessLabels.en}</button>`;
+      pagHtml += `<span style="color:var(--text2); font-size:10px;">${totalClusters}/${totalClusters}</span>`;
+    }
+    pagHtml += '</div>';
+    container.innerHTML += pagHtml;
+  }
 }
 
 // Función orquestadora: recalcula clusters y refresca todas las vistas
@@ -7817,7 +8013,6 @@ function renderPriorityZonesDashboard(zones) {
   if (!container) return;
   
   if (zones.length === 0) {
-    // Ocultar sección si no hay zonas
     const section = document.getElementById('priority-zones-rich-section');
     if (section) section.style.display = 'none';
     return;
@@ -7826,7 +8021,13 @@ function renderPriorityZonesDashboard(zones) {
   const section = document.getElementById('priority-zones-rich-section');
   if (section) section.style.display = 'block';
   
-  // Etiquetas multilenguaje
+  // ✨ FIX v41: paginación incremental 3 inicial + 10 cada vez
+  const SECONDARY_INITIAL = 3;
+  const SECONDARY_INCREMENT = 10;
+  const limit = state.priorityZonesLimit || SECONDARY_INITIAL;
+  const totalZones = zones.length;
+  const zonesToShow = zones.slice(0, limit);
+  
   const levelLabels = {
     critical: { en: 'CRITICAL', es: 'CRÍTICO', fr: 'CRITIQUE', ar: 'حرج', zh: '严重', ru: 'КРИТИЧЕСКИЙ' },
     high:     { en: 'HIGH',     es: 'ALTO',    fr: 'ÉLEVÉ',    ar: 'مرتفع', zh: '高',   ru: 'ВЫСОКИЙ' },
@@ -7835,10 +8036,9 @@ function renderPriorityZonesDashboard(zones) {
   };
   const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
   
-  container.innerHTML = zones.map(z => {
+  container.innerHTML = zonesToShow.map(z => {
     const levelLabel = (levelLabels[z.level] || levelLabels.low)[lang] || z.level;
     
-    // Tiempo desde primer reporte — ✨ BLOQUE 2: traducido
     let timeAgo = '';
     if (z.firstReportTimestamp) {
       const minutesAgo = Math.round((Date.now() - z.firstReportTimestamp) / 60000);
@@ -7904,6 +8104,25 @@ function renderPriorityZonesDashboard(zones) {
       </div>
     </div>`;
   }).join('');
+  
+  // ✨ FIX v41: paginación incremental — botón show more/less
+  if (totalZones > SECONDARY_INITIAL) {
+    let paginationHtml = '<div style="padding:8px; text-align:center; margin-top:6px;">';
+    if (totalZones > limit) {
+      const remaining = totalZones - limit;
+      const inc = Math.min(SECONDARY_INCREMENT, remaining);
+      const moreLabels = { en: `▼ Show ${inc} more`, es: `▼ Ver ${inc} más`, fr: `▼ Voir ${inc} de plus`, ar: `▼ عرض ${inc} المزيد`, zh: `▼ 显示 ${inc} 个`, ru: `▼ Ещё ${inc}` };
+      paginationHtml += `<button onclick="state.priorityZonesLimit=(state.priorityZonesLimit||3)+${SECONDARY_INCREMENT}; refreshPriorityZones()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${moreLabels[lang]||moreLabels.en}</button>`;
+      paginationHtml += `<span style="color:var(--text2); font-size:10px;">${limit}/${totalZones}</span>`;
+    } else {
+      // Ya se muestran todas
+      const lessLabels = { en: '▲ Show less', es: '▲ Ver menos', fr: '▲ Voir moins', ar: '▲ عرض أقل', zh: '▲ 显示更少', ru: '▲ Меньше' };
+      paginationHtml += `<button onclick="state.priorityZonesLimit=3; refreshPriorityZones()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:6px 14px; border-radius:6px; font-size:11px; cursor:pointer; margin-right:6px;">${lessLabels[lang]||lessLabels.en}</button>`;
+      paginationHtml += `<span style="color:var(--text2); font-size:10px;">${totalZones}/${totalZones}</span>`;
+    }
+    paginationHtml += '</div>';
+    container.innerHTML += paginationHtml;
+  }
 }
 
 // Dibuja emojis de prioridad sobre cada cluster en el mapa principal
