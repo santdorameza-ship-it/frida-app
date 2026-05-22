@@ -735,7 +735,7 @@ html[dir="rtl"] .options-grid {
     <!-- ✨ REDISEÑO v38: sección KPIs primero -->
     <div style="font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:8px; opacity:0.7;" data-i18n="dashboard_kpis_section">Key indicators</div>
     <div class="kpi-grid">
-      <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">0</div><div class="kpi-label" data-i18n="kpi_total">Total Reports</div></div>
+      <div class="kpi-card critical"><div class="kpi-value" id="kpi-total">0</div><div class="kpi-label" data-i18n="kpi_active_reports">Active Reports</div></div>
       <div class="kpi-card critical"><div class="kpi-value" id="kpi-critical">0</div><div class="kpi-label" data-i18n="kpi_critical">Critical Zones</div></div>
       <div class="kpi-card warning"><div class="kpi-value" id="kpi-confidence">0%</div><div class="kpi-label" data-i18n="kpi_confidence">Data Confidence</div></div>
       <div class="kpi-card ok"><div class="kpi-value" id="kpi-events">0</div><div class="kpi-label" data-i18n="kpi_events">Active Events</div></div>
@@ -762,7 +762,7 @@ html[dir="rtl"] .options-grid {
     
     <!-- Density Triangulation (Punto 2): Damage Clusters ranking ✨ -->
     <div id="damage-clusters-section" style="display:none; margin-bottom:24px;">
-      <div class="section-label" data-i18n="clusters_label">🎯 Damage Clusters — AI Triangulated</div>
+      <div class="section-label" data-i18n="clusters_label">🎯 Damage Clusters</div>
       <div id="damage-clusters-list">
         <!-- Se llena dinámicamente con renderClustersDashboard() -->
       </div>
@@ -775,7 +775,7 @@ html[dir="rtl"] .options-grid {
     
     <!-- Priority Ranking (Punto 5 / Layer 8): Cards ricas con breakdown ✨ -->
     <div id="priority-zones-rich-section" style="display:none; margin-bottom:24px;">
-      <div class="section-label" data-i18n="priority_rich_label">🧠 Priority Zones — Explainable AI</div>
+      <div class="section-label" data-i18n="priority_rich_label">🧠 Priority Zones</div>
       <div id="priority-zones-rich-list">
         <!-- Se llena dinámicamente con renderPriorityZonesDashboard() -->
       </div>
@@ -794,7 +794,7 @@ html[dir="rtl"] .options-grid {
     </div>
     
     <div id="priority-zones-container" style="display:none;">
-      <div class="section-label" data-i18n="priority_label">Priority Zones — AI Ranked</div>
+      <div class="section-label" data-i18n="priority_label">Priority Zones</div>
       <div class="priority-list" id="priority-list">
         <!-- Vacío por defecto. Se llena dinámicamente cuando hay 5+ reportes (algoritmo de priorización en roadmap v2) -->
       </div>
@@ -809,6 +809,11 @@ html[dir="rtl"] .options-grid {
         <option value="70" data-i18n="partial_filter_70">≥ 70% credibility</option>
         <option value="100" data-i18n="partial_filter_full">Only complete reports</option>
       </select>
+      <!-- ✨ FIX v40: toggle para incluir reportes de eventos cerrados -->
+      <label style="display:flex; align-items:center; gap:5px; font-size:11px; color:var(--text2); cursor:pointer;">
+        <input type="checkbox" id="include-closed-toggle" onchange="toggleIncludeClosedReports(this.checked)" style="cursor:pointer;">
+        <span data-i18n="include_closed_events">Include closed events</span>
+      </label>
       <span id="partial-filter-count" style="font-size:11px; color:var(--text2); margin-left:auto;"></span>
     </div>
     <div class="table-wrapper">
@@ -822,20 +827,38 @@ html[dir="rtl"] .options-grid {
       </table>
     </div>
     
-    <!-- ✨ REDISEÑO v38: sección Tools al fondo -->
+    <!-- ✨ REDISEÑO v40: sección Tools con selector intuitivo + Plan Route -->
     <div style="margin-top:24px; padding-top:20px; border-top:1px solid var(--border);">
       <div style="font-size:10px; color:var(--text2); text-transform:uppercase; letter-spacing:1.5px; margin-bottom:10px; opacity:0.7;" data-i18n="dashboard_tools_section">Tools</div>
-      <div style="display:flex; gap:8px; flex-wrap:wrap;">
-        <button class="export-btn" onclick="exportCSV()" data-i18n="export_btn">⬇ Export CSV</button>
-        <button class="export-btn" onclick="exportGeoJSON()" data-i18n="export_geojson">⬇ Export GeoJSON</button>
+      
+      <div style="margin-bottom:16px;">
+        <button class="export-btn" onclick="openRoutingPanel()" style="background:rgba(82,183,136,0.15); border:1px solid #52B788; color:#52B788; padding:10px 16px; font-weight:600;">
+          🗺️ <span data-i18n="routing_btn">Plan Route</span>
+        </button>
+      </div>
+      
+      <div style="background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:14px;">
+        <div style="font-size:12px; font-weight:600; margin-bottom:10px; color:var(--text);" data-i18n="export_panel_title">📥 Download data</div>
+        
+        <div style="margin-bottom:10px;">
+          <div style="font-size:11px; color:var(--text2); margin-bottom:5px;" data-i18n="export_scope_label">Which data?</div>
+          <select id="export-scope" style="width:100%; background:var(--bg3); color:var(--text); border:1px solid var(--border); border-radius:6px; padding:7px 9px; font-family:'DM Sans',sans-serif; font-size:12px; cursor:pointer;">
+            <option value="all" data-i18n="export_scope_all">All events</option>
+            <option value="active" data-i18n="export_scope_active">Active events only</option>
+            <option value="current" data-i18n="export_scope_current">Currently selected event</option>
+          </select>
+        </div>
+        
+        <div style="font-size:11px; color:var(--text2); margin-bottom:5px;" data-i18n="export_format_label">Format</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button class="export-btn" onclick="exportWithScope('csv')" style="flex:1; min-width:120px;">⬇ CSV</button>
+          <button class="export-btn" onclick="exportWithScope('geojson')" style="flex:1; min-width:120px;">⬇ GeoJSON</button>
+        </div>
       </div>
     </div>
   </div>
   
-  <!-- ✨ REDISEÑO v38: Routing como FAB flotante para acceso rápido (solo en dashboard) -->
-  <button id="routing-fab" onclick="openRoutingPanel()" style="display:none; position:fixed; bottom:20px; right:20px; padding:14px 22px; border-radius:28px; background:#52B788; color:#fff; border:none; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:700; cursor:pointer; z-index:9000; box-shadow:0 4px 16px rgba(82,183,136,0.4); align-items:center; gap:8px;">
-    🗺️ <span data-i18n="routing_btn">Plan Route</span>
-  </button>
+  <!-- ✨ FIX v40: FAB de routing eliminado, ahora está en sección Tools -->
 </div>
 
 <script>
@@ -901,12 +924,6 @@ function showScreen(id, btn) {
   document.getElementById(id).classList.add('active');
   if (btn) btn.classList.add('active');
   if (id === 'map-screen') setTimeout(initMap, 150);
-  
-  // ✨ REDISEÑO v38: routing FAB SOLO visible en dashboard
-  const routingFab = document.getElementById('routing-fab');
-  if (routingFab) {
-    routingFab.style.display = (id === 'dashboard-screen') ? 'flex' : 'none';
-  }
 }
 
 // ===== FORM =====
@@ -1384,6 +1401,89 @@ window.fridaSimulate3Confirms = function(reportId) {
   if (typeof refreshReportsTable === 'function') refreshReportsTable();
   return { reportId: reportId, before: oldCred, after: newCred };
 };
+
+// ===== SISTEMA CREDIBILIDAD V40 (multi-factor auditable) ✨ =====
+// Mejores prácticas Ushahidi/Crowdcrafting. 5 factores con bandas, techo 100, piso 0.
+// Cada cálculo deja breakdown auditable.
+function computeReportCredibilityV2(report, opts) {
+  opts = opts || {};
+  const breakdown = { base: 50, dataQuality: 0, behavior: 0, socialValidation: 0, reputation: 0, flags: [] };
+  let score = 50;
+  
+  // 1. DATA QUALITY (0 a +30)
+  if (report.photoUploaded || (report.validation && report.validation.has_photo)) {
+    breakdown.dataQuality += 15; breakdown.flags.push('photo_verified');
+  }
+  const acc = opts.gpsAccuracy !== undefined ? opts.gpsAccuracy : (report.gpsAccuracy || null);
+  if (typeof acc === 'number' && acc <= 20) { breakdown.dataQuality += 10; breakdown.flags.push('gps_precise'); }
+  else if (typeof acc === 'number' && acc <= 50) { breakdown.dataQuality += 5; breakdown.flags.push('gps_good'); }
+  if (report.textLocation && report.textLocation.trim().length >= 4) { breakdown.dataQuality += 5; breakdown.flags.push('has_text_location'); }
+  breakdown.dataQuality = Math.min(30, breakdown.dataQuality);
+  score += breakdown.dataQuality;
+  
+  // 2. BEHAVIOR (-20 a +5)
+  const h = typeof report.humanScore === 'number' ? report.humanScore : 65;
+  if (h >= 60) { breakdown.behavior = 5; breakdown.flags.push('human_behavior'); }
+  else if (h >= 30) { breakdown.behavior = -10; breakdown.flags.push('suspicious_behavior'); }
+  else { breakdown.behavior = -20; breakdown.flags.push('bot_detected'); }
+  score += breakdown.behavior;
+  
+  // 3. SOCIAL VALIDATION (-25 a +30)
+  let social = 0;
+  const oC = (report.observerConfirms || []).length;
+  const oD = (report.observerDisputes || []).length;
+  social += Math.min(10, oC * 2);
+  if (oC >= 3) social += 5;
+  social -= Math.min(10, oD * 5);
+  if (oD >= 3) social -= 15;
+  
+  if (report.coords && report.timestamp && opts.includeCorroboration !== false) {
+    const rTime = new Date(report.timestamp).getTime();
+    const corro = (state.reports || []).filter(r => 
+      r.id !== report.id && r.coords && r.crisis === report.crisis && r.flagged !== true &&
+      Math.abs(rTime - new Date(r.timestamp).getTime()) < 3600000 &&
+      haversineMeters(report.coords.lat, report.coords.lng, r.coords.lat, r.coords.lng) < 500
+    ).length;
+    if (corro > 0) {
+      social += Math.min(15, corro * 5);
+      if (corro >= 3) social += 10;
+      breakdown.flags.push('corroborated_' + corro);
+    }
+  }
+  breakdown.socialValidation = Math.max(-25, Math.min(30, social));
+  score += breakdown.socialValidation;
+  
+  // 4. REPUTATION (-10 a +10)
+  const rep = opts.userReputation !== undefined ? opts.userReputation : 50;
+  if (rep >= 70) { breakdown.reputation = 10; breakdown.flags.push('high_reputation'); }
+  else if (rep >= 30) breakdown.reputation = 0;
+  else { breakdown.reputation = -10; breakdown.flags.push('low_reputation'); }
+  score += breakdown.reputation;
+  
+  if (report.flaggedReason === 'bot_blacklisted') {
+    score = Math.min(10, score);
+    breakdown.flags.push('blacklisted_cap');
+  }
+  
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  breakdown.final = score;
+  return { credibility: score, breakdown: breakdown };
+}
+
+function refreshReportCredibility(reportId) {
+  const report = state.reports.find(r => r.id === reportId);
+  if (!report) return null;
+  const p = (typeof loadUserProfile === 'function') ? loadUserProfile() : { reputationScore: 50 };
+  const result = computeReportCredibilityV2(report, {
+    gpsAccuracy: report.gpsAccuracy, userReputation: p.reputationScore || 50, includeCorroboration: true
+  });
+  report.credibility = result.credibility;
+  report.effectiveCredibility = result.credibility;
+  report.credibilityBreakdown = result.breakdown;
+  console.log('FRIDA: 📊 Cred refresh →', reportId.substring(0, 12), '→', result.credibility + '%');
+  return result;
+}
+// ===== FIN CREDIBILITY V40 =====
 
 function checkRatelimit() {
   try {
@@ -1930,60 +2030,56 @@ async function requireObserverProximity() {
 
 // ✨ MEJORA v37 / FIX v38: helper que verifica si el usuario está cerca de algún evento activo
 async function checkObserverProximity() {
-  // ✨ FIX v38: si NO hay eventos activos, también bloqueamos (no había nada que verificar antes y eso era el bug)
   const activeEvents = (state.events || []).filter(e => e.status !== 'closed' && e.status !== 'isolated');
   if (activeEvents.length === 0) {
-    console.warn('FRIDA: 👁️ Observer denied — no active events available to verify');
+    console.warn('FRIDA: 👁️ Observer denied — no active events');
     return false;
   }
   
-  // Obtener GPS del usuario (rápido, con timeout corto)
   let userLat = null, userLng = null;
   try {
     const pos = await new Promise((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(
-        p => resolve(p),
-        e => reject(e),
-        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
-      );
+      navigator.geolocation.getCurrentPosition(resolve, reject, 
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
     });
     userLat = pos.coords.latitude;
     userLng = pos.coords.longitude;
+    console.log('FRIDA: 👁️ User at', userLat.toFixed(4) + ',' + userLng.toFixed(4), 'accuracy ' + Math.round(pos.coords.accuracy) + 'm');
   } catch (e) {
-    console.warn('FRIDA: 👁️ Observer denied — no GPS available to verify proximity');
+    console.warn('FRIDA: 👁️ Observer denied — GPS error:', e.message);
     return false;
   }
   
-  // ¿Está dentro del bounding box de algún evento activo?
-  for (let i = 0; i < activeEvents.length; i++) {
-    const ev = activeEvents[i];
-    const reportsInEvent = (state.reports || []).filter(r => r.eventId === ev.id && r.coords);
+  // ✨ FIX v40: radio mínimo 10km + bounding box solo si hay 2+ reportes
+  const MIN_RADIUS_M = 10000;
+  const EXTRA_MARGIN_M = 5000;
+  let bestDist = Infinity, bestEv = null;
+  
+  for (const ev of activeEvents) {
+    const reps = (state.reports || []).filter(r => r.eventId === ev.id && r.coords);
+    let radius = MIN_RADIUS_M, cLat = ev.centerLat, cLng = ev.centerLng;
     
-    let radius = 5000;
-    let centerLat = ev.centerLat;
-    let centerLng = ev.centerLng;
-    
-    if (reportsInEvent.length > 0) {
-      const lats = reportsInEvent.map(r => r.coords.lat);
-      const lngs = reportsInEvent.map(r => r.coords.lng);
-      const maxLat = Math.max.apply(null, lats);
-      const minLat = Math.min.apply(null, lats);
-      const maxLng = Math.max.apply(null, lngs);
-      const minLng = Math.min.apply(null, lngs);
-      centerLat = (maxLat + minLat) / 2;
-      centerLng = (maxLng + minLng) / 2;
-      const diagonal = haversineMeters(maxLat, maxLng, minLat, minLng);
-      radius = Math.max(5000, diagonal / 2 + 5000);
+    if (reps.length >= 2) {
+      const lats = reps.map(r => r.coords.lat), lngs = reps.map(r => r.coords.lng);
+      const mxLat = Math.max.apply(null, lats), mnLat = Math.min.apply(null, lats);
+      const mxLng = Math.max.apply(null, lngs), mnLng = Math.min.apply(null, lngs);
+      cLat = (mxLat + mnLat) / 2; cLng = (mxLng + mnLng) / 2;
+      const diag = haversineMeters(mxLat, mxLng, mnLat, mnLng);
+      radius = Math.max(MIN_RADIUS_M, diag / 2 + EXTRA_MARGIN_M);
     }
     
-    const distToEvent = haversineMeters(userLat, userLng, centerLat, centerLng);
-    if (distToEvent <= radius) {
-      console.log('FRIDA: 👁️ Observer access granted — within event "' + ev.name + '" (' + Math.round(distToEvent) + 'm from center, radius ' + Math.round(radius) + 'm)');
+    const dist = haversineMeters(userLat, userLng, cLat, cLng);
+    if (dist < bestDist) { bestDist = dist; bestEv = { name: ev.name, radius: radius }; }
+    
+    if (dist <= radius) {
+      console.log('FRIDA: 👁️ GRANTED — "' + ev.name + '" ' + Math.round(dist) + 'm (radius ' + Math.round(radius) + 'm)');
       return true;
     }
   }
   
-  console.warn('FRIDA: 👁️ Observer denied — user not within any active event area');
+  if (bestEv) {
+    console.warn('FRIDA: 👁️ DENIED — closest "' + bestEv.name + '" is ' + Math.round(bestDist) + 'm (allowed ' + Math.round(bestEv.radius) + 'm)');
+  }
   return false;
 }
 
@@ -2185,42 +2281,25 @@ function openRoutingPanel() {
   if (!modal) return;
   modal.style.display = 'block';
   
+  // ✨ FIX v40: rediseño — primero refrescar la UI de "Where am I" + lista eventos
+  refreshRoutingUI();
+  
   setTimeout(() => {
     const mapEl = document.getElementById('routing-map');
     if (!mapEl || typeof L === 'undefined') return;
-    if (mapEl.offsetHeight === 0) mapEl.style.height = '360px';
+    if (mapEl.offsetHeight === 0) mapEl.style.height = '300px';
     
     if (!routingMap) {
-      // Centrar en eventos recientes si hay
       let centerLat = 19.43, centerLng = -99.13, zoom = 12;
       if (state.reports && state.reports.length > 0) {
         const recent = state.reports.filter(r => r.coords).slice(-5);
-        if (recent.length > 0) {
-          centerLat = recent[0].coords.lat;
-          centerLng = recent[0].coords.lng;
-        }
+        if (recent.length > 0) { centerLat = recent[0].coords.lat; centerLng = recent[0].coords.lng; }
       }
       try {
         routingMap = L.map(mapEl).setView([centerLat, centerLng], zoom);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
           attribution: '© OpenStreetMap © CARTO', maxZoom: 19
         }).addTo(routingMap);
-        
-        // Click: primer click pone From, segundo click pone To y calcula ruta
-        routingMap.on('click', e => {
-          if (!routingFromMarker) {
-            routingFromMarker = L.marker(e.latlng, {
-              icon: L.divIcon({ html: '<div style="font-size:28px;">🏁</div>', iconSize: [28,28], iconAnchor:[14,28], className:'' })
-            }).addTo(routingMap);
-            document.getElementById('routing-status').textContent = 
-              (t('routing_now_pick_to') || 'Now tap destination on map');
-          } else if (!routingToMarker) {
-            routingToMarker = L.marker(e.latlng, {
-              icon: L.divIcon({ html: '<div style="font-size:28px;">🎯</div>', iconSize: [28,28], iconAnchor:[14,28], className:'' })
-            }).addTo(routingMap);
-            computeAndDrawRoute();
-          }
-        });
       } catch (err) {
         console.error('FRIDA: routing map init failed:', err);
         return;
@@ -2228,9 +2307,108 @@ function openRoutingPanel() {
     } else {
       routingMap.invalidateSize();
     }
-    
     drawConfirmedBlocksOnRoutingMap();
   }, 300);
+}
+
+// ✨ FIX v40: nueva UI del route planner
+async function refreshRoutingUI() {
+  // 1. GPS auto del usuario
+  const myLocEl = document.getElementById('routing-my-location');
+  if (myLocEl) {
+    myLocEl.textContent = t('route_planner_locating') || 'Locating...';
+    try {
+      const pos = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, 
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 });
+      });
+      window._routingUserPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+      myLocEl.textContent = pos.coords.latitude.toFixed(5) + ', ' + pos.coords.longitude.toFixed(5) + 
+        ' · ±' + Math.round(pos.coords.accuracy) + 'm';
+      myLocEl.style.color = '#52B788';
+    } catch (e) {
+      window._routingUserPos = null;
+      myLocEl.textContent = '⚠️ GPS unavailable';
+      myLocEl.style.color = '#ef4444';
+    }
+  }
+  
+  // 2. Lista de eventos activos
+  const eventsList = document.getElementById('routing-events-list');
+  if (eventsList) {
+    const activeEvents = (state.events || []).filter(e => e.status !== 'closed' && e.status !== 'isolated');
+    if (activeEvents.length === 0) {
+      eventsList.innerHTML = '<div style="padding:14px; text-align:center; font-size:12px; color:var(--text2);">' + 
+        (t('route_planner_no_events') || 'No active emergencies right now.') + '</div>';
+      return;
+    }
+    
+    // Ordenar por distancia al usuario si hay GPS
+    const sorted = activeEvents.slice().sort((a, b) => {
+      if (!window._routingUserPos) return 0;
+      const dA = haversineMeters(window._routingUserPos.lat, window._routingUserPos.lng, a.centerLat, a.centerLng);
+      const dB = haversineMeters(window._routingUserPos.lat, window._routingUserPos.lng, b.centerLat, b.centerLng);
+      return dA - dB;
+    });
+    
+    eventsList.innerHTML = sorted.map(ev => {
+      let distStr = '';
+      if (window._routingUserPos) {
+        const d = haversineMeters(window._routingUserPos.lat, window._routingUserPos.lng, ev.centerLat, ev.centerLng);
+        distStr = (d < 1000) ? Math.round(d) + ' m' : (d / 1000).toFixed(1) + ' km';
+      }
+      const repCount = (state.reports || []).filter(r => r.eventId === ev.id).length;
+      const lcState = (typeof getEventLifecycleState === 'function') ? getEventLifecycleState(ev) : 'active';
+      const lcInfo = (typeof getEventLifecycleLabel === 'function') ? getEventLifecycleLabel(lcState) : { label: '', color: '#888' };
+      
+      return `<div style="padding:12px; background:var(--bg2); border:1px solid var(--border); border-radius:8px; margin-bottom:8px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin-bottom:6px;">
+          <div style="font-weight:600; font-size:13px; color:var(--text);">${ev.name || 'Event'}</div>
+          <div style="font-size:10px; color:${lcInfo.color}; padding:2px 6px; background:rgba(255,255,255,0.05); border-radius:4px;">${lcInfo.label}</div>
+        </div>
+        <div style="font-size:11px; color:var(--text2); margin-bottom:8px;">${repCount} reports${distStr ? ' · ' + distStr + ' away' : ''}</div>
+        <button onclick="routeToEvent('${ev.id}')" style="width:100%; background:#52B788; color:#fff; border:none; padding:8px 12px; border-radius:6px; font-family:'DM Sans',sans-serif; font-size:12px; font-weight:600; cursor:pointer;">
+          ${t('route_planner_route_btn') || 'Route me there →'}
+        </button>
+      </div>`;
+    }).join('');
+  }
+}
+
+// ✨ FIX v40: ruta desde GPS actual hacia centro de un evento
+async function routeToEvent(eventId) {
+  const ev = (state.events || []).find(e => e.id === eventId);
+  if (!ev) return;
+  
+  if (!window._routingUserPos) {
+    // Re-intentar GPS
+    await refreshRoutingUI();
+    if (!window._routingUserPos) {
+      alert('⚠️ GPS unavailable. Cannot calculate route.');
+      return;
+    }
+  }
+  
+  // Limpiar markers/líneas previas
+  if (routingFromMarker) { try { routingMap.removeLayer(routingFromMarker); } catch(e){} routingFromMarker = null; }
+  if (routingToMarker) { try { routingMap.removeLayer(routingToMarker); } catch(e){} routingToMarker = null; }
+  if (window._routingLines) {
+    window._routingLines.forEach(ln => { try { routingMap.removeLayer(ln); } catch(e){} });
+    window._routingLines = [];
+  }
+  
+  // Marker origen (mi ubicación)
+  routingFromMarker = L.marker([window._routingUserPos.lat, window._routingUserPos.lng], {
+    icon: L.divIcon({ html: '<div style="font-size:28px;">📍</div>', iconSize: [28,28], iconAnchor:[14,28], className:'' })
+  }).addTo(routingMap);
+  
+  // Marker destino (evento)
+  routingToMarker = L.marker([ev.centerLat, ev.centerLng], {
+    icon: L.divIcon({ html: '<div style="font-size:28px;">🚨</div>', iconSize: [28,28], iconAnchor:[14,28], className:'' })
+  }).addTo(routingMap);
+  
+  // Calcular ruta
+  computeAndDrawRoute();
 }
 
 function drawConfirmedBlocksOnRoutingMap() {
@@ -2679,14 +2857,10 @@ async function observerConfirmReport(reportId) {
     if (!report.observerConfirms.includes(fp)) {
       report.observerConfirms.push(fp);
       
-      // ✨ FIX v39: bonus gradual desde el PRIMER voto (no esperar a 3+)
-      // Esto permite que los evaluadores y usuarios vean el cambio en tiempo real.
-      // Aún así, el peso del voto es bajo (+2) y el bonus principal sigue siendo 3+ (+5 extra).
-      report.credibility = Math.min(100, (report.credibility || 0) + 2);
-      if (report.observerConfirms.length >= 3) {
-        report.credibility = Math.min(100, report.credibility + 5);
-      }
-      report.effectiveCredibility = report.credibility;
+      // ✨ FIX v40: recalcular con V2
+      const oldCred = report.credibility;
+      const result = refreshReportCredibility(reportId);
+      window._lastCredDelta = result ? (result.credibility - oldCred) : 0;
       
       if (typeof supabaseSaveReport === 'function' && navigator.onLine) {
         supabaseSaveReport(report).catch(() => {});
@@ -2694,12 +2868,12 @@ async function observerConfirmReport(reportId) {
     }
   }
   
-  // ✨ FIX v39: re-render mapa y tabla para mostrar cambio
   if (typeof refreshObserverMap === 'function') refreshObserverMap();
   if (typeof refreshReportsTable === 'function') refreshReportsTable();
+  if (typeof recalcAllKPIs === 'function') recalcAllKPIs();
   
-  alert('✓ ' + (t('observer_confirmed') || 'Confirmation recorded') + 
-        ' (+' + (report && report.observerConfirms.length >= 3 ? 7 : 2) + '% credibility)');
+  const dStr = window._lastCredDelta !== undefined ? ' (' + (window._lastCredDelta >= 0 ? '+' : '') + window._lastCredDelta + '%)' : '';
+  alert('✓ ' + (t('observer_confirmed') || 'Confirmation recorded') + dStr);
   if (typeof checkAndUnlockBadges === 'function') checkAndUnlockBadges();
 }
 
@@ -2728,12 +2902,10 @@ async function observerDisputeReport(reportId) {
     if (!report.observerDisputes.includes(fp)) {
       report.observerDisputes.push(fp);
       
-      // ✨ FIX v39: penalty gradual desde el primer dispute
-      report.credibility = Math.max(0, (report.credibility || 0) - 5);
-      if (report.observerDisputes.length >= 3) {
-        report.credibility = Math.max(0, report.credibility - 15);
-      }
-      report.effectiveCredibility = report.credibility;
+      // ✨ FIX v40: V2
+      const oldCred = report.credibility;
+      const result = refreshReportCredibility(reportId);
+      window._lastCredDelta = result ? (result.credibility - oldCred) : 0;
       
       if (typeof supabaseSaveReport === 'function' && navigator.onLine) {
         supabaseSaveReport(report).catch(() => {});
@@ -2741,12 +2913,12 @@ async function observerDisputeReport(reportId) {
     }
   }
   
-  // ✨ FIX v39: re-render
   if (typeof refreshObserverMap === 'function') refreshObserverMap();
   if (typeof refreshReportsTable === 'function') refreshReportsTable();
+  if (typeof recalcAllKPIs === 'function') recalcAllKPIs();
   
-  alert('⚠️ ' + (t('observer_disputed') || 'Dispute recorded') + 
-        ' (-' + (report && report.observerDisputes.length >= 3 ? 20 : 5) + '% credibility)');
+  const dStr = window._lastCredDelta !== undefined ? ' (' + window._lastCredDelta + '%)' : '';
+  alert('⚠️ ' + (t('observer_disputed') || 'Dispute recorded') + dStr);
 }
 
 // Confirma que un punto de herido ya fue atendido (votación 3+ usuarios)
@@ -3555,6 +3727,19 @@ async function internalSubmitReport(lat, lng) {
     applyBehaviorScore(report);
   }
   
+  // ✨ FIX v40: aplicar credibility V2 multi-factor
+  if (typeof computeReportCredibilityV2 === 'function') {
+    const p = (typeof loadUserProfile === 'function') ? loadUserProfile() : { reputationScore: 50 };
+    report.photoUploaded = !!(state.currentPanicData && state.currentPanicData.photoData) || !state.photoSkipped;
+    report.gpsAccuracy = state.lastGpsAccuracy || null;
+    const cR = computeReportCredibilityV2(report, {
+      gpsAccuracy: state.lastGpsAccuracy, userReputation: p.reputationScore || 50
+    });
+    report.credibility = cR.credibility;
+    report.effectiveCredibility = cR.credibility;
+    report.credibilityBreakdown = cR.breakdown;
+  }
+  
   state.reports.push(report);
   
   // ✨ SPRINT 4 CAP 2: revisar si algún evento isolated puede ser promovido
@@ -3769,35 +3954,38 @@ function addReportToTable(r) {
 // Antes: tabla mostraba TODOS los reportes (lista infinita).
 // Ahora: muestra primeros N (10) + botón "Ver más" para expandir.
 // state.reportsTableExpanded controla si se ven todos o solo los primeros.
-const REPORTS_TABLE_INITIAL_COUNT = 10;
+const REPORTS_TABLE_INITIAL_COUNT = 5;
+const REPORTS_TABLE_INCREMENT = 10;
 
 // ✨ Punto 3: Re-renderiza la tabla COMPLETA desde state.reports
 // Útil cuando la validación temporal cambia los badges de reportes previos
 function refreshReportsTable() {
   const tbody = document.getElementById('reports-tbody');
   if (!tbody) return;
+  tbody.innerHTML = '';
   
-  tbody.innerHTML = '';  // limpiar
-  
-  // Filtrar por evento si dashboard tiene filtro activo
   let reportsToShow = state.reports || [];
   if (state.dashboardEventId) {
     reportsToShow = reportsToShow.filter(r => r.eventId === state.dashboardEventId);
   }
   
-  // ✨ BLOQUE 3: filtrar por credibility mínima si está activo
+  // ✨ FIX v40: filtro toggle "Include closed events"
+  const closedIds = new Set((state.events || []).filter(e => e.status === 'closed').map(e => e.id));
+  const includeClosedEvents = state.includeClosedReports === true;
+  if (!includeClosedEvents) {
+    reportsToShow = reportsToShow.filter(r => !r.eventId || !closedIds.has(r.eventId));
+  }
+  
   const minCred = state.partialReportsFilter || 0;
   const totalBeforeFilter = reportsToShow.length;
   if (minCred > 0) {
     reportsToShow = reportsToShow.filter(r => {
-      // Usar effectiveCredibility si existe, sino credibility, sino 0
-      const cred = (typeof r.effectiveCredibility === 'number') ? r.effectiveCredibility : (r.credibility || 0);
-      return cred >= minCred;
+      const c = (typeof r.effectiveCredibility === 'number') ? r.effectiveCredibility : (r.credibility || 0);
+      return c >= minCred;
     });
   }
   const totalAfterFilter = reportsToShow.length;
   
-  // Mostrar el contador del filtro
   const filterCount = document.getElementById('partial-filter-count');
   if (filterCount) {
     if (minCred > 0 && totalAfterFilter < totalBeforeFilter) {
@@ -3808,40 +3996,43 @@ function refreshReportsTable() {
     }
   }
   
-  // Ordenar por timestamp DESC (más reciente primero)
+  // ✨ FIX v40: sort activos primero, luego timestamp DESC
   const sorted = [...reportsToShow].sort((a, b) => {
-    const tsA = new Date(a.timestamp || a.createdAt || 0).getTime();
-    const tsB = new Date(b.timestamp || b.createdAt || 0).getTime();
-    return tsB - tsA;  // descendiente
+    const aA = !a.eventId || !closedIds.has(a.eventId);
+    const bA = !b.eventId || !closedIds.has(b.eventId);
+    if (aA !== bA) return aA ? -1 : 1;
+    return new Date(b.timestamp || 0).getTime() - new Date(a.timestamp || 0).getTime();
   });
   
-  // ✨ BLOQUE 2.6: paginación — mostrar solo los primeros N salvo que esté expandido
+  // ✨ FIX v40: paginación incremental
   const total = sorted.length;
-  const showAll = state.reportsTableExpanded === true;
-  const toRender = showAll ? sorted : sorted.slice(0, REPORTS_TABLE_INITIAL_COUNT);
+  const limit = state.reportsTableLimit || REPORTS_TABLE_INITIAL_COUNT;
+  const toRender = sorted.slice(0, limit);
   
-  // Renderizar (de viejo a nuevo invertido, porque addReportToTable usa afterbegin)
   for (let i = toRender.length - 1; i >= 0; i--) {
     addReportToTable(toRender[i]);
   }
   
-  // Renderizar control de paginación (ver más / ver menos)
-  updateReportsPagination(total);
+  updateReportsPagination(total, limit);
 }
 
 // ✨ BLOQUE 3: cambia el filtro de credibility mínima
 function setPartialFilter(value) {
   state.partialReportsFilter = parseInt(value, 10) || 0;
-  // Reset expansión cuando cambia filtro (mostrar primeros 10 del filtrado)
-  state.reportsTableExpanded = false;
+  state.reportsTableLimit = REPORTS_TABLE_INITIAL_COUNT;
+  refreshReportsTable();
+}
+
+// ✨ FIX v40: toggle include closed events en tabla
+function toggleIncludeClosedReports(checked) {
+  state.includeClosedReports = !!checked;
+  state.reportsTableLimit = REPORTS_TABLE_INITIAL_COUNT;
   refreshReportsTable();
 }
 
 // Renderiza el botón "Ver más / Ver menos" debajo de la tabla
-function updateReportsPagination(totalCount) {
+function updateReportsPagination(totalCount, currentLimit) {
   let footer = document.getElementById('reports-pagination');
-  
-  // Crear si no existe
   if (!footer) {
     const tbody = document.getElementById('reports-tbody');
     if (!tbody) return;
@@ -3853,50 +4044,35 @@ function updateReportsPagination(totalCount) {
     table.parentNode.insertBefore(footer, table.nextSibling);
   }
   
-  // Si total ≤ N, no necesitamos paginación
-  if (totalCount <= REPORTS_TABLE_INITIAL_COUNT) {
-    footer.innerHTML = '';
+  const lang = currentLang || 'en';
+  
+  if (totalCount <= currentLimit) {
+    if (currentLimit > REPORTS_TABLE_INITIAL_COUNT) {
+      const labels = { en:'▲ Show less', es:'▲ Ver menos', fr:'▲ Voir moins', ar:'▲ عرض أقل', zh:'▲ 显示更少', ru:'▲ Показать меньше' };
+      footer.innerHTML = `<button onclick="showLessReports()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px 18px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer;">${labels[lang]||labels.en}</button> <span style="color:var(--text2); font-size:11px; margin-left:8px;">${totalCount}/${totalCount}</span>`;
+    } else {
+      footer.innerHTML = '';
+    }
     return;
   }
   
-  const showAll = state.reportsTableExpanded === true;
-  const lang = (typeof currentLang !== 'undefined') ? currentLang : 'en';
-  
-  if (showAll) {
-    // Botón "Ver menos"
-    const labels = {
-      en: '▲ Show less',
-      es: '▲ Ver menos',
-      fr: '▲ Voir moins',
-      ar: '▲ عرض أقل',
-      zh: '▲ 显示更少',
-      ru: '▲ Показать меньше'
-    };
-    footer.innerHTML = `<button onclick="toggleReportsTableExpanded()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px 18px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer;">${labels[lang] || labels.en}</button>`;
-  } else {
-    // Botón "Ver más (X restantes)"
-    const remaining = totalCount - REPORTS_TABLE_INITIAL_COUNT;
-    const labels = {
-      en: `▼ Show more (${remaining} more)`,
-      es: `▼ Ver más (${remaining} restantes)`,
-      fr: `▼ Voir plus (${remaining} de plus)`,
-      ar: `▼ عرض المزيد (${remaining} المزيد)`,
-      zh: `▼ 显示更多 (还有 ${remaining} 个)`,
-      ru: `▼ Показать больше (ещё ${remaining})`
-    };
-    const seeAllLabels = {
-      en: 'Show all',
-      es: 'Ver todos',
-      fr: 'Tout voir',
-      ar: 'عرض الكل',
-      zh: '显示全部',
-      ru: 'Показать все'
-    };
-    footer.innerHTML = `
-      <button onclick="toggleReportsTableExpanded()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px 18px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; margin-right:8px;">${labels[lang] || labels.en}</button>
-      <span style="color:var(--text2); font-size:11px;">${REPORTS_TABLE_INITIAL_COUNT}/${totalCount}</span>
-    `;
-  }
+  const remaining = totalCount - currentLimit;
+  const inc = Math.min(REPORTS_TABLE_INCREMENT, remaining);
+  const labels = {
+    en: `▼ Show ${inc} more`, es: `▼ Ver ${inc} más`, fr: `▼ Voir ${inc} de plus`,
+    ar: `▼ عرض ${inc} المزيد`, zh: `▼ 显示 ${inc} 个`, ru: `▼ Ещё ${inc}`
+  };
+  footer.innerHTML = `<button onclick="showMoreReports()" style="background:var(--bg3); border:1px solid var(--border); color:var(--text); padding:8px 18px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer; margin-right:8px;">${labels[lang]||labels.en}</button> <span style="color:var(--text2); font-size:11px;">${currentLimit}/${totalCount}</span>`;
+}
+
+function showMoreReports() {
+  state.reportsTableLimit = (state.reportsTableLimit || REPORTS_TABLE_INITIAL_COUNT) + REPORTS_TABLE_INCREMENT;
+  refreshReportsTable();
+}
+
+function showLessReports() {
+  state.reportsTableLimit = REPORTS_TABLE_INITIAL_COUNT;
+  refreshReportsTable();
 }
 
 // Toggle expandir/colapsar tabla
@@ -3906,6 +4082,49 @@ function toggleReportsTableExpanded() {
 }
 
 function updateKPIs(r) {
+  // ✨ FIX v40: delegar al recálculo completo
+  if (typeof recalcAllKPIs === 'function') recalcAllKPIs();
+}
+
+// ✨ FIX v40: recalcula KPIs desde state.reports y state.events excluyendo cerrados
+function recalcAllKPIs() {
+  const reports = state.reports || [];
+  const events = state.events || [];
+  const closedIds = new Set(events.filter(e => e.status === 'closed').map(e => e.id));
+  const activeReports = reports.filter(r => !r.eventId || !closedIds.has(r.eventId));
+  
+  const totalEl = document.getElementById('kpi-total');
+  if (totalEl) totalEl.textContent = activeReports.length;
+  
+  const critEl = document.getElementById('kpi-critical');
+  const critCount = activeReports.filter(r => r.damage === 'complete').length;
+  if (critEl) critEl.textContent = critCount;
+  
+  const confEl = document.getElementById('kpi-confidence');
+  if (confEl) {
+    if (activeReports.length > 0) {
+      const avg = activeReports.reduce((s, r) => s + (r.credibility || 0), 0) / activeReports.length;
+      confEl.textContent = Math.round(avg) + '%';
+    } else {
+      confEl.textContent = '0%';
+    }
+  }
+  
+  const evEl = document.getElementById('kpi-events');
+  const activeEvCount = events.filter(e => e.status !== 'closed' && e.status !== 'isolated').length;
+  if (evEl) evEl.textContent = activeEvCount;
+  
+  const statTotal = document.getElementById('stat-total');
+  if (statTotal) statTotal.textContent = activeReports.length;
+  const statCrit = document.getElementById('stat-critical');
+  if (statCrit) statCrit.textContent = critCount;
+  const statPartial = document.getElementById('stat-partial');
+  if (statPartial) statPartial.textContent = activeReports.filter(r => r.damage === 'partial').length;
+  const statMin = document.getElementById('stat-minimal');
+  if (statMin) statMin.textContent = activeReports.filter(r => r.damage === 'minimal').length;
+}
+
+function _legacyUpdateKPIs(r) {
   const totalEl = document.getElementById('kpi-total');
   const critEl = document.getElementById('kpi-critical');
   const statEl = document.getElementById('stat-critical');
@@ -4013,11 +4232,46 @@ function restart() {
 }
 
 // ===== EXPORT =====
+// ✨ FIX v40: export con scope seleccionado
+function exportWithScope(format) {
+  const scope = (document.getElementById('export-scope') || {}).value || 'all';
+  const origDash = state.dashboardEventId;
+  
+  if (scope === 'current') {
+    if (!state.dashboardEventId) {
+      const lang = currentLang || 'en';
+      const msgs = {
+        en: 'Select an event tab first.', es: 'Selecciona primero un evento en las pestañas.',
+        fr: 'Sélectionnez un événement.', ar: 'حدد حدثاً أولاً.',
+        zh: '请先选择事件。', ru: 'Сначала выберите событие.'
+      };
+      alert('ℹ️ ' + (msgs[lang] || msgs.en));
+      return;
+    }
+  } else if (scope === 'active') {
+    state._exportScopeFilter = 'active';
+  } else {
+    state._exportScopeFilter = 'all';
+    state.dashboardEventId = null;
+  }
+  
+  if (format === 'csv') exportCSV();
+  else if (format === 'geojson') exportGeoJSON();
+  
+  state.dashboardEventId = origDash;
+  delete state._exportScopeFilter;
+}
+
 function exportCSV() {
-  // ✨ TIER 3 CAP 10: filtrar por evento activo en dashboard si aplica
   let toExport = state.reports || [];
   let suffix = 'all';
-  if (state.dashboardEventId) {
+  
+  // ✨ FIX v40: scope filter
+  if (state._exportScopeFilter === 'active') {
+    const activeIds = new Set((state.events || []).filter(e => e.status !== 'closed').map(e => e.id));
+    toExport = toExport.filter(r => activeIds.has(r.eventId));
+    suffix = 'active-events';
+  } else if (state.dashboardEventId) {
     toExport = toExport.filter(r => r.eventId === state.dashboardEventId);
     suffix = 'event-' + state.dashboardEventId.substring(0, 12);
   }
@@ -4079,10 +4333,15 @@ function exportCSV() {
 // geocoordinates decimal, timestamp, damage_classification, infrastructure_type.
 // Compatible con QGIS, ArcGIS, kepler.gl, geojson.io.
 function exportGeoJSON() {
-  // ✨ TIER 3 CAP 10: filtrar por evento activo en dashboard si aplica
   let source = state.reports || [];
   let suffix = 'all';
-  if (state.dashboardEventId) {
+  
+  // ✨ FIX v40: scope filter
+  if (state._exportScopeFilter === 'active') {
+    const activeIds = new Set((state.events || []).filter(e => e.status !== 'closed').map(e => e.id));
+    source = source.filter(r => activeIds.has(r.eventId));
+    suffix = 'active-events';
+  } else if (state.dashboardEventId) {
     source = source.filter(r => r.eventId === state.dashboardEventId);
     suffix = 'event-' + state.dashboardEventId.substring(0, 12);
   }
@@ -4750,22 +5009,57 @@ function autoCloseStaleEvents() {
   let closedCount = 0;
   (state.events || []).forEach(ev => {
     if (ev.status === 'closed') return;
+    
     const lcState = getEventLifecycleState(ev);
     if (lcState === 'closed') {
       ev.status = 'closed';
       ev.closedAt = new Date().toISOString();
       ev.closedReason = 'auto_no_activity_7d';
       closedCount++;
-      // Sync silenciosamente a Supabase (no requiere confirmación de usuario)
-      if (typeof supabaseSaveEvent === 'function' && navigator.onLine) {
-        supabaseSaveEvent(ev).catch(() => {});
-      }
+      if (typeof supabaseSaveEvent === 'function' && navigator.onLine) supabaseSaveEvent(ev).catch(() => {});
+      return;
+    }
+    
+    // ✨ FIX v40: auto-cierre cuando todo está atendido
+    if (allEventNeedsResolved(ev)) {
+      ev.status = 'closed';
+      ev.closedAt = new Date().toISOString();
+      ev.closedReason = 'auto_all_needs_resolved';
+      closedCount++;
+      console.log('FRIDA: 🔒 Auto-closed "' + ev.name + '" — all needs resolved');
+      if (typeof supabaseSaveEvent === 'function' && navigator.onLine) supabaseSaveEvent(ev).catch(() => {});
     }
   });
   if (closedCount > 0) {
-    console.log('FRIDA: 🔒 Auto-closed ' + closedCount + ' stale event(s)');
+    console.log('FRIDA: 🔒 Auto-closed ' + closedCount + ' event(s)');
     if (typeof refreshEventsTabs === 'function') refreshEventsTabs();
+    if (typeof recalcAllKPIs === 'function') recalcAllKPIs();
   }
+}
+
+// ✨ FIX v40: chequear si todos los heridos y bloqueos del evento están atendidos
+function allEventNeedsResolved(ev) {
+  if (!ev) return false;
+  const surveys = (state.surveys || []).filter(s => s.eventId === ev.id);
+  if (surveys.length === 0) return false;
+  
+  let totalNeeds = 0, resolvedNeeds = 0;
+  surveys.forEach(s => {
+    if (!s.answers) return;
+    if (s.answers.injuries_points) {
+      s.answers.injuries_points.forEach(p => {
+        totalNeeds++;
+        if ((p.attendedConfirmations || []).length >= 3) resolvedNeeds++;
+      });
+    }
+    if (s.answers.road_blocks) {
+      s.answers.road_blocks.forEach(p => {
+        totalNeeds++;
+        if ((p.clearedConfirmations || []).length >= 3) resolvedNeeds++;
+      });
+    }
+  });
+  return (totalNeeds > 0 && resolvedNeeds === totalNeeds);
 }
 
 // Llamar autoCloseStaleEvents cada 5 minutos
@@ -8709,15 +9003,28 @@ function selectNominatimResult(lat, lng, displayName) {
   ← <span data-i18n="back_btn">Back</span>
 </button>
 
-<div id="routing-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:99999; padding:24px; box-sizing:border-box; overflow-y:auto;">
+<div id="routing-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95); z-index:99999; padding:20px; box-sizing:border-box; overflow-y:auto;">
   <div style="max-width:520px; margin:0 auto;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <div style="font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; color:#fff;" data-i18n="routing_title">🗺️ Route Planner</div>
+      <div style="font-family:'DM Sans',sans-serif; font-size:16px; font-weight:700; color:#fff;" data-i18n="route_planner_title">🗺️ Route Planner</div>
       <button onclick="closeRoutingPanel()" style="background:transparent; border:none; color:#fff; font-size:24px; cursor:pointer;">×</button>
     </div>
-    <div style="font-size:12px; color:#aaa; margin-bottom:12px; line-height:1.5;" data-i18n="routing_desc">Plan a route that avoids confirmed road blocks (3+ reports). Tap the map for origin and destination.</div>
-    <div id="routing-map" style="height:360px; border-radius:12px; overflow:hidden; border:1px solid #333; margin-bottom:12px;"></div>
-    <div id="routing-status" style="font-size:12px; color:#fff; padding:10px 14px; background:#1a1a1a; border-radius:8px; margin-bottom:12px; font-family:'DM Sans',sans-serif;" data-i18n="routing_pick_from">Tap origin on map</div>
+    
+    <!-- ✨ FIX v40: Zona 1 — Where am I? -->
+    <div style="background:#1a1a1a; border:1px solid #333; border-radius:10px; padding:12px; margin-bottom:14px;">
+      <div style="font-size:11px; color:#aaa; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;" data-i18n="route_planner_my_location">📍 Where am I?</div>
+      <div id="routing-my-location" style="font-family:'DM Mono',monospace; font-size:12px; color:#fff;" data-i18n="route_planner_locating">Locating...</div>
+    </div>
+    
+    <!-- Zona 2 — Lista de eventos activos -->
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px; color:#aaa; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:8px;" data-i18n="route_planner_events_label">🚨 Active emergencies</div>
+      <div id="routing-events-list"></div>
+    </div>
+    
+    <!-- Zona 3 — Mapa con la ruta -->
+    <div id="routing-map" style="height:300px; border-radius:12px; overflow:hidden; border:1px solid #333; margin-bottom:12px;"></div>
+    <div id="routing-status" style="font-size:12px; color:#fff; padding:10px 14px; background:#1a1a1a; border-radius:8px; margin-bottom:12px; font-family:'DM Sans',sans-serif;"></div>
     <div style="display:flex; gap:10px;">
       <button onclick="resetRoutingPanel()" style="flex:1; background:transparent; color:#fff; border:1px solid #555; padding:11px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; cursor:pointer;" data-i18n="routing_reset">↻ Reset</button>
       <button onclick="closeRoutingPanel()" style="flex:1; background:#fff; color:#000; border:none; padding:11px; border-radius:8px; font-family:'DM Sans',sans-serif; font-size:13px; font-weight:600; cursor:pointer;" data-i18n="routing_close">Close</button>
@@ -10452,6 +10759,120 @@ Object.keys(v38Keys).forEach(lang => {
   else i18n[lang] = v38Keys[lang];
 });
 
+// ===== v40 i18n ✨ =====
+const v40Keys = {
+  en: {
+    kpi_active_reports: 'Active Reports',
+    clusters_label: '🎯 Damage Clusters',
+    priority_rich_label: '🧠 Priority Zones',
+    priority_label: 'Priority Zones',
+    satellite_validation_label: '🛰️ Satellite Cross-Validation',
+    export_panel_title: '📥 Download data',
+    export_scope_label: 'Which data?',
+    export_scope_all: 'All events',
+    export_scope_active: 'Active events only',
+    export_scope_current: 'Currently selected event',
+    export_format_label: 'Format',
+    include_closed_events: 'Include closed events',
+    observer_out_of_range: '⚠️ You must be within the event area to interact here.',
+    route_planner_title: '🗺️ Route Planner',
+    route_planner_my_location: '📍 Where am I?',
+    route_planner_locating: 'Locating...',
+    route_planner_events_label: 'Active emergencies',
+    route_planner_route_btn: 'Route me there →',
+    route_planner_no_events: 'No active emergencies right now.',
+    secondary_section_show_more: '▼ Show more',
+    secondary_section_show_less: '▲ Show less'
+  },
+  es: {
+    kpi_active_reports: 'Reportes Activos',
+    clusters_label: '🎯 Clusters de Daño',
+    priority_rich_label: '🧠 Zonas Prioritarias',
+    priority_label: 'Zonas Prioritarias',
+    satellite_validation_label: '🛰️ Validación Cruzada Satelital',
+    export_panel_title: '📥 Descargar datos',
+    export_scope_label: '¿Qué datos?',
+    export_scope_all: 'Todos los eventos',
+    export_scope_active: 'Solo eventos activos',
+    export_scope_current: 'Evento seleccionado actualmente',
+    export_format_label: 'Formato',
+    include_closed_events: 'Incluir eventos cerrados',
+    observer_out_of_range: '⚠️ Debes estar dentro del área del evento para interactuar aquí.',
+    route_planner_title: '🗺️ Planeador de Ruta',
+    route_planner_my_location: '📍 ¿Dónde estoy?',
+    route_planner_locating: 'Localizando...',
+    route_planner_events_label: 'Emergencias activas',
+    route_planner_route_btn: 'Llevame aquí →',
+    route_planner_no_events: 'No hay emergencias activas ahora mismo.',
+    secondary_section_show_more: '▼ Ver más',
+    secondary_section_show_less: '▲ Ver menos'
+  },
+  fr: {
+    kpi_active_reports: 'Rapports Actifs', clusters_label: '🎯 Clusters de Dégâts',
+    priority_rich_label: '🧠 Zones Prioritaires', priority_label: 'Zones Prioritaires',
+    satellite_validation_label: '🛰️ Validation Satellite',
+    export_panel_title: '📥 Télécharger', export_scope_label: 'Quelles données?',
+    export_scope_all: 'Tous les événements', export_scope_active: 'Événements actifs',
+    export_scope_current: 'Événement sélectionné', export_format_label: 'Format',
+    include_closed_events: 'Inclure événements clos',
+    observer_out_of_range: '⚠️ Vous devez être dans la zone de l\'événement.',
+    route_planner_title: '🗺️ Planificateur',
+    route_planner_my_location: '📍 Où suis-je?', route_planner_locating: 'Localisation...',
+    route_planner_events_label: 'Urgences actives', route_planner_route_btn: 'M\'y conduire →',
+    route_planner_no_events: 'Aucune urgence active.',
+    secondary_section_show_more: '▼ Voir plus', secondary_section_show_less: '▲ Voir moins'
+  },
+  ar: {
+    kpi_active_reports: 'التقارير النشطة', clusters_label: '🎯 مجموعات الأضرار',
+    priority_rich_label: '🧠 المناطق ذات الأولوية', priority_label: 'المناطق ذات الأولوية',
+    satellite_validation_label: '🛰️ التحقق بالقمر الصناعي',
+    export_panel_title: '📥 تنزيل', export_scope_label: 'أي بيانات؟',
+    export_scope_all: 'جميع الأحداث', export_scope_active: 'الأحداث النشطة',
+    export_scope_current: 'الحدث المحدد', export_format_label: 'التنسيق',
+    include_closed_events: 'تضمين الأحداث المغلقة',
+    observer_out_of_range: '⚠️ يجب أن تكون داخل منطقة الحدث.',
+    route_planner_title: '🗺️ مخطط الطريق',
+    route_planner_my_location: '📍 أين أنا؟', route_planner_locating: 'جاري تحديد الموقع...',
+    route_planner_events_label: 'حالات الطوارئ', route_planner_route_btn: 'خذني إلى هنا ←',
+    route_planner_no_events: 'لا توجد طوارئ نشطة.',
+    secondary_section_show_more: '▼ عرض المزيد', secondary_section_show_less: '▲ عرض أقل'
+  },
+  zh: {
+    kpi_active_reports: '活跃报告', clusters_label: '🎯 损害集群',
+    priority_rich_label: '🧠 优先区域', priority_label: '优先区域',
+    satellite_validation_label: '🛰️ 卫星交叉验证',
+    export_panel_title: '📥 下载数据', export_scope_label: '哪些数据？',
+    export_scope_all: '所有事件', export_scope_active: '仅活跃事件',
+    export_scope_current: '当前选定事件', export_format_label: '格式',
+    include_closed_events: '包括已关闭事件',
+    observer_out_of_range: '⚠️ 您必须在事件区域内。',
+    route_planner_title: '🗺️ 路线规划',
+    route_planner_my_location: '📍 我在哪里？', route_planner_locating: '定位中...',
+    route_planner_events_label: '活跃紧急情况', route_planner_route_btn: '带我去这里 →',
+    route_planner_no_events: '目前没有活跃的紧急情况。',
+    secondary_section_show_more: '▼ 显示更多', secondary_section_show_less: '▲ 显示更少'
+  },
+  ru: {
+    kpi_active_reports: 'Активные отчёты', clusters_label: '🎯 Кластеры повреждений',
+    priority_rich_label: '🧠 Приоритетные зоны', priority_label: 'Приоритетные зоны',
+    satellite_validation_label: '🛰️ Спутниковая проверка',
+    export_panel_title: '📥 Скачать', export_scope_label: 'Какие данные?',
+    export_scope_all: 'Все события', export_scope_active: 'Только активные',
+    export_scope_current: 'Выбранное событие', export_format_label: 'Формат',
+    include_closed_events: 'Включить закрытые',
+    observer_out_of_range: '⚠️ Вы должны быть в зоне события.',
+    route_planner_title: '🗺️ Планировщик',
+    route_planner_my_location: '📍 Где я?', route_planner_locating: 'Поиск...',
+    route_planner_events_label: 'Активные ЧС', route_planner_route_btn: 'Маршрут сюда →',
+    route_planner_no_events: 'Нет активных ЧС.',
+    secondary_section_show_more: '▼ Ещё', secondary_section_show_less: '▲ Меньше'
+  }
+};
+Object.keys(v40Keys).forEach(lang => {
+  if (i18n[lang]) Object.assign(i18n[lang], v40Keys[lang]);
+  else i18n[lang] = v40Keys[lang];
+});
+
 // Mapeos para tCrisis y tRegion
 const CRISIS_VALUE_MAP = {
   'Earthquake': 'crisis_v_earthquake',
@@ -10975,7 +11396,7 @@ function refreshEventsTabs() {
     
     // ✨ BLOQUE 4: botón ✕ para cerrar (solo si está activo)
     const closeBtn = isActive
-      ? ` <span onclick="event.stopPropagation(); closeEvent('${ev.id}')" title="${t('event_close_tooltip')}" style="cursor:pointer; margin-left:6px; opacity:0.5; transition:opacity 0.15s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">✕</span>`
+      ? `` /* ✨ FIX v40: cierre manual eliminado */
       : ` <span onclick="event.stopPropagation(); reopenEvent('${ev.id}')" title="${t('event_reopen_tooltip')}" style="cursor:pointer; margin-left:6px; opacity:0.5;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🔓</span>`;
     
     html += `<button class="event-tab ${activeClass}" data-event-id="${ev.id}" onclick="filterByEvent('${ev.id}')" title="${fullName}">${statusDot} ${emoji} ${shortName}${sevBadge} (${ev.reportsCount || 0})${closeBtn}</button>`;
@@ -11083,7 +11504,7 @@ function refreshAllEventsDropdown() {
       const reportsCount = state.reports.filter(r => r.eventId === ev.id).length;
       
       const action = isActive
-        ? `<span onclick="event.stopPropagation(); closeEvent('${ev.id}')" title="${t('event_close_tooltip')}" style="cursor:pointer; padding:2px 6px; border:1px solid var(--border); border-radius:4px; font-size:10px;">✕ ${t('event_close_action')}</span>`
+        ? `` /* ✨ FIX v40: cierre manual eliminado */
         : `<span onclick="event.stopPropagation(); reopenEvent('${ev.id}')" title="${t('event_reopen_tooltip')}" style="cursor:pointer; padding:2px 6px; border:1px solid var(--border); border-radius:4px; font-size:10px;">🔓 ${t('event_reopen_action')}</span>`;
       
       html += `<div onclick="filterByEvent('${ev.id}'); toggleAllEventsDropdown();" style="display:flex; justify-content:space-between; align-items:center; padding:8px 10px; background:var(--bg2); border-radius:6px; margin-bottom:5px; cursor:pointer; transition:background 0.15s;" onmouseover="this.style.background='var(--bg1, #1a1a1a)'" onmouseout="this.style.background='var(--bg2)'">
